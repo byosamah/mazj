@@ -1,0 +1,44 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+
+# next.js / build output
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/coverage
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (secrets)
+.env
+.env*.local
+.env.*
+
+# deploy / platform
+.vercel
+
+# os
+.DS_Store
+*.pem
+
+# local tooling (machine/user-specific, not source)
+.claude.local.md
+.claude/settings.local.json
+.claude/.cc-writes/
+.playwright-mcp/
+
+# stray dev screenshots left in the repo root
+/footer-live.png
+/footer-live2.png
+/hero-live.png

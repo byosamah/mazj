@@ -1,0 +1,587 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   SELF-HOSTED FONTS — Thmanyah (خط ثمانية), self-hosted .woff2.
+   One bilingual type system for both English (Latin) and Arabic:
+   Thmanyah Sans throughout: body, UI, and all headings.
+   Each file carries BOTH scripts, so numerals and symbols in Arabic
+   copy ($0, 20%, 68°F) render from the very same face. No per-locale
+   family swap needed. Free for commercial use (font.thmanyah.com).
+   ============================================================ */
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-900.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --font-sans: "Thmanyah Sans";
+  --font-mono: "Thmanyah Sans";
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-premium: cubic-bezier(0.16, 1.08, 0.38, 0.98); /* == Daylight --ease-expo-out */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1); /* Daylight --ease-default (standard UI) */
+  --nav-height: 57px;
+}
+
+/* Arabic locale: Thmanyah carries Arabic natively, so there is no family
+   swap here. We only neutralise Latin letter-spacing (harmful for Arabic
+   glyph joining) and, below, give headings the leading tall Arabic needs. */
+html[lang="ar"] * {
+  letter-spacing: normal !important;
+}
+/* Arabic display glyphs are taller than the tight Latin display leading allows;
+   give headings room so multi-line Arabic titles don't overlap and the hero's
+   line-mask (overflow: clip) doesn't cut off their tops. */
+html[lang="ar"] h1,
+html[lang="ar"] h2,
+html[lang="ar"] h3 {
+  line-height: 1.35 !important;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+html { scroll-behavior: smooth; }
+
+/* Lenis smooth scroll (components/motion/SmoothScroll.tsx). Lenis stamps
+   these classes on <html>; CSS smooth-scrolling must yield to it or hash
+   jumps double-animate. Under reduced motion Lenis is never created, so
+   the plain scroll-behavior above still applies. */
+html.lenis,
+html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+body {
+  background-color: #fff7e9;
+  color: #111111;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection { background: #c8b2ff; color: #321f61; }
+
+/* Exact type ramp from extraction */
+h1 { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.02em; }
+h3 { letter-spacing: -0.02em; }
+
+/* ============================================================
+   SCROLL REVEAL (IntersectionObserver toggles .is-visible)
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.9s var(--ease-expo), transform 0.9s var(--ease-expo);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Line-mask reveal (headings that wipe up from a clipped mask) */
+.line-mask { display: block; overflow: clip; }
+.line-mask > span,
+.line-mask > .line {
+  display: block;
+  transform: translateY(110%);
+  transition: transform 0.95s var(--ease-expo);
+}
+.is-visible .line-mask > span,
+.is-visible .line-mask > .line,
+.line-mask.is-visible > span,
+.line-mask.is-visible > .line {
+  transform: translateY(0);
+}
+
+/* Word-by-word reveal (components/WordReveal.tsx) — Daylight's signature
+   statement motion. Each word rises + fades on a running stagger when the
+   block scrolls into view. Split is whitespace-only so Arabic joining holds. */
+.word-reveal .wr-line { display: block; }
+.word-reveal .wr-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.5em);
+  transition: opacity 0.55s var(--ease-expo), transform 0.55s var(--ease-expo);
+  transition-delay: calc(var(--wi, 0) * var(--wr-step, 45ms) + var(--wr-base, 0ms));
+  will-change: opacity, transform;
+}
+.word-reveal.is-visible .wr-word {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hero intro reveal – plays once on mount */
+@keyframes introUp {
+  from { transform: translateY(120%); }
+  to { transform: translateY(0); }
+}
+.intro-line { display: block; will-change: transform; }
+.intro-mask { display: block; overflow: clip; }
+/* Headline lines only (NOT the eyebrow, which carries its own `mb-4 lg:mb-6` —
+   an equal-specificity utility that would beat the cancel-margin below and leave
+   the padding uncompensated, shifting the block ~1px down).
+   The clip box is enlarged below the line box, then pulled back with a matching
+   negative margin so layout/leading stay untouched. Needed because the headline
+   runs leading-[0.98]: the baseline lands 73px into an 83.3px line box, leaving
+   10.3px for a descender that needs 19.5px, so `overflow: clip` guillotined the
+   "g" in "room to grow." (Latin only — Arabic is rescued by the
+   html[lang="ar"] line-height:1.35 rule.)
+   The padding must stay <= 0.2em: the incoming line starts at translateY(120%),
+   so it only stays hidden while pad <= 0.2 x line-height. 0.12em leaves ~6.5px
+   of headroom against that limit. Raising the padding means raising the 120% too. */
+h1 .intro-mask {
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.intro-mask > .intro-line {
+  animation: introUp 1s var(--ease-expo) both;
+  animation-delay: var(--delay, 0ms);
+}
+.intro-fade {
+  opacity: 0;
+  animation: introFade 1s var(--ease-expo) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes introFade { to { opacity: 1; } }
+
+/* ============================================================
+   SIGNATURE CTA: rounded rectangle that slides STRAIGHT up on
+   hover (Daylight full-width button motion) while the label
+   flips colour. Straightened from the old rotated sweep
+   (rotate-8 scale-1.8) to a crisp ~120ms vertical slide.
+   Colours are supplied per-instance via CSS custom props.
+   ============================================================ */
+.cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: clip;
+  isolation: isolate;
+  border-radius: 4px;
+  height: 50px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  background: var(--cta-bg, transparent);
+  border: var(--cta-border, none);
+  -webkit-tap-highlight-color: transparent;
+}
+.cta__label {
+  position: relative;
+  z-index: 2;
+  color: var(--cta-fg, #111111);
+  transition: transform 0.12s var(--ease-default), color 0.12s var(--ease-default);
+}
+.cta__sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 4px;
+  transform-origin: center;
+  transform: translateY(101%);
+  background: var(--cta-sweep, #111111);
+  transition: transform 0.12s var(--ease-default);
+}
+@media (hover: hover) {
+  .cta:hover .cta__label {
+    transform: translateY(-4px);
+    color: var(--cta-fg-hover, #fff7e9);
+  }
+  .cta:hover .cta__sweep {
+    transform: translateY(0);
+  }
+}
+.cta:focus-visible { outline: 2px solid rgba(50, 31, 97, 0.6); outline-offset: 3px; }
+
+/* ============================================================
+   QUALIFY PILL (hero email/address form)
+   ============================================================ */
+.qualify-pill {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  height: 60px;
+  padding: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 247, 233, 0.28);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.25s var(--ease-expo);
+  isolation: isolate;
+}
+.qualify-pill:focus-within { border-color: rgba(255, 247, 233, 0.55); }
+.qualify-pill-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  /* logical padding so it mirrors under dir="rtl" (start:20 end:12) */
+  padding-block: 0;
+  padding-inline: 20px 12px;
+  font-size: 16px;
+  color: #fff7e9;
+  letter-spacing: -0.01em;
+}
+.qualify-pill-input::placeholder { color: rgba(255, 247, 233, 0.7); }
+.qualify-pill-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  height: 48px;
+  margin: 0 6px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 4px;
+  overflow: clip;
+  isolation: isolate;
+  background: #111111;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.qualify-pill-btn-label {
+  position: relative;
+  z-index: 2;
+  font-size: 14px;
+  color: #fff7e9;
+  white-space: nowrap;
+  transition: color 0.12s var(--ease-default);
+}
+.qualify-pill-btn-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 4px;
+  transform-origin: center;
+  transform: translateY(101%);
+  background: #fff7e9;
+  transition: transform 0.12s var(--ease-default);
+}
+@media (hover: hover) {
+  .qualify-pill-btn:hover .qualify-pill-btn-label { color: #4c2806; }
+  .qualify-pill-btn:hover .qualify-pill-btn-overlay {
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   SPACE FINDER (hero facility dropdown + window crossfade)
+   Reuses the .qualify-pill glass shell: the trigger stands in
+   for the old input, the CTA reuses .qualify-pill-btn.
+   ============================================================ */
+.sf-trigger {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  /* logical padding so it mirrors under dir="rtl" (start:20 end:12) */
+  padding-block: 0;
+  padding-inline: 20px 12px;
+  font-size: 16px;
+  color: #fff7e9;
+  letter-spacing: -0.01em;
+  text-align: start;
+}
+.sf-trigger[data-placeholder="true"] { color: rgba(255, 247, 233, 0.7); }
+.sf-trigger:focus-visible { outline: 2px solid rgba(255, 247, 233, 0.55); outline-offset: -2px; border-radius: 10px; }
+.sf-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+  transition: transform 0.3s var(--ease-premium);
+}
+.sf-trigger[aria-expanded="true"] .sf-chevron { transform: rotate(180deg); }
+
+/* disabled CTA state (before a space is chosen) */
+.sf-cta-disabled { opacity: 0.45; pointer-events: none; }
+
+.sf-panel {
+  /* Portaled to <body> and positioned from JS (top/left/width) so it opens
+     DOWNWARD and spills past the hero, which clips its own overflow. Living on
+     the body layer also lets it paint over the cream section below the hero. */
+  position: absolute;
+  z-index: 50;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 6px;
+  background: rgba(20, 14, 8, 0.72);
+  border: 1px solid rgba(255, 247, 233, 0.22);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: sf-panel-in 0.28s var(--ease-expo) both;
+}
+@keyframes sf-panel-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.sf-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  color: #fff7e9;
+  text-align: start;
+  transition: background-color 0.18s var(--ease-premium);
+}
+.sf-option:hover,
+.sf-option:focus-visible { background: rgba(255, 247, 233, 0.1); outline: none; }
+.sf-option[data-active="true"] { background: rgba(255, 90, 72, 0.16); }
+.sf-option-mark { color: #ff5a48; font-weight: 600; }
+
+/* hero media window — a SQUARE (.sf-stage sets aspect-ratio + size) anchored
+   center-end via logical props, so it mirrors for RTL. .sf-frame is the clipped
+   square holding the video + crossfade photos; each photo covers it edge-to-edge
+   (object-cover, centered). Floating chips (.sf-chip*) anchor to its edges. */
+.sf-stage {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: min(42vh, 32vw);
+  aspect-ratio: 1 / 1;
+  inset-inline-end: 11%;
+}
+.sf-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.sf-slide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.6s var(--ease-premium);
+}
+.sf-slide-img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* space-name caption chip inside the window */
+.sf-caption {
+  position: absolute;
+  inset-inline-start: 14px;
+  bottom: 12px;
+  z-index: 3;
+  padding: 5px 10px;
+  border-radius: 2px;
+  color: #fff7e9;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s var(--ease-premium), transform 0.4s var(--ease-premium);
+}
+.sf-caption[data-show="true"] { opacity: 1; transform: none; }
+
+/* telemetry chips — anchored just OUTSIDE the square window's edges (they are
+   children of .sf-stage, so 100% = the square). Logical props mirror for RTL:
+   two stacked at the near (inline-start) edge above/below, one at the far edge. */
+.sf-chip { position: absolute; }
+.sf-chip-tl { bottom: calc(100% + 16px); inset-inline-start: 2px; }
+.sf-chip-bl { top: calc(100% + 16px); inset-inline-start: 2px; }
+.sf-chip-r {
+  top: 38%;
+  inset-inline-start: calc(100% + 20px);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   HERO SPECTRUM WASH — Daylight's animated-gradient motif,
+   adapted to MAZJ's own hues (coral -> lavender, NO blue).
+   A slow drifting tint over the hero video; the dark legibility
+   scrim still sits ABOVE it so the headline copy stays crisp.
+   ============================================================ */
+@keyframes spectrumDrift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.sf-spectrum {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, #ff5a48 0%, #c8b0ff 48%, #ff5a48 100%);
+  background-size: 220% 220%;
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
+  animation: spectrumDrift 20s ease-in-out infinite;
+}
+
+/* ============================================================
+   FOOTER grain / diagonal streak texture over the orange
+   ============================================================ */
+.footer-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 2px,
+      transparent 2px,
+      transparent 26px
+    ),
+    radial-gradient(120% 80% at 50% 120%, rgba(255, 180, 90, 0.35), transparent 60%);
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+}
+
+/* Dotted US-map field for the network section */
+.dot-field {
+  background-image: radial-gradient(rgba(76, 40, 6, 0.18) 1.2px, transparent 1.3px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 50%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(70% 60% at 50% 50%, #000 55%, transparent 100%);
+}
+
+/* ============================================================
+   DECORATIVE DESIGN GRID — faint hairline column/row guides the
+   original overlays on the hero + light sections.
+   ============================================================ */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image:
+    linear-gradient(to right, rgba(76, 40, 6, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(76, 40, 6, 0.055) 1px, transparent 1px);
+  background-size: 16.6667% 100%, 100% 180px;
+  background-position: -1px 0;
+}
+/* Light hairlines for use over dark imagery (hero / video sections) */
+.grid-overlay--light {
+  background-image:
+    linear-gradient(to right, rgba(255, 247, 233, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 247, 233, 0.07) 1px, transparent 1px);
+}
+
+/* ============================================================
+   FILM GRAIN — the original layers an animated grain field over
+   the whole page (pointer-events-none, mix-blend, low opacity).
+   ============================================================ */
+@keyframes grainShift {
+  0% { transform: translate(0, 0); }
+  10% { transform: translate(-4%, -4%); }
+  20% { transform: translate(-8%, 3%); }
+  30% { transform: translate(3%, -8%); }
+  40% { transform: translate(-3%, 6%); }
+  50% { transform: translate(-8%, 8%); }
+  60% { transform: translate(6%, 0); }
+  70% { transform: translate(0, 6%); }
+  80% { transform: translate(4%, -6%); }
+  90% { transform: translate(-4%, 4%); }
+  100% { transform: translate(0, 0); }
+}
+.grain-overlay {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.32;
+  mix-blend-mode: soft-light;
+  background-image: url("/images/noise.svg");
+  background-size: 180px 180px;
+  animation: grainShift 0.6s steps(4) infinite;
+}
+
+/* ============================================================
+   FOOTER DUNE — flowing diagonal orange bands + grain, mirroring
+   the original's warm animated dune texture.
+   ============================================================ */
+.footer-dune {
+  /* exact orange dune texture captured from the original site */
+  background: #FF5A48 url("/images/footer-dune.jpg") center/cover no-repeat;
+  position: relative;
+  isolation: isolate;
+}
+.footer-dune::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("/images/noise.svg");
+  background-size: 160px 160px;
+  mix-blend-mode: soft-light;
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+  .line-mask > span, .line-mask > .line, .intro-mask > .intro-line { transform: none; }
+  .word-reveal .wr-word { opacity: 1; transform: none; }
+}
