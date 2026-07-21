@@ -3,8 +3,9 @@
 import {useEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {useLocale, useTranslations} from "next-intl";
+import {Link} from "@/i18n/navigation";
 import {BOOKING} from "@/lib/links";
-import {waLink} from "@/lib/contact";
+import LogoLoop from "./LogoLoop";
 
 /**
  * The six real MAZJ spaces (mazj.sa), ordered as the dropdown lists them.
@@ -14,12 +15,12 @@ import {waLink} from "@/lib/contact";
  * These are config, not display copy — the visible strings come from i18n.
  */
 const FACILITIES = [
-  {id: "dayDesk", href: BOOKING.dayDesk, img: "/images/spaces/day-desk.jpg"},
+  {id: "dayDesk", href: BOOKING.sharedSeat, img: "/images/spaces/day-desk.jpg"},
   {id: "meeting", href: BOOKING.meeting, img: "/images/spaces/meeting.jpg"},
   {id: "event", href: BOOKING.event, img: "/images/spaces/event.jpg"},
-  {id: "officeDay", href: BOOKING.officeDay, img: "/images/spaces/office-day.jpg"},
-  {id: "officeMonth", href: BOOKING.officeMonth, img: "/images/spaces/office-month.jpg"},
-  {id: "membership", href: BOOKING.membership, img: "/images/spaces/membership.jpg"},
+  {id: "officeDay", href: BOOKING.privateOffice, img: "/images/spaces/office-day.jpg"},
+  {id: "officeMonth", href: BOOKING.privateOffice, img: "/images/spaces/office-month.jpg"},
+  {id: "membership", href: BOOKING.sharedSeat, img: "/images/spaces/membership.jpg"},
 ] as const;
 
 // 1×1 transparent gif — the crossfade buffers start empty so the orange video
@@ -80,6 +81,10 @@ export default function Hero() {
   // click that landed inside the (now-detached) panel.
   const panelRef = useRef<HTMLUListElement>(null);
   const [panelPos, setPanelPos] = useState<{top: number; left: number; width: number} | null>(null);
+  // Whichever control opened the picker — the trigger, or the CTA. Escape must
+  // hand focus back to what the user actually pressed, not always the trigger.
+  const ctaRef = useRef<HTMLButtonElement>(null);
+  const invokerRef = useRef<HTMLButtonElement | null>(null);
 
   // Two crossfade buffers ping-pong so switching spaces dissolves cleanly.
   const [activeA, setActiveA] = useState(true);
@@ -110,7 +115,8 @@ export default function Hero() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setOpen(false);
-        triggerRef.current?.focus();
+        // Back to whatever opened it (trigger OR cta), not always the trigger.
+        (invokerRef.current ?? triggerRef.current)?.focus();
       }
     };
     document.addEventListener("mousedown", onDown);
@@ -147,17 +153,28 @@ export default function Hero() {
     };
   }, [open]);
 
-  // Move focus into the panel when it opens.
+  // Move focus into the panel once it has actually MOUNTED.
+  //
+  // 🔴 Keying this on `open` alone was a silent no-op: the panel only renders
+  // when `panelPos` has been measured, which lands a render AFTER `open` flips,
+  // so this fired while the options did not exist yet and focused nothing. The
+  // picker opened with focus stranded on the invoking control, leaving keyboard
+  // users no way in and announcing nothing to screen readers.
+  //
+  // Gate on a BOOLEAN rather than on panelPos itself: panelPos is a fresh object
+  // on every scroll/resize tick, so depending on it directly would yank focus
+  // back into the list on every scroll event while the picker is open.
+  const panelReady = open && panelPos !== null;
   useEffect(() => {
-    if (open) {
-      const idx = selected ?? 0;
-      requestAnimationFrame(() => optionRefs.current[idx]?.focus());
-    }
-  }, [open, selected]);
+    if (!panelReady) return;
+    const idx = selected ?? 0;
+    requestAnimationFrame(() => optionRefs.current[idx]?.focus());
+  }, [panelReady, selected]);
 
   const onTriggerKey = (e: React.KeyboardEvent) => {
     if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault();
+      invokerRef.current = triggerRef.current;
       setOpen(true);
     }
   };
@@ -185,6 +202,24 @@ export default function Hero() {
   // from mazj.sa, or a brand-level default before anything is picked.
   const chipBase = selected == null ? "chipsDefault" : `cases.${FACILITIES[selected].id}.chips`;
 
+  // CTA label shortens on narrow screens so the trigger keeps enough room for
+  // the full question. Without it "What brings you in?" truncated to "What
+  // brings you ..." at 390px — the pill gives the trigger ~124px of text room
+  // there against the ~150px the string needs.
+  //
+  // 448px is derived, not picked: the pill is w-full max-w-[400px] inside a
+  // px-6 column, so 400 + 24 + 24 is exactly where it stops shrinking. At or
+  // above that its geometry equals desktop, so the long label provably fits.
+  // (The reference does the same thing via a ::before content swap; we can't,
+  // because our labels are translated — hence two spans, both class names
+  // written literally so the JIT emits them.)
+  const ctaLabel = (
+    <>
+      <span className="min-[448px]:hidden">{tf("ctaShort")}</span>
+      <span className="hidden min-[448px]:inline">{tf("cta")}</span>
+    </>
+  );
+
   return (
     <section className="relative h-svh min-h-[640px] w-full overflow-clip bg-black">
       {/* Base background — looping MAZJ hero video (self-hosted, no controls).
@@ -207,7 +242,7 @@ export default function Hero() {
             RTL — so it always sits behind the text, which flips sides in Arabic.
             Both class names are literal so Tailwind's JIT emits them. */}
         <div
-          className={`absolute inset-0 from-black/75 via-black/45 to-black/20 ${
+          className={`hero-scrim absolute inset-0 from-black/75 via-black/45 to-black/20 ${
             rtl ? "bg-gradient-to-l" : "bg-gradient-to-r"
           }`}
         />
@@ -216,7 +251,7 @@ export default function Hero() {
       {/* Square media window (desktop only). Default: the orange solar-panel
           video recolored to brand coral. On select: the chosen space's photo
           covers the square edge-to-edge. Floating chips anchor to its edges. */}
-      <div className="sf-stage pointer-events-none absolute z-[1] hidden font-mono text-beige lg:block">
+      <div className="sf-stage pointer-events-none absolute z-[1] hidden text-beige lg:block">
         <div
           data-fx="clip-hero"
           className="sf-frame isolate"
@@ -243,6 +278,11 @@ export default function Hero() {
               instead of the deep brand coral (~54%) the button + footer land on. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-[#FF5A48] mix-blend-color" />
 
+          {/* The مزج mark writes itself over the coral panel until a space is
+              chosen, then fades out for good (chosen photos also cover it).
+              Sits after the blend overlay so the beige strokes stay beige. */}
+          <LogoLoop dismissed={selected != null} />
+
           {/* crossfade photo buffers — each photo covers the square, centered */}
           {([bufA, bufB] as const).map((buf, idx) => (
             <div
@@ -257,7 +297,7 @@ export default function Hero() {
           ))}
 
           {/* space-name caption chip (bottom-start of the window) */}
-          <div className="sf-caption font-mono text-12 uppercase tracking-[0.05em]" data-show={selected != null}>
+          <div className="eyebrow sf-caption text-12" data-show={selected != null}>
             {selected != null ? tf(`cases.${FACILITIES[selected].id}.name`) : ""}
           </div>
         </div>
@@ -267,25 +307,25 @@ export default function Hero() {
             facility's real features (capacity · amenity · access) from mazj.sa,
             with a brand-level default before a space is chosen. */}
         <div data-fx="chip" className="sf-chip sf-chip-tl">
-          <p className="flex items-center gap-1.5 text-12 uppercase tracking-[0.05em] text-beige/80">
+          <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
             <IconCheck />
             <span>{tf(`${chipBase}.feature.label`)}</span>
           </p>
-          <p className="mt-0.5 text-12 font-medium uppercase tracking-[0.05em]">{tf(`${chipBase}.feature.value`)}</p>
+          <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.feature.value`)}</p>
         </div>
         <div data-fx="chip" className="sf-chip sf-chip-bl">
-          <p className="flex items-center gap-1.5 text-12 uppercase tracking-[0.05em] text-beige/80">
+          <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
             <IconClock />
             <span>{tf(`${chipBase}.access.label`)}</span>
           </p>
-          <p className="mt-0.5 text-12 font-medium uppercase tracking-[0.05em]">{tf(`${chipBase}.access.value`)}</p>
+          <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.access.value`)}</p>
         </div>
         <div data-fx="chip" className="sf-chip sf-chip-r">
-          <p className="flex items-center gap-1.5 text-12 uppercase tracking-[0.05em] text-beige/80">
+          <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
             <IconPerson />
             <span>{tf(`${chipBase}.capacity.label`)}</span>
           </p>
-          <p className="mt-0.5 text-12 font-medium uppercase tracking-[0.05em]">{tf(`${chipBase}.capacity.value`)}</p>
+          <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.capacity.value`)}</p>
         </div>
       </div>
 
@@ -296,7 +336,7 @@ export default function Hero() {
             {/* Eyebrow */}
             <span className="intro-mask mb-4 lg:mb-6">
               <span
-                className="intro-line block font-mono text-12 uppercase tracking-[0.05em] text-beige/90"
+                className="eyebrow intro-line block text-12 text-beige/90"
                 style={{["--delay" as any]: "40ms"}}
               >
                 {t("eyebrow")}
@@ -317,7 +357,7 @@ export default function Hero() {
             </h1>
 
             <p
-              className="intro-fade mt-5 max-w-[453px] text-15 font-normal text-beige lg:mt-6 lg:text-16"
+              className="intro-fade mt-5 max-w-[453px] text-15 font-normal text-beige lg:mt-6 lg:text-16 text-pretty"
               style={{["--delay" as any]: "460ms", letterSpacing: "-0.02em"}}
             >
               {t("subtitle")}
@@ -339,7 +379,10 @@ export default function Hero() {
                   aria-haspopup="listbox"
                   aria-expanded={open}
                   data-placeholder={selected == null}
-                  onClick={() => setOpen((o) => !o)}
+                  onClick={() => {
+                    invokerRef.current = triggerRef.current;
+                    setOpen((o) => !o);
+                  }}
                   onKeyDown={onTriggerKey}
                 >
                   <span className="min-w-0 flex-1 truncate text-start">{triggerLabel}</span>
@@ -349,11 +392,30 @@ export default function Hero() {
                 </button>
 
                 {selected == null ? (
-                  <span className="qualify-pill-btn sf-cta-disabled" aria-disabled="true">
+                  // Before a space is chosen the CTA stays FULLY SOLID and opens
+                  // the picker, rather than sitting there dimmed. The old
+                  // `sf-cta-disabled` (opacity .45) dropped the button's internal
+                  // contrast to 2.90x against the reference's 14.53x, which read
+                  // as a broken chip and flattened the whole glass control — it
+                  // was the single biggest visual gap, far more than the glass.
+                  // The reference's button is never dimmed either, because a
+                  // dead-looking half is worse than guiding the click onward.
+                  <button
+                    ref={ctaRef}
+                    type="button"
+                    className="qualify-pill-btn font-sans"
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    onClick={() => {
+                      invokerRef.current = ctaRef.current;
+                      setOpen(true);
+                    }}
+                  >
+                    <span className="qualify-pill-btn-overlay" aria-hidden="true" />
                     <span className="qualify-pill-btn-label">
-                      {tf("cta")}
+                      {ctaLabel}
                     </span>
-                  </span>
+                  </button>
                 ) : (
                   <a
                     href={FACILITIES[selected].href}
@@ -363,7 +425,7 @@ export default function Hero() {
                   >
                     <span className="qualify-pill-btn-overlay" aria-hidden="true" />
                     <span className="qualify-pill-btn-label">
-                      {tf("cta")}
+                      {ctaLabel}
                     </span>
                   </a>
                 )}
@@ -404,22 +466,21 @@ export default function Hero() {
                 )}
             </div>
 
-            {/* Always-live action so a visitor who hasn't picked a space still
-                has a way to reach a human. Brand coral, opens WhatsApp. */}
-            <a
-              href={waLink(tc("bookTourMsg"))}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="intro-fade mt-5 inline-flex h-[50px] w-full max-w-[400px] items-center justify-center rounded-[4px] bg-orange px-[22px] text-15 font-medium text-white transition-opacity duration-200 hover:opacity-90 lg:h-[45px] lg:w-fit lg:max-w-none"
+            {/* Always-live action for a visitor who hasn't picked a space in the
+                finder above: the full menu on /spaces. Self-serve by design,
+                the site is the system rather than a queue for the MAZJ team. */}
+            <Link
+              href="/spaces"
+              className="intro-fade mt-5 inline-flex h-[50px] w-full max-w-[400px] items-center justify-center rounded-[4px] bg-orange px-[22px] text-15 font-medium text-white transition-[opacity,transform] duration-200 hover:opacity-90 active:scale-[0.96] lg:h-[45px] lg:w-fit lg:max-w-none"
               style={{["--delay" as any]: "700ms"}}
             >
-              {tc("bookTour")}
-            </a>
+              {tc("seeSpaces")}
+            </Link>
 
             {/* Trust line — address · access. Same mono micro-type as
                 the eyebrow, one intro-fade beat after the pill. */}
             <p
-              className="intro-fade mt-4 font-mono text-12 uppercase tracking-[0.05em] text-beige/75"
+              className="eyebrow intro-fade mt-4 text-12 tabular-nums text-beige/75"
               style={{["--delay" as any]: "760ms"}}
             >
               {t("trustLine")}
