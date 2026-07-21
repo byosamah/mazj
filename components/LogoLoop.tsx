@@ -35,7 +35,7 @@ export default function LogoLoop({dismissed}: {dismissed: boolean}) {
     gsap.set(dots, {scale: 0, transformOrigin: "50% 50%"});
     gsap.set(root, {autoAlpha: 1});
 
-    // write ~2.3s -> hold 2.5s -> unwrite ~1.6s -> rest 0.7s (repeatDelay)
+    // write ~2.3s -> hold 2.5s -> unwrite ~1.3s -> rest 0.7s (repeatDelay)
     const tl = gsap.timeline({repeat: -1, delay: 0.9, repeatDelay: 0.7, paused: true});
     tl.to(strokes[0], {strokeDashoffset: 0, duration: 0.75, ease: "power2.inOut"})
       .to(strokes[1], {strokeDashoffset: 0, duration: 0.6, ease: "power2.inOut"}, "-=0.15")
@@ -49,7 +49,8 @@ export default function LogoLoop({dismissed}: {dismissed: boolean}) {
     tlRef.current = tl;
 
     // Run only while the hero square is on screen.
-    const io = new IntersectionObserver(([entry]) => {
+    const io = new IntersectionObserver((entries) => {
+      const entry = entries[entries.length - 1];
       if (killedRef.current) return;
       if (entry.isIntersecting) tl.play();
       else tl.pause();

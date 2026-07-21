@@ -2,7 +2,7 @@
 // source of the mark). Coordinates are stroke CENTERLINES on the PNG's pixel
 // grid; the 49-unit stroke reproduces the drawn letterforms (gate: IoU >= 0.97
 // vs the PNG). strokes[] is WRITE order (Arabic is right-to-left, so م is the
-// rightmost letterform) and each d runs in natural pen direction; task 2's
+// rightmost letterform) and each d runs in natural pen direction; LogoLoop's
 // stroke-dashoffset draw depends on both.
 export const MARK = {
   viewBox: "0 0 559 412",
