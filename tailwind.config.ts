@@ -21,7 +21,13 @@ const config: Config = {
         purple: "#c8b0ff",       // lavender CTA background (Daylight light purple)
         "purple-dark": "#321f61",// deep indigo accent
         orange: "#FF5A48",       // brand coral — MAZJ-owned, kept (NOT Daylight #F66F00)
-        muted: "#a09b93",        // warm grey for muted/mono text (Daylight grey)
+        // Body/label grey. Was #a09b93 (the Daylight brand BOOK's "Grey"), which
+        // measured 2.59:1 on bg-beige — failing WCAG AA for body (4.5) and even
+        // for large text (3.0), across 41 usages including the legal routes.
+        // #514E4A is what Daylight actually ships as text grey in production and
+        // measures 7.77:1 on beige / 6.62:1 on the tan card. Never used on a dark
+        // surface anywhere in the codebase, so darkening it carries no regression.
+        muted: "#514E4A",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],

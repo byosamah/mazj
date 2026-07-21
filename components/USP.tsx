@@ -43,7 +43,7 @@ export default function USP() {
             >
               <div
                 data-pin-media
-                className="relative aspect-[4/5] w-full max-w-[230px] overflow-clip rounded-[16px] lg:max-w-[355px]"
+                className="relative aspect-[4/5] w-full max-w-[230px] overflow-clip rounded-[16px] lg:max-w-[355px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={row.image} alt={row.surtitle} className="h-full w-full object-cover" />
@@ -54,8 +54,8 @@ export default function USP() {
               className="order-1 flex flex-col items-center gap-5 text-center lg:order-none lg:col-start-2 lg:row-start-1"
               delay={80}
             >
-              <p className="font-mono text-12 uppercase tracking-[0.05em] text-muted">{row.surtitle}</p>
-              <h2 className="whitespace-pre-line font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
+              <p className="eyebrow text-12 text-muted">{row.surtitle}</p>
+              <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
                 {row.title}
               </h2>
             </Reveal>

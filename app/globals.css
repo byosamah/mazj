@@ -41,6 +41,16 @@
 :root {
   --font-sans: "Thmanyah Sans";
   --font-mono: "Thmanyah Sans";
+  /* Eyebrow tracking. Kept POSITIVE on purpose.
+     Daylight ships -0.02em on its eyebrows, and an audit flagged our +0.05em
+     as an inverted value. It isn't: Daylight's eyebrows are set in ABC Social
+     MONO, and monospace faces carry wide uniform sidebearings that negative
+     tracking pulls back to looking normal. MAZJ is deliberately single-typeface
+     (Thmanyah Sans), and uppercase sans at 12px needs tracking OPENED, not
+     closed, to stay legible. Copying their number without their typeface would
+     import a value tuned for a face we don't use. Their brand book also
+     specifies +5%, which agrees with this. */
+  --eyebrow-tracking: 0.05em;
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-premium: cubic-bezier(0.16, 1.08, 0.38, 0.98); /* == Daylight --ease-expo-out */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1); /* Daylight --ease-default (standard UI) */
@@ -94,6 +104,38 @@ h2 { letter-spacing: -0.02em; }
 h3 { letter-spacing: -0.02em; }
 
 /* ============================================================
+   EYEBROW / LABEL REGISTER
+   ============================================================
+   The small uppercase label above almost every section. Previously this was
+   49 hand-repeated copies of `font-mono text-12 uppercase tracking-[0.05em]`,
+   which caused three problems:
+
+   1. `font-mono` was a NO-OP. --font-mono and --font-sans are both
+      "Thmanyah Sans", so 44 font-mono classes changed nothing. Removed
+      deliberately: MAZJ is a single-typeface brand (see CLAUDE.md).
+   2. The tracking kept getting rewritten. A format-on-save linter rewrites
+      Tailwind arbitrary values, so `tracking-[-0.24px]` was silently flipped
+      to `tracking-[0.05em]` site-wide. Living in plain CSS, it can't be.
+   3. In ARABIC the register did not exist at all. `text-transform: uppercase`
+      is a no-op in Arabic, and `html[lang="ar"] * { letter-spacing: normal }`
+      kills the tracking. So an Arabic eyebrow was just small grey text with
+      nothing marking it as a label.
+
+   Hence the register is keyed on FONT-WEIGHT, the one signal that survives
+   both writing systems (Thmanyah ships a true 500, so Arabic gets a real
+   weight rather than a synthetic one).
+
+   Deliberately NOT set here: colour and size. Both legitimately vary by
+   surface (text-muted / text-brown-60 / text-beige-80 / text-white ...) and
+   by context (12px default, 11px in tight chrome), so they stay as Tailwind
+   utilities at the call site and never fight this class on specificity. */
+.eyebrow {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+}
+
+/* ============================================================
    SCROLL REVEAL (IntersectionObserver toggles .is-visible)
    ============================================================ */
 .reveal {
@@ -105,6 +147,123 @@ h3 { letter-spacing: -0.02em; }
 .reveal.is-visible {
   opacity: 1;
   transform: none;
+}
+
+/* Card variant: grows up from its own footing instead of sliding as a flat
+   plane. transform-origin sits at the bottom edge so a grid of cards reads as
+   rising off the surface rather than drifting down the page.
+   Specificity note: `.reveal.is-visible` is (0,2,0), so the settled state here
+   must be (0,3,0) to win regardless of source order.
+   RTL-safe by construction: translateY is vertical, the scale is uniform, and
+   the origin is horizontally centred, so nothing needs mirroring. */
+.reveal.reveal-card {
+  transform: translateY(48px) scale(0.94);
+  transform-origin: 50% 100%;
+  transition: opacity 0.85s var(--ease-expo), transform 0.85s var(--ease-premium);
+}
+.reveal.reveal-card.is-visible {
+  transform: none;
+}
+
+/* Staggered list: ONE observer on the container staggers its children, instead
+   of one IntersectionObserver per row. The /events archive had 41 rows each
+   owning an observer at delay 0, so rows fired one-at-a-time as they crossed
+   the line — a jittery ripple rather than a stagger, and ~52 observers on a
+   single route. The nth-child ladder caps at 12; anything past that shares the
+   final delay, which is correct (a 40-row cascade should not take 3 seconds).
+   RTL-safe: translateY only, no horizontal component. */
+.reveal-list > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.65s var(--ease-expo), transform 0.65s var(--ease-expo);
+}
+.reveal-list.is-visible > * {
+  opacity: 1;
+  transform: none;
+}
+.reveal-list.is-visible > *:nth-child(1) { transition-delay: 0ms; }
+.reveal-list.is-visible > *:nth-child(2) { transition-delay: 45ms; }
+.reveal-list.is-visible > *:nth-child(3) { transition-delay: 90ms; }
+.reveal-list.is-visible > *:nth-child(4) { transition-delay: 135ms; }
+.reveal-list.is-visible > *:nth-child(5) { transition-delay: 180ms; }
+.reveal-list.is-visible > *:nth-child(6) { transition-delay: 225ms; }
+.reveal-list.is-visible > *:nth-child(7) { transition-delay: 270ms; }
+.reveal-list.is-visible > *:nth-child(8) { transition-delay: 315ms; }
+.reveal-list.is-visible > *:nth-child(9) { transition-delay: 360ms; }
+.reveal-list.is-visible > *:nth-child(10) { transition-delay: 405ms; }
+.reveal-list.is-visible > *:nth-child(11) { transition-delay: 450ms; }
+.reveal-list.is-visible > *:nth-child(n + 12) { transition-delay: 495ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-list > * {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   ACCORDION (zero JS)
+   ============================================================
+   grid-template-rows 0fr -> 1fr is the only way to animate to intrinsic
+   content height without measuring it in JS, so answers of any length
+   open smoothly and server-render correctly with no hydration step.
+   The `min-height: 0` on the inner wrapper is REQUIRED — grid items have
+   an automatic minimum size and will refuse to shrink to 0fr without it.
+   A checkbox + label drives it, so it is keyboard-operable for free.
+   Fully RTL-safe: no physical properties, and the chevron row uses
+   justify-between + logical gap so it mirrors on its own. */
+.acc-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+.acc-label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  cursor: pointer;
+  padding-block: 24px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* sr-only inputs stay focusable, so surface the focus ring on the label */
+.acc-toggle:focus-visible ~ .acc-label {
+  outline: 2px solid #ff5a48;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.acc-sign {
+  flex-shrink: 0;
+  transition: transform 0.35s var(--ease-expo), opacity 0.2s ease;
+  transform-origin: 50% 50%;
+}
+/* a "+" rotated 45deg reads as a "×": one glyph, both states */
+.acc-toggle:checked ~ .acc-label .acc-sign {
+  transform: rotate(45deg);
+}
+.acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s var(--ease-expo);
+}
+.acc-toggle:checked ~ .acc-panel {
+  grid-template-rows: 1fr;
+}
+.acc-panel > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acc-panel,
+  .acc-sign {
+    transition: none;
+  }
 }
 
 /* Line-mask reveal (headings that wipe up from a clipped mask) */
@@ -198,7 +357,13 @@ h1 .intro-mask {
   background: var(--cta-bg, transparent);
   border: var(--cta-border, none);
   -webkit-tap-highlight-color: transparent;
+  /* Press feedback: a GPU-friendly `scale` (independent of the sweep's own
+     translateY transform, so the two never collide) on the shared class. One
+     rule gives every CtaButton across the site a 0.96 tap-scale. Interruptible
+     via a scoped transition, never `transition: all`. */
+  transition: scale 0.12s var(--ease-default);
 }
+.cta:active { scale: 0.96; }
 .cta__label {
   position: relative;
   z-index: 2;
@@ -227,9 +392,100 @@ h1 .intro-mask {
 .cta:focus-visible { outline: 2px solid rgba(50, 31, 97, 0.6); outline-offset: 3px; }
 
 /* ============================================================
+   HERO SCRIM — soft cutout behind the glass pill
+   ============================================================
+   Glass is only glass because of what is BEHIND it. Measured on the
+   reference, their field floats over a golden-hour photo with a luma spread
+   of 119 (range 14..133) — that tonal range is what the blur has to chew on.
+   Ours sat under `from-black/75`, which multiplies the video down to ~25% and
+   leaves the blur nothing to resolve. Same CSS, dead result: a correct glass
+   effect with nothing to be glass OF.
+
+   So the scrim is MASKED, not lightened. Masking removes scrim, which restores
+   the video's real detail and contrast; painting a translucent light patch on
+   top would only raise the black floor and wash the area grey.
+
+   Geometry is deliberately WIDE AND SHORT. The h1 sits ~110px above the pill's
+   centre, so a circular hole big enough to clear a 400x60 pill would reach up
+   and steal contrast from the most important text on the site. Radii are
+   pill-half + falloff (rx 300px, ry 70px at 1520x768), keeping the ramp fully
+   below the headline. Verify the h1's contrast after touching these numbers.
+
+   --hole-x flips for RTL because radial-gradient positions are PHYSICAL and
+   the pill mirrors to the inline-end side (the documented locale-branch idiom
+   for values logical utilities can't reach). On mobile the pill is centred in
+   a px-6 column, so the hole is centred and identical in both locales.
+
+   Centres are MEASURED pill centres, not guesses (viewport % of the pill's
+   bounding box). Arabic desktop sits 2.5pp lower than English because the
+   Arabic h1 wraps taller (229.5px vs 166.6px) and pushes the pill down, so
+   --hole-y is per-locale on desktop. Mobile is a full-bleed px-6 column, so
+   both locales are pixel-identical there and share one rule.
+   Re-measure these if the hero copy length ever changes. */
+.hero-scrim {
+  --hole-x: 17.4%;
+  --hole-y: 66%;
+  --hole-rx: 20%;
+  --hole-ry: 9%;
+  -webkit-mask-image: radial-gradient(
+    ellipse var(--hole-rx) var(--hole-ry) at var(--hole-x) var(--hole-y),
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.72) 45%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse var(--hole-rx) var(--hole-ry) at var(--hole-x) var(--hole-y),
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.72) 45%,
+    #000 100%
+  );
+}
+html[lang="ar"] .hero-scrim {
+  --hole-x: 82.6%;
+  --hole-y: 68.5%;
+}
+@media (max-width: 1023px) {
+  .hero-scrim,
+  html[lang="ar"] .hero-scrim {
+    --hole-x: 50%;
+    --hole-y: 74.6%;
+    --hole-rx: 59%;
+    --hole-ry: 8.3%;
+  }
+}
+
+/* ============================================================
    QUALIFY PILL (hero email/address form)
    ============================================================ */
+/* 🔴 DELIBERATE DEVIATION from the "match Daylight 1:1" rule, signed off by the
+   user after a side-by-side over our OWN backdrop. Do not "restore" Daylight's
+   values — they were tried, shipped and measured, and they fail HERE for a
+   reason copying numbers cannot fix:
+
+   Their field floats over a golden-hour photo (backdrop luma 49.5, real
+   structure). Ours floats over dark video: luma ~22, structure std ~3. A
+   blur-led material BORROWS its appearance from the backdrop, so against a
+   near-featureless one it borrows nothing. Their exact CSS gave a rim luma
+   spread of 2.7% across top/bottom/left — a uniform hairline, i.e. a rectangle
+   with a border, which is exactly what it looked like.
+
+   Built on Apple's Liquid Glass model instead, which GENERATES its optics and
+   so survives a dead backdrop. Per Apple's HIG the material tracks its backdrop
+   ("appears darker when there is a dark background beneath it"), so the tint
+   stays near-black and deliberately does NOT lighten — lightening the fill to
+   force visibility is a documented anti-pattern, was prototyped as a control,
+   and reads as milky plastic. The RIM carries the effect, not the blur (Apple
+   lead with lensing, not frost). No dimming layer: their one published number
+   says a dark backdrop doesn't need one. Measured: rim spread 2.7% -> 56%.
+
+   `brightness` stays modest on purpose. Recovering real structure from a std-3
+   backdrop needs ~brightness(5), which amplifies the video's compression
+   banding 5x with it. saturate does more for reading as glass than luma does.
+
+   translateZ + will-change force a compositing layer; without one Chrome
+   intermittently drops the backdrop sample and the pill flashes flat. */
 .qualify-pill {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -237,16 +493,95 @@ h1 .intro-mask {
   max-width: 400px;
   height: 60px;
   padding: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 247, 233, 0.28);
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
-  transition: border-color 0.25s var(--ease-expo);
+  border-radius: 12px;
+  /* Dark-tracking tint: top and bottom lift a little, mid stays near-clear. */
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.055),
+    rgba(255, 255, 255, 0.015) 42%,
+    rgba(255, 255, 255, 0.045)
+  );
+  /* 🔴 -webkit FIRST, standard LAST. Reversed, lightningcss collapses the pair
+     and ships ONLY the -webkit form, so Firefox (unprefixed since 103, and it
+     does not alias the -webkit name) renders zero blur. Verified in the built
+     stylesheet, not assumed. Same ordering applies to .sf-panel/.sf-caption. */
+  -webkit-backdrop-filter: blur(12px) brightness(1.25) saturate(1.4);
+  backdrop-filter: blur(12px) brightness(1.25) saturate(1.4);
+  box-shadow:
+    /* separation from the content layer: tight contact + broad ambient */
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.28),
+    /* implied bezel compression, top-lit */
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    inset 0 -8px 12px -8px rgba(0, 0, 0, 0.45),
+    /* refraction approximation — the large NEGATIVE spread confines a wide blur
+       to a narrow edge band, standing in for a real bezel's lensing */
+    inset -20px 10px 5px -20px rgba(0, 0, 0, 0.3),
+    inset -20px 15px 10px -20px rgba(0, 0, 0, 0.2),
+    inset 14px 0 5px -10px rgba(0, 0, 0, 0.2);
   isolation: isolate;
+  transform: translateZ(0);
+  will-change: backdrop-filter;
 }
-.qualify-pill:focus-within { border-color: rgba(255, 247, 233, 0.55); }
+/* SPECULAR RIM — a masked gradient border, NOT an inset box-shadow. A shadow
+   has constant intensity with only a directional offset, which reads as a
+   BEVEL. Real rim light varies with the surface normal's angle to the light, so
+   it needs a gradient to supply the falloff: bright primary lobe, near-
+   extinction on the flanks, then a weaker second lobe on the far edge catching
+   light at grazing incidence.
+
+   168deg is NOT "near-vertical" here, despite looking it. Gradient line length
+   is W·sin(a) + H·cos(a) = 400·sin168 + 60·cos168 = 83.2 + 58.7 = 141.9px, so
+   at this 6.67:1 aspect **59% of the travel is horizontal** and it renders as a
+   DIAGONAL sweep, not a top-light. Measured on screen: alpha runs 0.491 at the
+   top-LEFT, extinguishes to 0.044 about 78% across the top edge, then the
+   second lobe rebuilds to 0.332 at the bottom-RIGHT. Top-left vs bottom-left is
+   8.8x; top-right vs bottom-right is 4.7x inverted. That reads as a single
+   light source at upper-left, which is conventional and is what was signed off.
+   Want top-lit evenly across the full width instead? That needs ~178deg (which
+   puts only ~19% of the travel horizontal), not a smaller number.
+
+   RTL deliberately does NOT mirror. CSS gradient angles ignore `dir`, so Arabic
+   gets the same upper-left light, and that is correct on purpose: a light
+   source is physical, not directional — it shouldn't flip with reading order
+   the way a layout does. (Mirroring would be 192deg if that's ever wanted.)
+   Called out because the project rule is that physical/directional values get a
+   locale branch; this one is an intentional exception, not an oversight. */
+.qualify-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    168deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.05) 46%,
+    rgba(255, 255, 255, 0.12) 70%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.85;
+  transition: opacity 0.2s ease-out;
+}
+/* Focus brightens the whole rim, since there is no border left to recolour.
+   Keeps the single-property, 200ms feel of the original focus treatment. */
+.qualify-pill:focus-within::after { opacity: 1; }
+
+/* Respect the OS setting: drop the material, keep the control legible. */
+@media (prefers-reduced-transparency: reduce) {
+  .qualify-pill {
+    background: rgba(20, 20, 22, 0.92);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
 .qualify-pill-input {
   flex: 1;
   min-width: 0;
@@ -272,13 +607,18 @@ h1 .intro-mask {
   margin: 0 6px;
   padding: 0 18px;
   border: none;
-  border-radius: 4px;
+  /* 8px, arc-fit off the reference button (R=15 device px @DPR2). Concentric
+     with the shell's new 12px: a 4px inner corner inside a 12px outer reads as
+     a square chip rattling in a rounded slot. */
+  border-radius: 8px;
   overflow: clip;
   isolation: isolate;
   background: #111111;
   cursor: pointer;
   flex-shrink: 0;
+  transition: scale 0.12s var(--ease-default);
 }
+.qualify-pill-btn:active { scale: 0.96; }
 .qualify-pill-btn-label {
   position: relative;
   z-index: 2;
@@ -291,7 +631,7 @@ h1 .intro-mask {
   position: absolute;
   inset: 0;
   z-index: 1;
-  border-radius: 4px;
+  border-radius: 8px;
   transform-origin: center;
   transform: translateY(101%);
   background: #fff7e9;
@@ -303,6 +643,9 @@ h1 .intro-mask {
     transform: translateY(0);
   }
 }
+/* Keyboard focus ring, matching .sf-trigger's beige treatment so the whole
+   glass pill reads as one consistent control. */
+.qualify-pill-btn:focus-visible { outline: 2px solid rgba(255, 247, 233, 0.75); outline-offset: 2px; }
 
 /* ============================================================
    SPACE FINDER (hero facility dropdown + window crossfade)
@@ -328,7 +671,9 @@ h1 .intro-mask {
   color: #fff7e9;
   letter-spacing: -0.01em;
   text-align: start;
+  transition: scale 0.12s var(--ease-default);
 }
+.sf-trigger:active { scale: 0.96; }
 .sf-trigger[data-placeholder="true"] { color: rgba(255, 247, 233, 0.7); }
 .sf-trigger:focus-visible { outline: 2px solid rgba(255, 247, 233, 0.55); outline-offset: -2px; border-radius: 10px; }
 .sf-chevron {
@@ -340,8 +685,11 @@ h1 .intro-mask {
 }
 .sf-trigger[aria-expanded="true"] .sf-chevron { transform: rotate(180deg); }
 
-/* disabled CTA state (before a space is chosen) */
-.sf-cta-disabled { opacity: 0.45; pointer-events: none; }
+/* NOTE: `.sf-cta-disabled` (opacity .45 + pointer-events:none) was removed.
+   Before a space was chosen it dimmed the CTA to a 2.90x internal contrast
+   against the reference button's 14.53x, so the pill's whole right half read
+   as broken and flattened the glass. The CTA is now always solid and opens
+   the picker instead. Don't reintroduce a dimmed state here. */
 
 .sf-panel {
   /* Portaled to <body> and positioned from JS (top/left/width) so it opens
@@ -352,11 +700,15 @@ h1 .intro-mask {
   margin: 0;
   padding: 6px;
   list-style: none;
-  border-radius: 6px;
+  /* Follows the shell's 12px. No reference for this one (Daylight's field has
+     no dropdown) — but the panel opens flush under the pill at the same width,
+     so a 6px panel below a 12px pill reads as two unrelated controls. */
+  border-radius: 12px;
   background: rgba(20, 14, 8, 0.72);
   border: 1px solid rgba(255, 247, 233, 0.22);
-  backdrop-filter: blur(14px) saturate(120%);
+  /* -webkit FIRST, standard LAST — see the note on .qualify-pill. */
   -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   animation: sf-panel-in 0.28s var(--ease-expo) both;
@@ -378,8 +730,9 @@ h1 .intro-mask {
   font-size: 15px;
   color: #fff7e9;
   text-align: start;
-  transition: background-color 0.18s var(--ease-premium);
+  transition: background-color 0.18s var(--ease-premium), scale 0.12s var(--ease-default);
 }
+.sf-option:active { scale: 0.96; }
 .sf-option:hover,
 .sf-option:focus-visible { background: rgba(255, 247, 233, 0.1); outline: none; }
 .sf-option[data-active="true"] { background: rgba(255, 90, 72, 0.16); }
@@ -402,6 +755,10 @@ h1 .intro-mask {
   inset: 0;
   overflow: hidden;
   border-radius: 16px;
+  /* 1px containment edge on the framed media window so a bright space photo
+     does not bleed edge-to-edge. Inset (not outset) so it follows the 16px
+     radius and survives the clip-path. Pure black at 10% per the light-bg rule. */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 .sf-slide {
   position: absolute;
@@ -428,8 +785,9 @@ h1 .intro-mask {
   border-radius: 2px;
   color: #fff7e9;
   background: rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(6px);
+  /* -webkit FIRST, standard LAST — see the note on .qualify-pill. */
   -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.4s var(--ease-premium), transform 0.4s var(--ease-premium);

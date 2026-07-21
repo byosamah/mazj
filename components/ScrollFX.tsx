@@ -88,13 +88,21 @@ export default function ScrollFX() {
         });
       }
 
-      // Clip-path scrub reveals
+      // Clip-path scrub reveals: media opens from a small inset rectangle to
+      // fill its own frame as it crosses the viewport.
+      //
+      // The reference ends this at `round 2px` because ITS media grows
+      // full-bleed to the viewport edge, where a radius would be wrong. Every
+      // media surface here is an INSET frame at 16px (see MediaFrame), so
+      // ending at 2px would snap each image from 16px to near-square at rest
+      // and contradict the design system. Ending at 16px is the correct
+      // adaptation: same motion, our geometry.
       gsap.utils.toArray<HTMLElement>('[data-fx="clip"]').forEach((el) => {
         gsap.fromTo(
           el,
           { clipPath: "inset(34% 12% 28% 12% round 16px)" },
           {
-            clipPath: "inset(0% 0% 0% 0% round 2px)",
+            clipPath: "inset(0% 0% 0% 0% round 16px)",
             ease: "none",
             scrollTrigger: {
               trigger: el,

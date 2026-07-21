@@ -8,6 +8,7 @@ import Reveal from "@/components/Reveal";
 import CtaButton from "@/components/CtaButton";
 import Footer from "@/components/Footer";
 import {SOCIALS} from "@/lib/links";
+import {waLink} from "@/lib/contact";
 
 const SOCIAL_LINKS = [
   {label: "X", href: SOCIALS.x},
@@ -20,38 +21,52 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} />
+      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/office-day.jpg" imageRatio="aspect-[4/5]" />
 
-      {/* Tour requests + reaching us. The socials are the only confirmed
-          channels today. TODO(owner): once the phone/WhatsApp number exists,
-          make the primary CTA a wa.me link instead of Instagram. */}
+      {/* Tour requests + reaching us. The primary CTA is the approved WhatsApp
+          Business line (lib/contact.ts), matching how every other tour CTA on
+          the site already behaves — Location, SpaceOffers and the Faq copy all
+          say "book a tour on WhatsApp". This previously pointed at Instagram,
+          which dropped tour requests into DMs. */}
       <section className="relative w-full bg-beige px-6 pb-8 pt-4 lg:px-10">
         <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-          <Reveal className="flex flex-col gap-5 rounded-[16px] bg-beige-card p-8 lg:p-10">
-            <h2 className="font-sans text-24 font-medium leading-tight text-brown lg:text-28">
+          <Reveal className="flex flex-col gap-5 rounded-[16px] bg-beige-card p-10 lg:p-12">
+            {/* These were the smallest headings on the site (24/28px) sitting
+                directly above LocationHours' 32/50px, so the page's own authored
+                content ranked visually below a block reused from the landing. */}
+            <p className="eyebrow text-12 text-brown/60">{t("tourEyebrow")}</p>
+            <h2 className="text-balance font-sans text-32 font-medium leading-[1.05] text-brown lg:text-40">
               {t("tourTitle")}
             </h2>
-            <p className="max-w-[480px] text-15 leading-relaxed text-brown/85">{t("tourBody")}</p>
+            <p className="max-w-[480px] text-15 leading-relaxed text-brown/85 text-pretty">{t("tourBody")}</p>
             <div className="mt-2">
-              <CtaButton href={SOCIALS.instagram} variant="onTan">
+              <CtaButton href={waLink(t("tourMsg"))} variant="onTan">
                 {t("tourCta")}
               </CtaButton>
             </div>
           </Reveal>
 
-          <Reveal delay={100} className="flex flex-col gap-5 rounded-[16px] bg-white p-8 shadow-[0_10px_32px_rgba(0,0,0,0.08)] lg:p-10">
-            <h2 className="font-sans text-24 font-medium leading-tight text-black lg:text-28">
+          {/* Hairline-outlined panel, not a second floating white card. One
+              tan surface + one white drop-shadowed box read as two unrelated
+              widgets; a ruled panel belongs to the same system as every other
+              rule on the site. */}
+          <Reveal
+            delay={100}
+            className="flex flex-col gap-5 rounded-[16px] border border-black/12 p-10 lg:p-12"
+          >
+            <p className="eyebrow text-12 text-muted">{t("socialsEyebrow")}</p>
+            <h2 className="text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-40">
               {t("socialsTitle")}
             </h2>
-            <p className="max-w-[480px] text-15 leading-relaxed text-muted">{t("socialsBody")}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-8 font-mono text-12 uppercase tracking-[0.05em] text-black">
+            <p className="max-w-[480px] text-15 leading-relaxed text-muted text-pretty">{t("socialsBody")}</p>
+            <div className="eyebrow mt-2 flex flex-wrap items-center gap-8 text-12 text-black">
               {SOCIAL_LINKS.map((s) => (
                 <a
                   key={s.label}
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-[8px] transition-opacity duration-200 hover:opacity-60"
+                  className="inline-flex min-h-[40px] items-center gap-[8px] [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
                 >
                   <span className="opacity-50">[</span>
                   <span>{s.label}</span>

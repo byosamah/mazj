@@ -1,44 +1,93 @@
 import Reveal from "./Reveal";
+import {ZATCA_TAX_NUMBER} from "@/lib/links";
 
 /**
- * Legal skeleton body for /terms and /privacy: a review-pending notice,
- * heading + body sections, and closing registration lines (ZATCA, CR).
- * All strings arrive already translated.
+ * Legal body for /terms and /privacy.
+ *
+ * Runs the brand system in "quiet mode": no pinning, no scrub, no display type.
+ * A document page proves seriousness by refusing to fill the grid, so the
+ * effective-date rail deliberately occupies a whole column to carry two words
+ * while the prose sits off-axis beside it. That also fixes a real defect — the
+ * h1 (max-w-[1400px], start-aligned) previously jumped ~270px to a centred
+ * max-w-[860px] body, reading as a misalignment rather than a composition.
+ *
+ * The review notice used to be brown-on-tan-on-beige at roughly 1.17:1, i.e.
+ * functionally invisible. A disclaimer nobody can read is worse than none, so
+ * it now carries a coral rule and full-strength ink.
  */
 export default function LegalSections({
   reviewNote,
+  effectiveLabel,
+  effectiveDate,
   sections,
   footLines = [],
 }: {
   reviewNote: string;
+  effectiveLabel: string;
+  /** ISO date (YYYY-MM-DD). Rendered machine-readable, displayed localised. */
+  effectiveDate: string;
   sections: Array<{h: string; body: string}>;
   footLines?: string[];
 }) {
   return (
     <section className="relative w-full bg-beige px-6 py-16 lg:px-10 lg:py-24">
-      <div className="mx-auto flex w-full max-w-[860px] flex-col gap-10">
-        {/* TODO(owner): the body below is a placeholder skeleton pending legal
-            review; replace with counsel-approved text before launch. */}
-        <Reveal className="rounded-[16px] bg-beige-card p-6">
-          <p className="font-mono text-12 uppercase tracking-[0.05em] text-brown/70">{reviewNote}</p>
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-8">
+        {/* Metadata rail: one datum, five columns, and no apology for it. */}
+        <Reveal className="lg:col-span-4 xl:col-span-3">
+          <div className="flex flex-col gap-2 border-t border-black/15 pt-5 lg:sticky lg:top-[120px]">
+            <p className="eyebrow text-12 text-muted">{effectiveLabel}</p>
+            {/* machine value stays ISO; only the visible label is localised */}
+            <time
+              dateTime={effectiveDate}
+              className="text-15 text-black [font-variant-numeric:tabular-nums]"
+            >
+              {effectiveDate}
+            </time>
+          </div>
         </Reveal>
 
-        {sections.map((s, i) => (
-          <Reveal as="div" key={i} className="flex flex-col gap-3 border-t border-black/10 pt-8">
-            <h2 className="font-sans text-20 font-medium leading-snug text-black lg:text-24">{s.h}</h2>
-            <p className="whitespace-pre-line text-15 leading-relaxed text-muted">{s.body}</p>
+        <div className="flex flex-col gap-10 lg:col-span-8 xl:col-start-5 xl:col-span-8">
+          <Reveal className="flex items-start gap-4 border-s-2 border-orange bg-beige-card/60 p-6 ps-5">
+            <p className="text-14 leading-relaxed text-brown [text-wrap:pretty]">{reviewNote}</p>
           </Reveal>
-        ))}
 
-        {footLines.length > 0 && (
-          <Reveal className="flex flex-col gap-2 border-t border-black/10 pt-8">
-            {footLines.map((line, i) => (
-              <p key={i} className="font-mono text-12 uppercase tracking-[0.05em] text-muted">
-                {line}
-              </p>
+          {/* One observer staggers every clause. Previously each section got
+              delay={0}, so all of them wiped in as a single block — the only
+              list on the site with no stagger at all. */}
+          <Reveal as="div" className="reveal-list flex flex-col gap-10">
+            {sections.map((s, i) => (
+              <div key={i} className="flex flex-col gap-3 border-t border-black/10 pt-8">
+                <h2 className="font-sans text-20 font-medium leading-snug text-black lg:text-24 [text-wrap:balance]">
+                  {s.h}
+                </h2>
+                <p className="max-w-[68ch] whitespace-pre-line text-15 leading-relaxed text-muted [text-wrap:pretty]">
+                  {s.body}
+                </p>
+              </div>
             ))}
           </Reveal>
-        )}
+
+          {footLines.length > 0 && (
+            <Reveal className="flex flex-col gap-2 border-t border-black/10 pt-8">
+              {footLines.map((line, i) => (
+                <p key={i} className="eyebrow text-12 text-muted [font-variant-numeric:tabular-nums]">
+                  {line}
+                </p>
+              ))}
+              {/* Single source of truth. The number was hardcoded into both
+                  message files as well, so it lived in three places and would
+                  drift. `dir="ltr"` isolates the Latin digits: an unisolated
+                  numeral inside an RTL paragraph can have its punctuation
+                  reordered by the bidi algorithm. */}
+              <p
+                dir="ltr"
+                className="eyebrow text-12 text-muted [font-variant-numeric:tabular-nums] rtl:text-end"
+              >
+                VAT {ZATCA_TAX_NUMBER}
+              </p>
+            </Reveal>
+          )}
+        </div>
       </div>
     </section>
   );

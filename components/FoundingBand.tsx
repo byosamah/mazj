@@ -17,11 +17,11 @@ export default function FoundingBand() {
     <section className="relative w-full bg-purple px-6 py-24 lg:px-10 lg:py-32">
       <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-8 text-center">
         <Reveal className="flex flex-col items-center gap-5">
-          <p className="font-mono text-12 uppercase tracking-[0.05em] text-purple-dark/70">{t("eyebrow")}</p>
-          <h2 className="whitespace-pre-line font-sans font-bold text-40 leading-[1.0] text-purple-dark lg:text-70 lg:leading-[0.98] lg:tracking-[-1.2px]">
+          <p className="eyebrow text-12 text-purple-dark/70">{t("eyebrow")}</p>
+          <h2 className="whitespace-pre-line text-balance font-sans font-bold text-40 leading-[1.0] text-purple-dark lg:text-70 lg:leading-[0.98] lg:tracking-[-1.2px]">
             {t("title")}
           </h2>
-          <p className="mt-2 max-w-[560px] text-15 leading-relaxed text-purple-dark/90 lg:text-18">{t("body")}</p>
+          <p className="mt-2 max-w-[560px] text-pretty text-15 leading-relaxed text-purple-dark/90 lg:text-18">{t("body")}</p>
         </Reveal>
 
         <Reveal
@@ -41,7 +41,7 @@ export default function FoundingBand() {
           <CtaButton href={waLink(t("ctaMsg"))} variant="onLavender">
             {t("cta")}
           </CtaButton>
-          <p className="font-mono text-11 uppercase tracking-[0.05em] text-purple-dark/60">{t("note")}</p>
+          <p className="eyebrow text-11 text-purple-dark/60">{t("note")}</p>
         </Reveal>
       </div>
     </section>

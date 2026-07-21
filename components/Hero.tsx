@@ -3,7 +3,6 @@
 import {useEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {useLocale, useTranslations} from "next-intl";
-import {Link} from "@/i18n/navigation";
 import {BOOKING} from "@/lib/links";
 import LogoLoop from "./LogoLoop";
 
@@ -63,7 +62,6 @@ const IconClock = () => (
 export default function Hero() {
   const t = useTranslations("Hero");
   const tf = useTranslations("SpaceFinder");
-  const tc = useTranslations("Cta");
   const rtl = useLocale() === "ar";
   // The media window is a SQUARE anchored center-end (right in LTR, mirrored to
   // left in RTL) via logical properties in globals.css (.sf-stage / .sf-frame).
@@ -466,25 +464,6 @@ export default function Hero() {
                 )}
             </div>
 
-            {/* Always-live action for a visitor who hasn't picked a space in the
-                finder above: the full menu on /spaces. Self-serve by design,
-                the site is the system rather than a queue for the MAZJ team. */}
-            <Link
-              href="/spaces"
-              className="intro-fade mt-5 inline-flex h-[50px] w-full max-w-[400px] items-center justify-center rounded-[4px] bg-orange px-[22px] text-15 font-medium text-white transition-[opacity,transform] duration-200 hover:opacity-90 active:scale-[0.96] lg:h-[45px] lg:w-fit lg:max-w-none"
-              style={{["--delay" as any]: "700ms"}}
-            >
-              {tc("seeSpaces")}
-            </Link>
-
-            {/* Trust line — address · access. Same mono micro-type as
-                the eyebrow, one intro-fade beat after the pill. */}
-            <p
-              className="eyebrow intro-fade mt-4 text-12 tabular-nums text-beige/75"
-              style={{["--delay" as any]: "760ms"}}
-            >
-              {t("trustLine")}
-            </p>
           </div>
         </div>
       </div>

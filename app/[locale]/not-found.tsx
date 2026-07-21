@@ -6,8 +6,8 @@ export default function NotFound() {
 
   return (
     <main className="flex min-h-svh w-full flex-col items-center justify-center gap-6 bg-beige px-6 text-center">
-      <p className="font-mono text-12 uppercase tracking-[0.05em] text-muted">404</p>
-      <h1 className="font-sans font-medium text-40 text-black lg:text-70">{t("title")}</h1>
+      <p className="eyebrow text-12 text-muted">404</p>
+      <h1 className="text-balance font-sans font-medium text-40 text-black lg:text-70">{t("title")}</h1>
       <Link
         href="/"
         className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#fff7e9] [--cta-fg-hover:#4c2806]"

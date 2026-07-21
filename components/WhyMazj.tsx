@@ -15,13 +15,13 @@ export default function WhyMazj() {
       {/* Card 2 — the risks (three alternating lines) */}
       <VideoCard label={t("risksLabel")} video="/videos/why-risks.mp4" poster="/images/why-risks.jpg" align="center">
         <div className="flex w-full max-w-[1100px] flex-col gap-4 [text-shadow:0_2px_18px_rgba(0,0,0,0.6)]">
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-45">
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-45 [text-wrap:balance]">
             {t("risk1")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-end lg:text-45" delay={120}>
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-end lg:text-45 [text-wrap:balance]" delay={120}>
             {t("risk2")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-center lg:text-45" delay={240}>
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-center lg:text-45 [text-wrap:balance]" delay={240}>
             {t("risk3")}
           </Reveal>
         </div>
@@ -73,7 +73,7 @@ function VideoCard({
           align === "top" ? "pt-[16vh]" : ""
         }`}
       >
-        <p className="font-mono text-12 uppercase tracking-[0.05em]">{label}</p>
+        <p className="eyebrow text-12">{label}</p>
         {children}
       </div>
     </div>

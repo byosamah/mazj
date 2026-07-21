@@ -2,11 +2,9 @@ import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
 import CtaButton from "./CtaButton";
-import {waLink} from "@/lib/contact";
 
 export default function Steps() {
   const t = useTranslations("Steps");
-  const tCta = useTranslations("Cta");
 
   return (
     <section className="relative w-full bg-beige">
@@ -27,18 +25,18 @@ export default function Steps() {
         </div>
         <div className="relative z-10 mx-auto flex max-w-[920px] flex-col items-center gap-7 px-6 text-center">
           <div className="flex flex-col items-center gap-6">
-            <Reveal as="p" className="font-mono text-12 uppercase tracking-[0.05em] text-beige/85">{t("eyebrow")}</Reveal>
+            <Reveal as="p" className="eyebrow text-12 text-beige/85">{t("eyebrow")}</Reveal>
             <WordReveal
               as="h2"
               className="font-sans font-bold text-40 leading-[1.02] text-beige lg:text-85 lg:leading-[0.98] lg:tracking-[-1.7px]"
             >
               {t("title")}
             </WordReveal>
-            <Reveal as="p" className="max-w-[560px] text-15 leading-[1.5] text-beige/90 lg:text-16" delay={120}>{t("body")}</Reveal>
+            <Reveal as="p" className="max-w-[560px] text-pretty tabular-nums text-15 leading-[1.5] text-beige/90 lg:text-16" delay={120}>{t("body")}</Reveal>
           </div>
-          <Reveal className="mt-2" delay={140}>
+          <Reveal className="mt-2" delay={240}>
             <CtaButton
-              href={waLink(tCta("bookTourMsg"))}
+              href="/spaces"
               variant="light"
               className="!border-beige/40 !bg-transparent [--cta-fg:#fff7e9] [--cta-sweep:#fff7e9] [--cta-fg-hover:#4c2806]"
             >
@@ -54,7 +52,7 @@ export default function Steps() {
         heading={t("step1Heading")}
         sub={t("step1Sub")}
         body={t("step1Body")}
-        cta={{label: t("step1Cta"), href: "/pricing"}}
+        cta={{label: t("step1Cta"), href: "/spaces"}}
         media={<SubscribeCard />}
       />
 
@@ -99,12 +97,12 @@ function ProcessCard({
     >
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal className="flex flex-col gap-5 lg:ps-[8%]">
-          <p className="font-mono text-12 uppercase tracking-[0.05em] text-brown/60">{step}</p>
-          <h3 className="mt-6 whitespace-pre-line font-sans text-32 font-medium leading-[1.05] text-brown lg:text-50">
+          <p className="eyebrow text-12 tabular-nums text-brown/60">{step}</p>
+          <h3 className="mt-6 whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-brown lg:text-50">
             {heading}
           </h3>
-          <p className="font-mono text-12 uppercase tracking-[0.05em] text-brown/60">{sub}</p>
-          <p className="mt-2 max-w-[420px] text-15 leading-relaxed text-brown/90 lg:text-16">{body}</p>
+          <p className="eyebrow text-12 text-brown/60">{sub}</p>
+          <p className="mt-2 max-w-[420px] text-pretty tabular-nums text-15 leading-relaxed text-brown/90 lg:text-16">{body}</p>
           {cta && (
             <div className="mt-4">
               <CtaButton href={cta.href} variant="onTan">
@@ -154,7 +152,7 @@ function SubscribeCard() {
           alt="MAZJ"
           className="h-auto w-[128px] [filter:brightness(0)_invert(1)]"
         />
-        <p className="font-mono text-12 uppercase tracking-[0.05em] text-white/90">{t("subscribeTag")}</p>
+        <p className="eyebrow text-12 text-white/90">{t("subscribeTag")}</p>
       </div>
     </div>
   );
@@ -164,7 +162,7 @@ function SubscribeCard() {
 function ReserveCard() {
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="relative aspect-[3/4] w-full max-w-[300px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12)]">
+      <div className="relative aspect-[3/4] w-full max-w-[300px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12)] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/step-reserve.jpg"
@@ -181,7 +179,7 @@ function ReserveCard() {
 function ShowUpCard() {
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="relative aspect-[3/4] w-full max-w-[300px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12)]">
+      <div className="relative aspect-[3/4] w-full max-w-[300px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12)] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/spaces/membership.jpg"

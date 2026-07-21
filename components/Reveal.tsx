@@ -13,12 +13,20 @@ export default function Reveal({
   delay = 0,
   as: Tag = "div",
   amount = 0.2,
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
   as?: keyof React.JSX.IntrinsicElements;
   amount?: number;
+  /**
+   * Anything else is forwarded to the rendered element. Needed so callers can
+   * attach ScrollFX hooks (`data-fx="clip"`, `data-parallax`) to a revealed
+   * block — without this they were accepted by TS and then silently dropped,
+   * so the effect never fired.
+   */
+  [key: string]: unknown;
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -43,6 +51,7 @@ export default function Reveal({
   const Component = Tag as any;
   return (
     <Component
+      {...rest}
       ref={ref}
       className={`reveal ${className}`}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}

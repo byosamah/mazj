@@ -3,11 +3,9 @@ import CtaButton from "./CtaButton";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
 import {BOOKING} from "@/lib/links";
-import {waLink} from "@/lib/contact";
 
 export default function StepInto() {
   const t = useTranslations("StepInto");
-  const tCta = useTranslations("Cta");
 
   return (
     <section className="relative w-full overflow-clip bg-purple">
@@ -38,21 +36,21 @@ export default function StepInto() {
                 maskPosition: "center",
               }}
             />
-            <p className="font-mono text-12 uppercase tracking-[0.05em] text-purple-dark">{t("eyebrow")}</p>
-            <p className="text-15 leading-[1.5] text-purple-dark lg:text-16">{t("body")}</p>
+            <p className="eyebrow text-12 text-purple-dark">{t("eyebrow")}</p>
+            <p className="text-15 leading-[1.5] text-purple-dark lg:text-16 text-pretty">{t("body")}</p>
             <div className="mt-2 flex flex-wrap items-center gap-4">
-              <CtaButton href={waLink(tCta("bookTourMsg"))} variant="onLavender">
+              <CtaButton href="/spaces" variant="onLavender">
                 {t("qualifyCta")}
               </CtaButton>
               <CtaButton
-                href={BOOKING.dayDesk}
+                href={BOOKING.sharedSeat}
                 variant="light"
                 className="!border-purple-dark/40 [--cta-fg:#321f61] [--cta-sweep:#321f61] [--cta-fg-hover:#c8b2ff]"
               >
                 {t("dayPassCta")}
               </CtaButton>
             </div>
-            <p className="max-w-[420px] text-13 leading-[1.5] text-purple-dark/70">{t("dayPassNote")}</p>
+            <p className="max-w-[420px] text-13 leading-[1.5] text-purple-dark/70 text-pretty">{t("dayPassNote")}</p>
           </Reveal>
         </div>
 
@@ -61,7 +59,7 @@ export default function StepInto() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/step-into.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 flex items-center justify-center p-8">
-            <div data-fx="rise" className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.24)]">
+            <div data-fx="rise" className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.24),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
               <video
                 className="h-full w-full object-cover"
                 autoPlay

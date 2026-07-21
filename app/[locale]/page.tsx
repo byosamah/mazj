@@ -6,7 +6,6 @@ import SpacesGrid from "@/components/SpacesGrid";
 import HostEvent from "@/components/HostEvent";
 import Steps from "@/components/Steps";
 import WhyMazj from "@/components/WhyMazj";
-import Proof from "@/components/Proof";
 import Network from "@/components/Network";
 import LocationHours from "@/components/LocationHours";
 import FaqSection from "@/components/FaqSection";
@@ -30,10 +29,10 @@ export default async function Home({
       <HostEvent />
       <Steps />
       <WhyMazj />
-      <Proof />
       <Network />
       <LocationHours />
-      <FaqSection />
+      {/* Landing shows a teaser; /faq carries the full categorised set. */}
+      <FaqSection limit={6} />
       <StepInto />
       <Footer />
     </main>

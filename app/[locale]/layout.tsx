@@ -7,6 +7,9 @@ import "../globals.css";
 import Navigation from "@/components/Navigation";
 import ScrollFX from "@/components/ScrollFX";
 import SmoothScroll from "@/components/motion/SmoothScroll";
+import JsonLd from "@/components/JsonLd";
+import {localBusinessSchema} from "@/lib/schema";
+import {SITE_URL} from "@/lib/site";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({locale}));
@@ -27,11 +30,11 @@ export async function generateMetadata({
   const path = `/${locale}`;
 
   // TODO(launch): set NEXT_PUBLIC_SITE_URL to the real production domain.
-  // The mazj.example fallback is an intentional placeholder so nothing ships a fake canonical.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mazj.example";
-
+  // The mazj.example fallback is an intentional placeholder so nothing ships a
+  // fake canonical; `lib/site.ts` hard-fails a real production deploy that
+  // still has it. Same value feeds the sitemap, robots.txt and JSON-LD.
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(SITE_URL),
     title,
     description,
     applicationName: siteName,
@@ -77,9 +80,23 @@ export default async function LocaleLayout({
 
   const dir = locale === "ar" ? "rtl" : "ltr";
 
+  // Sitewide LocalBusiness node. MAZJ is a single physical location, so this is
+  // the strongest local-search signal available and it belongs on every page,
+  // not just /contact. Facts come from lib/contact.ts + lib/links.ts; the
+  // human-readable strings come from i18n so each locale describes itself.
+  const meta = await getTranslations({locale, namespace: "Meta"});
+  const location = await getTranslations({locale, namespace: "Location"});
+  const business = localBusinessSchema({
+    locale,
+    name: meta("siteName"),
+    description: meta("description"),
+    streetAddress: location("address"),
+  });
+
   return (
     <html lang={locale} dir={dir}>
       <body className="bg-beige font-sans text-black antialiased">
+        <JsonLd data={business} />
         <NextIntlClientProvider>
           <Navigation />
           {children}

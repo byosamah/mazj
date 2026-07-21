@@ -14,9 +14,7 @@ export default function Footer() {
   const links = [
     {label: t("linkAbout"), href: "/about"},
     {label: t("linkSpaces"), href: "/spaces"},
-    {label: t("linkPricing"), href: "/pricing"},
     {label: t("linkEvents"), href: "/events"},
-    {label: t("linkCommunity"), href: "/community"},
     {label: t("linkFaq"), href: "/faq"},
     {label: t("linkContact"), href: "/contact"},
     {label: t("linkTerms"), href: "/terms"},
@@ -60,12 +58,12 @@ export default function Footer() {
         </div>
 
         {/* Bracket links */}
-        <nav className="flex flex-col items-center gap-[26px] font-mono text-12 uppercase tracking-[0.05em] text-beige/90">
+        <nav className="eyebrow flex flex-col items-center gap-[26px] text-12 text-beige/90">
           {links.map((l, i) => (
             <Link
               key={i}
               href={l.href}
-              className="group inline-flex items-center gap-[8px] transition-opacity duration-200 hover:opacity-70"
+              className="group relative inline-flex items-center gap-[8px] before:absolute before:content-[''] before:inset-x-0 before:top-1/2 before:h-[40px] before:-translate-y-1/2 hover:opacity-70 [transition:opacity_200ms,transform_120ms] active:scale-[0.96]"
             >
               <span className="opacity-70">[</span>
               <span>{l.label}</span>
@@ -83,14 +81,14 @@ export default function Footer() {
       </div>
 
       {/* Socials — pinned bottom-start like the original */}
-      <div className="absolute bottom-10 start-6 z-10 flex items-center gap-12 font-mono text-12 uppercase tracking-[0.05em] text-beige/70 lg:start-10">
+      <div className="eyebrow absolute bottom-10 start-6 z-10 flex items-center gap-12 text-12 text-beige/70 lg:start-10">
         {SOCIAL_LINKS.map((s) => (
           <a
             key={s.label}
             href={s.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-opacity duration-200 hover:text-beige hover:opacity-100"
+            className="[transition:opacity_200ms,transform_120ms] active:scale-[0.96] hover:text-beige hover:opacity-100 inline-flex items-center min-h-[40px] min-w-[40px]"
           >
             {s.label}
           </a>
@@ -100,7 +98,7 @@ export default function Footer() {
       {/* ZATCA registration — pinned bottom-end, mirroring the socials row.
           Sits one row above the socials on mobile so the two lines never collide
           on narrow screens. */}
-      <div className="absolute bottom-[84px] end-6 z-10 font-mono text-12 uppercase tracking-[0.05em] text-beige/70 lg:bottom-10 lg:end-10">
+      <div className="eyebrow absolute bottom-[84px] end-6 z-10 text-12 tabular-nums text-beige/70 lg:bottom-10 lg:end-10">
         {t("zatca")}
       </div>
     </footer>

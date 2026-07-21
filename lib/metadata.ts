@@ -10,7 +10,8 @@ import {getTranslations} from "next-intl/server";
 export async function pageMetadata(
   locale: string,
   namespace: string,
-  path: string
+  path: string,
+  opts?: {noindex?: boolean}
 ): Promise<Metadata> {
   const t = await getTranslations({locale, namespace});
   const meta = await getTranslations({locale, namespace: "Meta"});
@@ -22,6 +23,12 @@ export async function pageMetadata(
   return {
     title,
     description,
+    // `noindex` keeps a route reachable and crawlable-through while stopping it
+    // being listed. Used by /privacy and /terms, which still ship placeholder
+    // clauses ("pending legal review", CR number outstanding) — indexing draft
+    // legal text is a worse signal than not appearing in results at all.
+    // follow:true so the footer links still pass through to real pages.
+    ...(opts?.noindex ? {robots: {index: false, follow: true}} : {}),
     alternates: {
       canonical: `/${locale}${path}`,
       languages: {

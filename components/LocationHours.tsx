@@ -22,15 +22,15 @@ export default function LocationHours() {
     <section className="relative w-full bg-beige px-6 py-24 lg:px-10 lg:py-32">
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal className="flex flex-col gap-5 lg:ps-[8%]">
-          <p className="font-mono text-12 uppercase tracking-[0.05em] text-muted">{t("eyebrow")}</p>
-          <h2 className="whitespace-pre-line font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
+          <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
+          <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
             {t("title")}
           </h2>
           <dl className="mt-4 flex max-w-[480px] flex-col">
             {rows.map((row, i) => (
               <div key={i} className="flex flex-col gap-1 border-t border-black/10 py-5">
-                <dt className="font-mono text-12 uppercase tracking-[0.05em] text-muted">{row.label}</dt>
-                <dd className="text-15 leading-relaxed text-black lg:text-16">
+                <dt className="eyebrow text-12 text-muted">{row.label}</dt>
+                <dd className="text-15 leading-relaxed text-black lg:text-16 [font-variant-numeric:tabular-nums]">
                   {row.href ? (
                     <a
                       href={row.href}
@@ -49,17 +49,35 @@ export default function LocationHours() {
           </dl>
         </Reveal>
 
-        {/* Map: links to MAZJ's real Google listing (Life Tower). */}
+        {/* Links to MAZJ's real Google listing (Life Tower). This was an EMPTY
+            tan box with a caption — the largest visual element on the contact
+            page was a placeholder, on the one page whose subject is location.
+            It now carries a real photo of the space with the directions label
+            over a scrim, so the block shows something before it asks for a tap. */}
         <Reveal delay={120} className="flex items-center justify-center">
           <a
             href={MAPS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex aspect-[4/3] w-full max-w-[560px] items-center justify-center rounded-[16px] bg-beige-card transition-colors hover:bg-beige-card/70"
+            className="group relative flex aspect-[4/3] w-full max-w-[560px] items-end overflow-clip rounded-[16px] bg-beige-card transition-transform duration-[120ms] active:scale-[0.96] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
           >
-            <p className="max-w-[280px] text-center font-mono text-12 uppercase tracking-[0.05em] text-brown/60 underline decoration-brown/20 underline-offset-4 group-hover:decoration-brown/50">
-              {t("mapPlaceholder")}
-            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/spaces/office-day.jpg"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-[1.04]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            <div className="relative flex w-full items-end justify-between gap-6 p-6 lg:p-8">
+              <p className="eyebrow max-w-[300px] text-12 text-beige underline decoration-beige/30 underline-offset-4 group-hover:decoration-beige">
+                {t("mapPlaceholder")}
+              </p>
+              <span aria-hidden className="eyebrow shrink-0 text-12 text-beige/70">
+                ↗
+              </span>
+            </div>
           </a>
         </Reveal>
       </div>

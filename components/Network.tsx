@@ -33,16 +33,18 @@ export default function Network() {
       />
 
       <div className="relative z-10 flex max-w-[960px] flex-col items-center gap-7 text-center">
-        <Reveal as="p" className="font-mono text-12 uppercase tracking-[0.05em] text-muted">{t("eyebrow")}</Reveal>
+        <Reveal as="p" className="eyebrow text-12 text-muted">{t("eyebrow")}</Reveal>
         <WordReveal
           as="h2"
           className="max-w-[900px] font-sans font-bold text-40 leading-[1.03] text-black lg:text-85 lg:leading-[0.98] lg:tracking-[-1.7px]"
         >
           {`${t("titleLine1")}\n${t("titleLine2")}`}
         </WordReveal>
-        <Reveal as="p" className="max-w-[560px] text-15 leading-[1.5] text-muted lg:text-16" delay={120}>{t("body")}</Reveal>
+        <Reveal as="p" className="max-w-[560px] text-15 leading-[1.5] text-muted lg:text-16 text-pretty" delay={120}>{t("body")}</Reveal>
         <Reveal delay={200}>
-          <CtaButton href="/community" variant="dark">
+          {/* "Join MAZJ" is a membership action, so it lands on /spaces (the
+              booking menu). /community was removed: it's a future plan. */}
+          <CtaButton href="/spaces" variant="dark">
             {t("qualifyCta")}
           </CtaButton>
         </Reveal>

@@ -15,9 +15,11 @@ function Content() {
       <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} />
       <LegalSections
         reviewNote={t("reviewNote")}
+        effectiveLabel={t("effectiveLabel")}
+        effectiveDate={t("effectiveDate")}
         sections={sections}
         // TODO(owner): add the real CR number; the CR line below is a labelled placeholder.
-        footLines={[t("zatca"), t("cr")]}
+        footLines={[t("cr")]}
       />
     </>
   );
@@ -29,7 +31,7 @@ export async function generateMetadata({
   params: Promise<{locale: string}>;
 }): Promise<Metadata> {
   const {locale} = await params;
-  return pageMetadata(locale, "PrivacyPage", "/privacy");
+  return pageMetadata(locale, "PrivacyPage", "/privacy", {noindex: true});
 }
 
 export default async function PrivacyPage({
