@@ -42,3 +42,6 @@ yarn-error.log*
 /footer-live.png
 /footer-live2.png
 /hero-live.png
+
+# audit/verification screenshot dumps (session artifacts, not source)
+/.audit-shots/
