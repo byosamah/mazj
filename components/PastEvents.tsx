@@ -55,7 +55,7 @@ export default function PastEvents() {
                   only visually: assistive tech got 41 equal-weight h3s with no
                   year context, and the route contained no h2 at all. */}
               <Reveal>
-                <h2 className="font-sans text-32 font-bold leading-tight text-black/30 tabular-nums lg:text-50">
+                <h2 className="font-sans text-32 font-bold leading-tight text-black/50 tabular-nums lg:text-50">
                   {group.year}
                 </h2>
               </Reveal>
@@ -79,14 +79,21 @@ export default function PastEvents() {
                             row in a second section above.
                             dir="ltr" isolates the Latin "V" + numeral: inside an
                             RTL line the bidi algorithm can otherwise reorder it
-                            against neighbouring punctuation. */}
+                            against neighbouring punctuation.
+                            The explicit {" "} matters: flex gap separates the
+                            badge visually but not in the DOM text, so without it
+                            the heading's accessible/crawled name concatenates
+                            ("قهوة وسكتشV9"). */}
                         {e.v && (
-                          <span
-                            dir="ltr"
-                            className="eyebrow shrink-0 text-11 text-orange tabular-nums"
-                          >
-                            {e.v}
-                          </span>
+                          <>
+                            {" "}
+                            <span
+                              dir="ltr"
+                              className="eyebrow shrink-0 text-11 text-orange tabular-nums"
+                            >
+                              {e.v}
+                            </span>
+                          </>
                         )}
                       </h3>
                       <p className="text-14 leading-relaxed text-muted text-pretty sm:max-w-[42%] sm:text-end">

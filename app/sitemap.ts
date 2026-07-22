@@ -19,12 +19,13 @@ import {absoluteUrl} from "@/lib/site";
  * shape. Change one, change the other.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-
+  // No `lastModified`: stamping build time on every URL makes lastmod always
+  // equal crawl time, which is exactly the "inconsistently accurate" signal
+  // Google says it ignores — and it erodes trust in the field sitewide.
+  // Omitting it is more honest than lying about it on 20 URLs per build.
   return routing.locales.flatMap((locale) =>
     INDEXABLE_ROUTES.map(({path, priority, changeFrequency}) => ({
       url: absoluteUrl(`/${locale}${path}`),
-      lastModified,
       changeFrequency,
       priority,
       alternates: {

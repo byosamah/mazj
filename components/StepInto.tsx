@@ -45,12 +45,14 @@ export default function StepInto() {
               <CtaButton
                 href={BOOKING.sharedSeat}
                 variant="light"
-                className="!border-purple-dark/40 [--cta-fg:#321f61] [--cta-sweep:#321f61] [--cta-fg-hover:#c8b2ff]"
+                className="!border-purple-dark/40 [--cta-fg:#321f61] [--cta-sweep:#321f61] [--cta-fg-hover:#c8b0ff]"
               >
                 {t("dayPassCta")}
               </CtaButton>
             </div>
-            <p className="max-w-[420px] text-13 leading-[1.5] text-purple-dark/70 text-pretty">{t("dayPassNote")}</p>
+            {/* /80 is the lowest Tailwind opacity step clearing WCAG AA 4.5:1 on
+                bg-purple: /70 = #5f4b90 = 3.85:1 (fail), /80 = #503c81 = 4.83:1. */}
+            <p className="max-w-[420px] text-13 leading-[1.5] text-purple-dark/95 text-pretty">{t("dayPassNote")}</p>
           </Reveal>
         </div>
 
@@ -60,12 +62,17 @@ export default function StepInto() {
           <img src="/images/step-into.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 flex items-center justify-center p-8">
             <div data-fx="rise" className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.24),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
+              {/* Decorative (aria-hidden) and below the fold, so preload="none":
+                  688 KB that should not compete with first paint. The poster stays,
+                  it is what shows until the clip is actually requested. */}
               <video
                 className="h-full w-full object-cover"
+                aria-hidden="true"
                 autoPlay
                 muted
                 loop
                 playsInline
+                preload="none"
                 poster="/images/step-into-video.jpg"
                 src="/videos/step-into.mp4"
               />

@@ -14,14 +14,20 @@ export default function WhyMazj() {
 
       {/* Card 2 — the risks (three alternating lines) */}
       <VideoCard label={t("risksLabel")} video="/videos/why-risks.mp4" poster="/images/why-risks.jpg" align="center">
+        {/* These three lines are display-sized (45px) but are NOT headings: they are one
+            continuous statement broken across three alternating alignments, and card 1 and
+            card 3 already own the h2 in this section. Because they render as <span>, the
+            `html[lang="ar"] h1,h2,h3 {line-height:1.35}` rescue cannot reach them, so
+            `leading-tight` (1.25) would crowd or overlap tall Arabic glyphs at 45px.
+            Hence the explicit leading-[1.35], which is safe for Latin at this size too. */}
         <div className="flex w-full max-w-[1100px] flex-col gap-4 [text-shadow:0_2px_18px_rgba(0,0,0,0.6)]">
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-45 [text-wrap:balance]">
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-45 [text-wrap:balance]">
             {t("risk1")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-end lg:text-45 [text-wrap:balance]" delay={120}>
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-end lg:text-45 [text-wrap:balance]" delay={120}>
             {t("risk2")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-tight lg:text-center lg:text-45 [text-wrap:balance]" delay={240}>
+          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-center lg:text-45 [text-wrap:balance]" delay={240}>
             {t("risk3")}
           </Reveal>
         </div>
@@ -49,18 +55,30 @@ function VideoCard({
   children: React.ReactNode;
 }) {
   return (
+    // min-h (growable), NOT the previous fixed `h-svh min-h-[620px]`: the box
+    // wraps copy-driven display text inside overflow-clip, so with a fixed
+    // height any copy growth clips silently, bottom-first, with no tell. EN
+    // card 3 already consumed ~550px of the 620px floor at 320x568. max() keeps
+    // the exact same computed height at every current size (content fits), it
+    // only lets a future longer statement grow the card instead of vanish.
     <div
       data-fx="pin-scale"
-      className={`relative flex h-svh min-h-[620px] w-full justify-center overflow-clip ${
+      className={`relative flex min-h-[max(100svh,620px)] w-full justify-center overflow-clip ${
         align === "top" ? "items-start" : "items-center"
       }`}
     >
+      {/* Background footage: purely decorative (aria-hidden), and all three cards sit
+          below the fold. preload="none" keeps 2.4 MB of clips (why-onehouse 1.45 MB,
+          why-mazj 722 KB, why-risks 224 KB) off the critical path. The poster carries
+          the frame until the clip is fetched. */}
       <video
         className="absolute inset-0 z-0 h-full w-full object-cover"
+        aria-hidden="true"
         autoPlay
         muted
         loop
         playsInline
+        preload="none"
         poster={poster}
         src={video}
       />
@@ -70,7 +88,10 @@ function VideoCard({
       <div
         data-pin-content
         className={`relative z-[3] flex w-full max-w-[1200px] flex-col items-center gap-7 px-6 text-center text-beige ${
-          align === "top" ? "pt-[16vh]" : ""
+          // svh, matching the box's own unit: with vh, iOS's expanded toolbar
+          // computes this padding from the LARGER viewport while the box is
+          // svh-sized, silently eating the copy's bottom margin inside the clip.
+          align === "top" ? "pt-[16svh]" : ""
         }`}
       >
         <p className="eyebrow text-12">{label}</p>

@@ -48,6 +48,14 @@ export default function SpaceOffers() {
           >
             {t("sectionTitle")}
           </WordReveal>
+          {/* The hub's indexable prose: names all four offers in the words
+              people actually search (the card labels alone carried none). */}
+          <p className="max-w-[62ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
+            {t("sectionIntro")}
+          </p>
+          <p className="max-w-[62ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
+            {t("sectionIntro2")}
+          </p>
         </Reveal>
 
         <ul className="grid grid-cols-1 gap-x-10 gap-y-16 md:grid-cols-2 lg:gap-x-16 lg:gap-y-20">
@@ -60,6 +68,7 @@ export default function SpaceOffers() {
             >
               <MediaFrame
                 src={offer.img}
+                alt={t(`offers.${offer.id}.photoAlt`)}
                 ratio="aspect-[3/2]"
                 width={1200}
                 height={800}
@@ -102,9 +111,16 @@ export default function SpaceOffers() {
                         must be in the transition list or the press snaps. */}
                     <Link
                       href={offer.detailHref}
-                      className="relative text-14 text-muted underline underline-offset-4 before:absolute before:inset-x-0 before:top-1/2 before:h-10 before:-translate-y-1/2 before:content-[''] [transition:color_160ms,transform_120ms] hover:text-black active:scale-[0.96]"
+                      className="relative text-14 text-muted underline underline-offset-4 before:absolute before:inset-x-0 before:top-1/2 before:h-11 before:-translate-y-1/2 before:content-[''] [transition:color_160ms,transform_120ms] hover:text-black active:scale-[0.96]"
                     >
-                      {t("detailCta")}
+                      {/* Four identical "See the space" anchors to four URLs are
+                          indistinguishable in a links list; the sr-only span
+                          appends the space's name (visible label stays a prefix
+                          of the accessible name, so WCAG 2.5.3 holds). */}
+                      <span aria-hidden="true">{t("detailCta")}</span>
+                      <span className="sr-only">
+                        {t("detailAria", {space: t(`offers.${offer.id}.name`)})}
+                      </span>
                     </Link>
                   </div>
                 </div>

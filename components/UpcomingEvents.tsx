@@ -24,14 +24,27 @@ import {SOCIALS} from "@/lib/links";
  * and delete `exampleBadge` from the card below. When the calendar empties
  * again, set `upcoming` to `[]` and the designed empty state takes over.
  */
-const POSTER: Record<string, string> = {
-  "Coffee & Sketch": "/images/events/coffee-sketch.jpg",
-  "قهوة وسكتش": "/images/events/coffee-sketch.jpg",
-  "The Brand Factory": "/images/events/brand-factory.jpg",
-  "مصنع العلامات": "/images/events/brand-factory.jpg",
-  "Loqma w Fayda": "/images/events/loqma-fayda.jpg",
-  "لقمة وفايدة": "/images/events/loqma-fayda.jpg",
-};
+/**
+ * Poster per upcoming card, keyed by POSITION in `EventsPage.upcoming`.
+ *
+ * 🔴 INTERIM, and the reason is worth reading before "improving" it. This was a
+ * Record keyed on the TRANSLATED event title, with the Arabic titles hardcoded
+ * here as literals. Rewording a title in messages/ar.json therefore dropped the
+ * card straight onto the fallback photo: the wrong poster, on the correct
+ * event, in one locale only, with no error anywhere. Position at least cannot
+ * disagree between locales, since en.json and ar.json are required to keep
+ * every array the same length in the same order.
+ *
+ * The real fix is the one the sibling `archive` array already ships: a stable
+ * series-slug field `s` (e.g. "coffeeSketch") on each entry. Add `s` to every
+ * `upcoming` entry in BOTH message files, then key a Record<string, string> on
+ * `e.s` and this positional coupling goes away.
+ */
+const POSTERS = [
+  "/images/events/coffee-sketch.jpg",
+  "/images/events/brand-factory.jpg",
+  "/images/events/loqma-fayda.jpg",
+];
 const FALLBACK_POSTER = "/images/events/women-design.jpg";
 
 type Upcoming = {t: string; v?: string; d: string; h: string; b: string};
@@ -69,7 +82,7 @@ export default function UpcomingEvents() {
             {items.map((e, i) => (
               <Reveal as="li" key={`${e.t}-${i}`} delay={(i % 3) * 90} className="reveal-card flex flex-col gap-6">
                 <MediaFrame
-                  src={POSTER[e.t] ?? FALLBACK_POSTER}
+                  src={POSTERS[i] ?? FALLBACK_POSTER}
                   ratio="aspect-[900/844]"
                   eager={i === 0}
                 >

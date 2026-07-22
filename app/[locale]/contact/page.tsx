@@ -59,6 +59,13 @@ function Content() {
               {t("socialsTitle")}
             </h2>
             <p className="max-w-[480px] text-15 leading-relaxed text-muted text-pretty">{t("socialsBody")}</p>
+            {/* Touch targets: these measured 34.1 x 40.0 in English and
+                32.3 x 40.0 in Arabic at 390px, under 44px on both axes (WCAG
+                2.5.8). `min-h-[44px]` matches the height convention being
+                applied across the nav and footer, and the `before:` pseudo
+                widens the hit box outward. The row's gap-8 (32px) is wider than
+                the 12px of added reach, so neighbouring targets never overlap
+                and nothing shifts visually. */}
             <div className="eyebrow mt-2 flex flex-wrap items-center gap-8 text-12 text-black">
               {SOCIAL_LINKS.map((s) => (
                 <a
@@ -66,7 +73,7 @@ function Content() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-[40px] items-center gap-[8px] [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
+                  className="relative inline-flex min-h-[44px] items-center gap-[8px] before:absolute before:inset-y-0 before:inset-x-[-6px] before:content-[''] [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
                 >
                   <span className="opacity-50">[</span>
                   <span>{s.label}</span>

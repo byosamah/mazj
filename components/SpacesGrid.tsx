@@ -1,4 +1,5 @@
 import {useTranslations} from "next-intl";
+import {Link} from "@/i18n/navigation";
 import Reveal from "./Reveal";
 import MediaFrame from "./MediaFrame";
 import CtaButton from "./CtaButton";
@@ -67,19 +68,61 @@ export default function SpacesGrid({
               delay={i * 80}
               className="reveal-card flex flex-col gap-5"
             >
-              {/* alt="" — the h3 below already names the card */}
-              <MediaFrame src={card.img} ratio="aspect-[3/2]" width={1200} height={800} />
+              {/* The alt describes the PHOTOGRAPH (image search reads it), not
+                  the product — the h3 below already names the card. */}
+              <MediaFrame
+                src={card.img}
+                alt={t(`cards.${card.id}.photoAlt`)}
+                ratio="aspect-[3/2]"
+                width={1200}
+                height={800}
+              />
               <div className="flex flex-1 flex-col gap-3 border-t border-black/10 pt-5">
                 <p className="eyebrow text-12 text-muted tabular-nums">
                   {t(`cards.${card.id}.capacity`)}
                 </p>
                 <h3 className="font-sans text-20 font-medium leading-tight text-black text-balance">
-                  {t(`cards.${card.id}.name`)}
+                  {/* The title links each card to its own /spaces/* page, so the
+                      four money pages get homepage equity with the space's name
+                      as anchor text; the CTA below keeps its booking job. */}
+                  <Link
+                    href={card.detailHref}
+                    className="inline-block [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
+                  >
+                    {t(`cards.${card.id}.name`)}
+                  </Link>
                 </h3>
                 <p className="text-14 leading-relaxed text-muted text-pretty">{t(`cards.${card.id}.includes`)}</p>
+                {/* Four cards, four different mazj.sa destinations, and until
+                    now four links whose accessible name was the single word
+                    "Book" — indistinguishable in a screen reader's links list
+                    (WCAG 2.4.4). The <h3> gives sighted users the context that
+                    the name never carried.
+
+                    The name is fixed with visually-hidden text rather than an
+                    aria-label because CtaButton takes no aria-label prop and is
+                    owned elsewhere. The visible word is hidden from the
+                    accessibility tree and the full `Spaces.bookAria` string
+                    ("Book {space}" / "احجز {space}") supplies the name, so the
+                    visible label stays a subset of the accessible name (WCAG
+                    2.5.3 holds, and voice control still matches "Book"). */}
                 <div className="mt-auto pt-4">
                   <CtaButton href={detail ? card.detailHref : card.href} variant="dark">
-                    {detail ? t("viewCta") : t("bookCta")}
+                    {detail ? (
+                      <>
+                        <span aria-hidden="true">{t("viewCta")}</span>
+                        <span className="sr-only">
+                          {t("viewAria", {space: t(`cards.${card.id}.name`)})}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span aria-hidden="true">{t("bookCta")}</span>
+                        <span className="sr-only">
+                          {t("bookAria", {space: t(`cards.${card.id}.name`)})}
+                        </span>
+                      </>
+                    )}
                   </CtaButton>
                 </div>
               </div>

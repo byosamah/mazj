@@ -26,17 +26,30 @@ export default function LocationHours() {
           <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
             {t("title")}
           </h2>
+          {/* One sentence of indexable prose on every route this section
+              mounts (home, contact, all four space pages): the primary query
+              phrase + the full street address in visible body text. */}
+          <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
+            {t("blurb")}
+          </p>
           <dl className="mt-4 flex max-w-[480px] flex-col">
             {rows.map((row, i) => (
               <div key={i} className="flex flex-col gap-1 border-t border-black/10 py-5">
                 <dt className="eyebrow text-12 text-muted">{row.label}</dt>
                 <dd className="text-15 leading-relaxed text-black lg:text-16 [font-variant-numeric:tabular-nums]">
+                  {/* The WhatsApp value was a bare inline <a> at text-15, so it
+                      got nothing but its own line box: 106.0 x 19.0 measured at
+                      390px, less than half the 44px guideline (WCAG 2.5.8), and
+                      it repeats on six routes. The `before:` pseudo-element
+                      centres a 44px-tall hit box on the line without adding
+                      padding, so the row's rhythm and the rule above it do not
+                      move. Width already clears 44 at 106px. */}
                   {row.href ? (
                     <a
                       href={row.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-black underline decoration-black/20 underline-offset-4 transition-colors hover:decoration-black"
+                      className="relative inline-flex items-center text-black underline decoration-black/20 underline-offset-4 transition-colors hover:decoration-black before:absolute before:inset-x-0 before:top-1/2 before:h-[44px] before:-translate-y-1/2 before:content-['']"
                     >
                       {row.value}
                     </a>

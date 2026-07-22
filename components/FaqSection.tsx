@@ -1,5 +1,6 @@
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
+import CtaButton from "./CtaButton";
 
 type Item = {q: string; a: string};
 type Group = {label: string; items: Item[]};
@@ -86,6 +87,16 @@ export default function FaqSection({
               <FaqRow key={item.q} item={item} id={`faq-${i}`} delay={Math.min(i, 4) * 60} />
             ))}
           </dl>
+        )}
+
+        {/* The teaser used to dead-end: /faq's only inbound link was the footer,
+            despite this section literally advertising the questions. */}
+        {typeof limit === "number" && (
+          <Reveal delay={120} className="flex justify-center pt-2">
+            <CtaButton href="/faq" variant="dark">
+              {t("allCta")}
+            </CtaButton>
+          </Reveal>
         )}
         </div>
       </div>

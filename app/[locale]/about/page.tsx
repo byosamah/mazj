@@ -30,6 +30,7 @@ function Content() {
       title: t("storyTitle"),
       body: t("storyBody"),
       img: "/images/step-into.jpg",
+      alt: t("storyAlt"),
       w: 1000,
       h: 1333,
       ratio: "aspect-[3/4]",
@@ -43,6 +44,7 @@ function Content() {
       title: t("spaceTitle"),
       body: t("spaceBody"),
       img: "/images/spaces/office-day.jpg",
+      alt: t("spaceAlt"),
       w: 1200,
       h: 800,
       ratio: "aspect-[3/2]",
@@ -56,6 +58,7 @@ function Content() {
       title: t("communityTitle"),
       body: t("communityBody"),
       img: "/images/spaces/event.jpg",
+      alt: t("communityAlt"),
       w: 1200,
       h: 800,
       ratio: "aspect-[3/2]",
@@ -113,9 +116,23 @@ function Content() {
                     baseline as a continuation rather than in the tiny grey
                     eyebrow register, which severed the phrase in the AR build.
                     leading-[1.35]: Arabic glyphs at display size in BOTH
-                    locales, and the tight Latin leading would clip their tops. */}
+                    locales, and the tight Latin leading would clip their tops.
+                    lang="ar" dir="rtl" on the word for the same reason it is
+                    unconditional: `word` is the Arabic term in BOTH message
+                    files (only `label` translates), so inside the EN document
+                    it is a foreign-language run that WCAG 3.1.2 requires be
+                    marked, or an English TTS voice reads it as garbage. dir
+                    carries as much weight as lang: it isolates the RTL run from
+                    the surrounding LTR bidi context. Redundant in the AR build,
+                    correct in both. `label` is deliberately NOT marked: it is
+                    English in en.json and Arabic in ar.json, so it always
+                    matches its document language already. */}
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <span className="font-sans text-45 font-bold leading-[1.35] text-orange lg:text-70">
+                  <span
+                    lang="ar"
+                    dir="rtl"
+                    className="font-sans text-45 font-bold leading-[1.35] text-orange lg:text-70"
+                  >
                     {p.word}
                   </span>
                   <span className="font-sans text-20 leading-[1.35] text-orange/60 lg:text-24">
@@ -162,11 +179,12 @@ function Content() {
                   own source ratio rather than a uniform 4:3 — the story photo
                   is a 3:4 portrait and was being crushed into a landscape box,
                   and the varied ratios make the three chapters read as authored
-                  rather than as one `.map()`. alt="" because the heading beside
-                  it already names the block. */}
+                  rather than as one `.map()`. The alt describes the photograph,
+                  never the chapter heading beside it. */}
               <MediaFrame
                 fx="clip"
                 src={block.img}
+                alt={block.alt}
                 ratio={block.ratio}
                 width={block.w}
                 height={block.h}

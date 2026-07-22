@@ -5,7 +5,14 @@ export default function NotFound() {
   const t = useTranslations("NotFound");
 
   return (
-    <main className="flex min-h-svh w-full flex-col items-center justify-center gap-6 bg-beige px-6 text-center">
+    // id + tabIndex match every other route so the header's skip link has a
+    // real target here too (WCAG 2.4.1). tabIndex={-1} is what makes the
+    // <main> programmatically focusable when the skip link jumps to it.
+    <main
+      id="content"
+      tabIndex={-1}
+      className="flex min-h-svh w-full flex-col items-center justify-center gap-6 bg-beige px-6 text-center"
+    >
       <p className="eyebrow text-12 text-muted">404</p>
       <h1 className="text-balance font-sans font-medium text-40 text-black lg:text-70">{t("title")}</h1>
       <Link

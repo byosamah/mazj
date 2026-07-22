@@ -33,6 +33,15 @@ export default function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // 🔴 The threshold must stay REACHABLE. An element taller than the viewport
+    // can never hit `amount` visibility: its max intersection ratio is
+    // viewportHeight / elementHeight. The /events 2023 archive list (29 rows,
+    // 3278px) capped out at ratio 0.16 in a 568px phone viewport, so the 0.2
+    // default never fired and 70% of the archive scrolled by as permanently
+    // invisible opacity-0 rows. Capping at half a viewport's worth of the
+    // element reveals tall blocks once they meaningfully enter while leaving
+    // every viewport-sized-or-smaller element on the original behaviour.
+    const reachable = (window.innerHeight * 0.5) / Math.max(el.offsetHeight, 1);
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -42,7 +51,7 @@ export default function Reveal({
           }
         });
       },
-      { threshold: amount, rootMargin: "0px 0px -8% 0px" }
+      { threshold: Math.min(amount, reachable), rootMargin: "0px 0px -8% 0px" }
     );
     io.observe(el);
     return () => io.disconnect();

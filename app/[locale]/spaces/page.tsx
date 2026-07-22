@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 
 function Content() {
   const t = useTranslations("SpacesPage");
-  return <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/day-desk.jpg" imageRatio="aspect-[4/5]" />;
+  return <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/day-desk.jpg" imageAlt={t("heroAlt")} imageRatio="aspect-[4/5]" />;
 }
 
 export async function generateMetadata({

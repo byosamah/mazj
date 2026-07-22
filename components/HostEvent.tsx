@@ -32,8 +32,11 @@ export default function HostEvent() {
 
         <Reveal delay={120} className="flex items-center justify-center">
           <div className="relative aspect-[4/3] w-full max-w-[560px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
+            {/* The alt describes the PHOTOGRAPH — it must never be t("title"):
+                that is verbatim the <h2> in the other half of this grid, and it
+                once made the heading announce twice in a row. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/spaces/event.jpg" alt={t("title")} className="h-full w-full object-cover" />
+            <img src="/images/spaces/event.jpg" alt={t("photoAlt")} className="h-full w-full object-cover" />
           </div>
         </Reveal>
       </div>

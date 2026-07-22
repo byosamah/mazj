@@ -1,5 +1,5 @@
+import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
-import {ZATCA_TAX_NUMBER} from "@/lib/links";
 
 /**
  * Legal body for /terms and /privacy.
@@ -29,6 +29,10 @@ export default function LegalSections({
   sections: Array<{h: string; body: string}>;
   footLines?: string[];
 }) {
+  // Every other string on this route arrives as an already-translated prop, so
+  // the component reaches for a namespace only for the tax line (see below).
+  const t = useTranslations("Footer");
+
   return (
     <section className="relative w-full bg-beige px-6 py-16 lg:px-10 lg:py-24">
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-8">
@@ -60,7 +64,10 @@ export default function LegalSections({
                 <h2 className="font-sans text-20 font-medium leading-snug text-black lg:text-24 [text-wrap:balance]">
                   {s.h}
                 </h2>
-                <p className="max-w-[68ch] whitespace-pre-line text-15 leading-relaxed text-muted [text-wrap:pretty]">
+                {/* 60ch, not 68: `ch` is the "0" advance (~9.9px here), so 68ch
+                    fit ~94 AVERAGE glyphs per line at 1440 — past the ~90 outer
+                    bound for sustained legal reading. 60ch lands ~83. */}
+                <p className="max-w-[60ch] whitespace-pre-line text-15 leading-relaxed text-muted [text-wrap:pretty]">
                   {s.body}
                 </p>
               </div>
@@ -74,16 +81,29 @@ export default function LegalSections({
                   {line}
                 </p>
               ))}
-              {/* Single source of truth. The number was hardcoded into both
-                  message files as well, so it lived in three places and would
-                  drift. `dir="ltr"` isolates the Latin digits: an unisolated
-                  numeral inside an RTL paragraph can have its punctuation
-                  reordered by the bidi algorithm. */}
-              <p
-                dir="ltr"
-                className="eyebrow text-12 text-muted [font-variant-numeric:tabular-nums] rtl:text-end"
-              >
-                VAT {ZATCA_TAX_NUMBER}
+              {/* This was `VAT {ZATCA_TAX_NUMBER}`: a Latin label welded into
+                  the component, so Arabic /privacy and /terms announced an
+                  English word inside Arabic prose with no `lang` change on it
+                  (WCAG 3.1.2), on top of breaking the repo's own rule that no
+                  display text lives in a component.
+
+                  `Footer.zatca` is the one translated label for this datum and
+                  is already shipped on every page's footer, including these
+                  two, so reading it here keeps the wording identical in both
+                  locales instead of inventing a second phrasing.
+
+                  `dir="ltr"` came off with the literal, and had to. It existed
+                  to isolate a bare Latin numeral; the value is now a full
+                  sentence whose base direction must follow the document, and
+                  forcing LTR onto Arabic prose is itself a bidi bug. The digits
+                  are a weak (EN) run at the end of the line, which the bidi
+                  algorithm already orders correctly on their own. Footer.tsx
+                  renders this exact string with no dir attribute.
+
+                  🔴 Note the number now lives only in the message files, not in
+                  `ZATCA_TAX_NUMBER`. If it ever changes, update both. */}
+              <p className="eyebrow text-12 text-muted [font-variant-numeric:tabular-nums]">
+                {t("zatca")}
               </p>
             </Reveal>
           )}

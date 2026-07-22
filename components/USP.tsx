@@ -45,8 +45,14 @@ export default function USP() {
                 data-pin-media
                 className="relative aspect-[4/5] w-full max-w-[230px] overflow-clip rounded-[16px] lg:max-w-[355px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
               >
+                {/* alt="" — this was alt={row.surtitle}, which is the one-word
+                    category eyebrow rendered beside the photo ("flexible" /
+                    "private" / "meet", مرونة / خصوصية / لقاءات). It names the
+                    section, not the picture, so it described nothing and simply
+                    repeated visible text. The statement next to it carries the
+                    meaning; the photo is decorative. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={row.image} alt={row.surtitle} className="h-full w-full object-cover" />
+                <img src={row.image} alt="" className="h-full w-full object-cover" />
               </div>
             </div>
 

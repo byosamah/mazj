@@ -71,6 +71,26 @@ html[lang="ar"] h2,
 html[lang="ar"] h3 {
   line-height: 1.35 !important;
 }
+/* 🔴 This rescue reaches HEADING TAGS ONLY, and that limit keeps biting.
+   Measured on WhyMazj's three risk lines, which render at lg:text-45 through
+   `Reveal as="span"` and so fall outside it. At 1024px AR the ink of adjacent
+   lines physically collides: risk2 is 71.24px of ink inside a 56.25px line box,
+   a gap of -14.99px; risk3 is -8.87px; risk1 clears by only 0.05px. At 390px AR:
+   risk2 -6.66px, risk3 -3.94px. English clears by +5 to +11px at every size, so
+   this is invisible unless you look at the Arabic build.
+
+   NO GLOBAL SAFETY NET IS ADDED HERE, deliberately. Every version of one is
+   worse than the bug. A selector broad enough to catch "Arabic display text in
+   a non-heading tag" cannot identify display text (there is no marker to match
+   on: `span` and `div` are most of the document), and to override a component's
+   own `leading-*` utility it would need `!important`, which would then dictate
+   leading to every span and paragraph on the Arabic site, converting one
+   visible overlap into a silent sitewide typography override that no local
+   class could correct. An opt-in class would be equivalent to the explicit
+   utility the component already has to write, minus the discoverability.
+   So the fix belongs at the call site: give Arabic display text in a
+   non-heading tag an explicit `leading-[1.35]`, or make it a real heading tag
+   (which is what WhyMazj's siblings do, and why they were never affected). */
 
 /* ============================================================
    BASE
@@ -96,7 +116,10 @@ body {
   overflow-x: hidden;
 }
 
-::selection { background: #c8b2ff; color: #321f61; }
+/* Both values are design tokens, not free hex: `purple` and `purple-dark` in
+   tailwind.config.ts. The background had drifted to #c8b2ff, one digit off the
+   #c8b0ff token, so selected text was a shade the palette does not contain. */
+::selection { background: #c8b0ff; color: #321f61; }
 
 /* Exact type ramp from extraction */
 h1 { letter-spacing: -0.02em; }
@@ -138,11 +161,22 @@ h3 { letter-spacing: -0.02em; }
 /* ============================================================
    SCROLL REVEAL (IntersectionObserver toggles .is-visible)
    ============================================================ */
+/* 🔴 NO `will-change` here, deliberately. It used to sit on the resting state,
+   which is the one place it must never sit: `will-change` is a promise about
+   the FUTURE, and a rule that always matches never stops promising. Every
+   revealed element on the page held a compositing layer for the whole session,
+   long after its 0.9s transition had settled, and this class is applied per
+   row, so /events alone carried 41 of them.
+   Nothing is lost by removing it: opacity and transform are both compositor
+   properties, so Chrome promotes the element for the duration of the running
+   transition on its own and drops the layer when it finishes. The cost is one
+   frame of promotion at the start of a reveal, which is invisible next to the
+   0.9s ease. Same reasoning applies to .word-reveal .wr-word below, where the
+   layer count was per WORD rather than per element. */
 .reveal {
   opacity: 0;
   transform: translateY(26px);
   transition: opacity 0.9s var(--ease-expo), transform 0.9s var(--ease-expo);
-  will-change: opacity, transform;
 }
 .reveal.is-visible {
   opacity: 1;
@@ -231,8 +265,17 @@ h3 { letter-spacing: -0.02em; }
   padding-block: 24px;
   -webkit-tap-highlight-color: transparent;
 }
-/* sr-only inputs stay focusable, so surface the focus ring on the label */
-.acc-toggle:focus-visible ~ .acc-label {
+/* sr-only inputs stay focusable, so surface the focus ring on the label.
+   🔴 The combinator must reach THROUGH the <dt>. FaqSection renders
+   input.acc-toggle -> dt > label.acc-label -> dd.acc-panel, so the label is a
+   child of a sibling, not a sibling. `~ .acc-label` therefore matched NOTHING
+   (measured: 0 elements, against 15 for `~ .acc-panel`, which is why the
+   accordion still opened and nobody noticed) and all 42 rows sitewide shipped
+   with no visible focus indicator: 15 consecutive invisible tab stops on /faq,
+   a WCAG 2.4.7 failure. `~ * .acc-label` reaches the nested case; the direct
+   form is kept alongside it so a future flattened markup still gets a ring. */
+.acc-toggle:focus-visible ~ .acc-label,
+.acc-toggle:focus-visible ~ * .acc-label {
   outline: 2px solid #ff5a48;
   outline-offset: 4px;
   border-radius: 2px;
@@ -242,8 +285,13 @@ h3 { letter-spacing: -0.02em; }
   transition: transform 0.35s var(--ease-expo), opacity 0.2s ease;
   transform-origin: 50% 50%;
 }
-/* a "+" rotated 45deg reads as a "×": one glyph, both states */
-.acc-toggle:checked ~ .acc-label .acc-sign {
+/* a "+" rotated 45deg reads as a "×": one glyph, both states.
+   Same nesting trap as the focus ring above: the sign lives inside the <dt>, so
+   the old `:checked ~ .acc-label .acc-sign` matched 0 elements and an open row
+   computed `transform: none`. The intent described in this comment had never
+   actually shipped. */
+.acc-toggle:checked ~ .acc-label .acc-sign,
+.acc-toggle:checked ~ * .acc-label .acc-sign {
   transform: rotate(45deg);
 }
 .acc-panel {
@@ -254,14 +302,39 @@ h3 { letter-spacing: -0.02em; }
 .acc-toggle:checked ~ .acc-panel {
   grid-template-rows: 1fr;
 }
+/* 🔴 `visibility` is what actually removes a collapsed answer, not the 0fr row.
+   0fr + overflow:hidden makes the answer zero-height and invisible on screen,
+   but it stays `visibility: visible`, and the accessibility tree only prunes
+   on visibility/display. Measured via CDP: a collapsed answer paragraph came
+   back ignored:false with no ignoredReasons, so a screen reader read all 15
+   questions AND all 15 answers as continuous prose while every checkbox
+   announced "not checked" (WCAG 1.3.1 Level A).
+   It is applied on the INNER wrapper, not on .acc-panel itself, because
+   .acc-panel is the grid whose rows animate and must keep rendering.
+   The 0.45s delay on the closing direction is what preserves the animation:
+   visibility is discretely animatable, so it flips at the END of the collapse
+   on close, and immediately (delay 0) on open. Matches the row transition
+   exactly, so keep the two durations in sync. */
 .acc-panel > * {
   min-height: 0;
   overflow: hidden;
+  visibility: hidden;
+  transition: visibility 0s linear 0.45s;
+}
+.acc-toggle:checked ~ .acc-panel > * {
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .acc-panel,
   .acc-sign {
+    transition: none;
+  }
+  /* Without this the row collapses instantly but the answer stays in the a11y
+     tree for another 450ms: the global reduced-motion block zeroes
+     transition-DURATION, and this one is carried by the transition-DELAY. */
+  .acc-panel > * {
     transition: none;
   }
 }
@@ -291,7 +364,8 @@ h3 { letter-spacing: -0.02em; }
   transform: translateY(0.5em);
   transition: opacity 0.55s var(--ease-expo), transform 0.55s var(--ease-expo);
   transition-delay: calc(var(--wi, 0) * var(--wr-step, 45ms) + var(--wr-base, 0ms));
-  will-change: opacity, transform;
+  /* No `will-change`, see the note on .reveal. It was worst here: one permanent
+     compositing layer per WORD of every display heading on the site. */
 }
 .word-reveal.is-visible .wr-word {
   opacity: 1;
@@ -309,17 +383,51 @@ h3 { letter-spacing: -0.02em; }
    an equal-specificity utility that would beat the cancel-margin below and leave
    the padding uncompensated, shifting the block ~1px down).
    The clip box is enlarged below the line box, then pulled back with a matching
-   negative margin so layout/leading stay untouched. Needed because the headline
-   runs leading-[0.98]: the baseline lands 73px into an 83.3px line box, leaving
-   10.3px for a descender that needs 19.5px, so `overflow: clip` guillotined the
-   "g" in "room to grow." (Latin only — Arabic is rescued by the
-   html[lang="ar"] line-height:1.35 rule.)
-   The padding must stay <= 0.2em: the incoming line starts at translateY(120%),
-   so it only stays hidden while pad <= 0.2 x line-height. 0.12em leaves ~6.5px
-   of headroom against that limit. Raising the padding means raising the 120% too. */
+   negative margin so layout/leading stay untouched.
+
+   WHAT CLIPS, AND WHY IT IS THE BASELINE (not ink height). Measured on the hero
+   h1 at lg:text-85 lg:leading-[0.98]: total ink is 78.8px and FITS the 83.3px
+   line box, so "ink > line box" reports a false OK. The real failure is that the
+   baseline lands 73px down, leaving 10.3px for a descender that needs 19.5px, so
+   `overflow: clip` guillotines the tail. Test `descent > (lineBox - baseline)`.
+
+   🔴 BOTH LOCALES CLIP, AND ARABIC IS THE WORSE ONE. This comment used to claim
+   the problem was "Latin only, Arabic is rescued by html[lang='ar']
+   line-height:1.35". That is false. 1.35 raises the line box but Arabic
+   descenders run roughly 2x Latin's at the same size, so the baseline still
+   sits too low inside it. Measured with canvas TextMetrics on the exact computed
+   font shorthand plus 0x0 baseline probe spans, then independently confirmed by
+   pixel-diff A/B (overflow:clip -> visible, videos frozen, DPR 3):
+     AR "اعمل في"      85px  lineBox 114.75  descent 40.29  CLIPPED by 4.35px
+     AR "اعمل في"      40px  lineBox  54.00  descent 18.96  CLIPPED by 2.16px
+     EN "good company." 85px                 descent 19.98  clean by  0.51px
+     EN "good company." 40px                                clean by  1.19px
+   The pixel diff agreed with the prediction to within 0.02px (ar-1440 restored
+   4.33px of ink against a 4.35px forecast). Visually it was the two dots under
+   the final ي of "في" sliced into flat trapezoids. Check BOTH locales after any
+   weight or leading change; neither one is safe by construction.
+
+   THE CEILING. The incoming line starts at translateY(120%) of its own height,
+   so it only stays hidden while pad <= 0.2 x line-height. That limit is relative
+   to line-height, so it differs per locale and per breakpoint, and Latin's is the
+   tightest because its leading is the tightest:
+     EN 85px  ceiling 0.196em (0.2 x 0.98)   pad 0.15em -> 3.91px still hidden
+     EN 40px  ceiling 0.204em (0.2 x 1.02)   pad 0.15em -> 2.16px still hidden
+     AR both  ceiling 0.270em (0.2 x 1.35)   pad 0.23em -> 3.40px / 1.60px hidden
+   Hence the Arabic branch: Arabic needs ~0.051em of rescue at 85px and ~0.054em
+   at 40px, which its taller 1.35 line box has room for and Latin's 0.98 does not.
+   Resulting descender clearance: EN +3.06px / +2.39px, AR +5.00px / +2.24px.
+   Raising either padding past its own ceiling means raising the 120% too. */
 h1 .intro-mask {
-  padding-bottom: 0.12em;
-  margin-bottom: -0.12em;
+  padding-bottom: 0.15em;
+  margin-bottom: -0.15em;
+}
+/* (0,2,2) beats the base rule's (0,1,1); the `h1 ` prefix is load-bearing here
+   too, for the eyebrow reason above. Padding and margin must move together or
+   the headline block shifts down by the difference. */
+html[lang="ar"] h1 .intro-mask {
+  padding-bottom: 0.23em;
+  margin-bottom: -0.23em;
 }
 .intro-mask > .intro-line {
   animation: introUp 1s var(--ease-expo) both;
@@ -582,21 +690,9 @@ html[lang="ar"] .hero-scrim {
     backdrop-filter: none;
   }
 }
-.qualify-pill-input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  background: transparent;
-  border: none;
-  outline: none;
-  /* logical padding so it mirrors under dir="rtl" (start:20 end:12) */
-  padding-block: 0;
-  padding-inline: 20px 12px;
-  font-size: 16px;
-  color: #fff7e9;
-  letter-spacing: -0.01em;
-}
-.qualify-pill-input::placeholder { color: rgba(255, 247, 233, 0.7); }
+/* `.qualify-pill-input` (+ its ::placeholder) lived here and was deleted: the
+   hero pill has no text field any more, it is the `.sf-trigger` button below.
+   Its styling was inherited by .sf-trigger, which is where to edit it now. */
 .qualify-pill-btn {
   position: relative;
   display: inline-flex;
@@ -619,6 +715,20 @@ html[lang="ar"] .hero-scrim {
   transition: scale 0.12s var(--ease-default);
 }
 .qualify-pill-btn:active { scale: 0.96; }
+/* Below 360px, buy the trigger back the room it needs.
+   The CTA label already swaps to its short form under 448px so the trigger can
+   hold the full question, and that IS derived (400px pill + 24px gutters). It
+   holds at 360px and up. It does NOT hold at 320px: measured there, the
+   trigger's span is clientWidth 133 against scrollWidth 142, so `truncate`
+   was actively ellipsing ~9px off "What brings you in?" on the hero's primary
+   control. Arabic is clean at every width; this is English-only.
+   Trimming the button's inline padding 18px -> 11px returns 14px, which clears
+   the 9px shortfall with room to spare, and it is invisible at a width where
+   nothing else is comfortable either. Preferred over shortening the trigger
+   copy, which would need a new i18n key in both locales for one viewport. */
+@media (max-width: 359px) {
+  .qualify-pill-btn { padding: 0 11px; }
+}
 .qualify-pill-btn-label {
   position: relative;
   z-index: 2;
@@ -674,14 +784,38 @@ html[lang="ar"] .hero-scrim {
   transition: scale 0.12s var(--ease-default);
 }
 .sf-trigger:active { scale: 0.96; }
+/* Below 360px the EN question "What brings you in?" needs ~142px but the
+   default paddings leave its truncating flex label only ~133px, so it
+   ellipsized to "What brings you…" (AR fits at every width). Tighter inline
+   padding + chevron gap buy ~14px so the full question renders; from 360px up
+   the default geometry already fits, and 448px (max-w-[400px] + px-6) is where
+   the pill stops shrinking entirely. */
+@media (max-width: 359.98px) {
+  .sf-trigger { padding-inline: 12px 10px; gap: 6px; }
+}
 .sf-trigger[data-placeholder="true"] { color: rgba(255, 247, 233, 0.7); }
-.sf-trigger:focus-visible { outline: 2px solid rgba(255, 247, 233, 0.55); outline-offset: -2px; border-radius: 10px; }
+/* 12px, matching the .qualify-pill shell this sits inside, so the inset ring is
+   concentric with it. Was 10px, a radius the design system does not define
+   (the set is 2/4/6/16 plus the pill's 12 and its inner chip's 8). */
+.sf-trigger:focus-visible { outline: 2px solid rgba(255, 247, 233, 0.55); outline-offset: -2px; border-radius: 12px; }
 .sf-chevron {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
   opacity: 0.8;
   transition: transform 0.3s var(--ease-premium);
+}
+
+/* Mobile facility-fact row (Hero.tsx): text-only parity for the desktop
+   telemetry chips once a space is picked. Shown only below lg (the chips take
+   over there) AND at >=600px viewport height: on shorter phones the row's
+   ~88px pushed the hero's bottom-anchored headline up under the floating nav
+   pill (measured 320x568: h1 top 163.6 -> 55.6 vs nav bottom ~90). A
+   width+height media pair can't be written as stock Tailwind utilities, hence
+   the class; layout utilities stay on the element. */
+.sf-facts { display: none; }
+@media (max-width: 1023.98px) and (min-height: 600px) {
+  .sf-facts { display: flex; }
 }
 .sf-trigger[aria-expanded="true"] .sf-chevron { transform: rotate(180deg); }
 
@@ -696,7 +830,12 @@ html[lang="ar"] .hero-scrim {
      DOWNWARD and spills past the hero, which clips its own overflow. Living on
      the body layer also lets it paint over the cream section below the hero. */
   position: absolute;
-  z-index: 50;
+  /* 🔴 Must stay ABOVE the fixed header's z-100 (components/Navigation.tsx).
+     The panel repositions on scroll rather than closing, so an open dropdown
+     tracks the hero pill up into the header band; at z-50 it slid behind the
+     header and the options were unreachable. Below .grain-overlay (9999) and
+     .skip-link (10000) on purpose: both belong over every control. */
+  z-index: 120;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -733,8 +872,19 @@ html[lang="ar"] .hero-scrim {
   transition: background-color 0.18s var(--ease-premium), scale 0.12s var(--ease-default);
 }
 .sf-option:active { scale: 0.96; }
-.sf-option:hover,
-.sf-option:focus-visible { background: rgba(255, 247, 233, 0.1); outline: none; }
+.sf-option:hover { background: rgba(255, 247, 233, 0.1); }
+/* Focus gets a REAL ring, not just the hover wash. `outline: none` plus a 10%
+   white fill measured 1.29:1 against the panel, versus the 3:1 WCAG 2.4.7
+   requires, so keyboard users had no usable indicator anywhere in the space
+   finder, which is the site's primary conversion control. Reuses the beige ring
+   already established on .qualify-pill-btn / .sf-trigger so the whole glass
+   control keeps one focus language. Offset is NEGATIVE: the panel only carries
+   6px of padding, so a positive offset would clip against its rounded edge. */
+.sf-option:focus-visible {
+  background: rgba(255, 247, 233, 0.1);
+  outline: 2px solid rgba(255, 247, 233, 0.75);
+  outline-offset: -2px;
+}
 .sf-option[data-active="true"] { background: rgba(255, 90, 72, 0.16); }
 .sf-option-mark { color: #ff5a48; font-weight: 600; }
 
@@ -828,26 +978,9 @@ html[lang="ar"] .hero-scrim {
   animation: spectrumDrift 20s ease-in-out infinite;
 }
 
-/* ============================================================
-   FOOTER grain / diagonal streak texture over the orange
-   ============================================================ */
-.footer-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      115deg,
-      rgba(255, 255, 255, 0.04) 0px,
-      rgba(255, 255, 255, 0.04) 2px,
-      transparent 2px,
-      transparent 26px
-    ),
-    radial-gradient(120% 80% at 50% 120%, rgba(255, 180, 90, 0.35), transparent 60%);
-  mix-blend-mode: soft-light;
-  opacity: 0.9;
-}
+/* `.footer-grain::before` lived here and was deleted (zero className references).
+   The footer's warm texture is now a real <video> plus a mix-blend-color coral
+   overlay in components/Footer.tsx, not a CSS gradient stack. */
 
 /* Dotted US-map field for the network section */
 .dot-field {
@@ -910,26 +1043,93 @@ html[lang="ar"] .hero-scrim {
   animation: grainShift 0.6s steps(4) infinite;
 }
 
+/* `.footer-dune` and `.footer-dune::after` lived here and were deleted (zero
+   className references). Footer.tsx superseded them with a looping <video>
+   (footer-dune.mp4) under a mix-blend-color coral overlay; footer-dune.jpg
+   survives as that video's poster.
+   ⚠️ The deleted ::after was one of two users of /images/noise.svg. The other,
+   `.grain-overlay` above, is LIVE, so do not delete the file. */
+
 /* ============================================================
-   FOOTER DUNE — flowing diagonal orange bands + grain, mirroring
-   the original's warm animated dune texture.
-   ============================================================ */
-.footer-dune {
-  /* exact orange dune texture captured from the original site */
-  background: #FF5A48 url("/images/footer-dune.jpg") center/cover no-repeat;
-  position: relative;
-  isolation: isolate;
+   SKIP LINK: first focusable thing in the document
+   ============================================================
+   Rendered as the first child of <body> in app/[locale]/layout.tsx. It carries
+   no visual weight until it is focused, which is the whole point: keyboard and
+   screen-reader users get a way past the header nav, everyone else never sees
+   it.
+
+   Hidden by moving it out of the viewport on the BLOCK axis, not with
+   display/visibility, because either of those would drop it out of the focus
+   order and there would be nothing to skip with. Block-axis travel also means
+   there is nothing to mirror; the only inline value, the offset from the edge,
+   is `inset-inline-start` so it lands top-left in English and top-right in
+   Arabic on its own.
+
+   The z-index is not arbitrary: it must clear BOTH the fixed z-100 header and
+   the z-9999 .grain-overlay, or a focused skip link is painted under a
+   full-viewport grain field and reads as broken. It is the topmost layer on the
+   site by design. */
+.skip-link {
+  position: fixed;
+  inset-block-start: -100px;
+  inset-inline-start: 16px;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  /* 44px is the minimum comfortable target, matching MotionToggle. */
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 4px;
+  background: #fff7e9;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  transition: inset-block-start 0.18s var(--ease-default);
 }
-.footer-dune::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: url("/images/noise.svg");
-  background-size: 160px 160px;
-  mix-blend-mode: soft-light;
-  opacity: 0.4;
+/* `:focus`, not `:focus-visible`: the link is unreachable by pointer, so every
+   focus it can receive is a focus that must reveal it. Ring matches .cta. */
+.skip-link:focus {
+  inset-block-start: 16px;
+  outline: 2px solid rgba(50, 31, 97, 0.6);
+  outline-offset: 3px;
+}
+
+/* ============================================================
+   MOTION PAUSE: the CSS half of components/MotionToggle.tsx
+   ============================================================
+   The toggle pauses every <video> itself and stamps data-motion="paused" on
+   <html> for everything it cannot reach. That is this block. Without it the
+   attribute is inert and the toggle only stops the videos, which would not
+   satisfy WCAG 2.2.2 (Pause, Stop, Hide): the two worst offenders are pure CSS.
+   `.grain-overlay` steps at 6.67Hz (steps(4) over 0.6s) across the entire
+   viewport on every route, and `.sf-spectrum` drifts continuously behind the
+   hero. Both run indefinitely, so both are in scope.
+
+   Only ANIMATIONS are frozen, not transitions. Transitions here are all
+   user-initiated (hover sweeps, press scales, focus rings, scroll reveals);
+   freezing them would strand controls mid-state and remove interaction
+   feedback, and 2.2.2 governs automatically-moving content, not responses to
+   the visitor's own input. */
+html[data-motion="paused"] *,
+html[data-motion="paused"] *::before,
+html[data-motion="paused"] *::after {
+  animation-play-state: paused !important;
+}
+/* 🔴 Exemptions, and they are not optional. These three are ONE-SHOT reveals
+   that animate FROM an invisible state, so pausing them freezes their content
+   permanently hidden: .intro-line rests at translateY(120%) inside a clipping
+   mask, and .intro-fade and .sf-panel both rest at opacity 0. Pausing them
+   would blank the hero headline and the space-finder dropdown. All three finish
+   in ~1s, well under 2.2.2's five-second threshold, so none is in scope anyway.
+   `!important` is required to beat the blanket rule's own `!important`.
+   Any new one-shot keyframe animation must be added here. */
+html[data-motion="paused"] .intro-line,
+html[data-motion="paused"] .intro-fade,
+html[data-motion="paused"] .sf-panel {
+  animation-play-state: running !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

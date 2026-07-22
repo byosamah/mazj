@@ -28,6 +28,7 @@ export default function PageIntro({
   title,
   intro,
   image,
+  imageAlt,
   imageRatio = "aspect-[4/5]",
   index,
 }: {
@@ -36,6 +37,13 @@ export default function PageIntro({
   intro?: string;
   /** Route photography. Omit on reference routes for the quiet treatment. */
   image?: string;
+  /**
+   * Describe the PHOTOGRAPH, never the page title (the h1 sits beside it).
+   * Omit — keeping alt="" — when the same photo appears again lower on the
+   * page with a descriptive alt (the space detail routes), so the file is
+   * described once, not announced twice.
+   */
+  imageAlt?: string;
   imageRatio?: string;
   /** Two-digit route marker, e.g. "02". */
   index?: string;
@@ -70,7 +78,7 @@ export default function PageIntro({
 
         {image ? (
           <Reveal delay={140} className="w-full">
-            <MediaFrame src={image} ratio={imageRatio} eager className="lg:ms-auto lg:max-w-[420px]" />
+            <MediaFrame src={image} alt={imageAlt} ratio={imageRatio} eager className="lg:ms-auto lg:max-w-[420px]" />
           </Reveal>
         ) : (
           /* Reference routes keep the opener quiet: texture, not photography. */

@@ -36,13 +36,22 @@ export default function LogoLoop({dismissed}: {dismissed: boolean}) {
     gsap.set(root, {autoAlpha: 1});
 
     // write ~2.3s -> hold 2.5s -> unwrite ~1.3s -> rest 0.7s (repeatDelay)
+    //
+    // 🔴 The dots use power4.out / power2.in, NOT back.*. The project bans
+    // bounce and elastic easing (ease out with exponential curves instead), and
+    // back.out(2) overshoots roughly 40% — the mark's dot visibly ballooned past
+    // its own radius before settling. power4.out keeps the pop: it is still
+    // extremely front-loaded, so the dot reads as arriving instantly and then
+    // settling, it just never crosses scale 1. Every other ease in this repo is
+    // already compliant (power2/power4/expo/sine/none) and these three were the
+    // only overshoot, carrying no comment justifying the deviation.
     const tl = gsap.timeline({repeat: -1, delay: 0.9, repeatDelay: 0.7, paused: true});
     tl.to(strokes[0], {strokeDashoffset: 0, duration: 0.75, ease: "power2.inOut"})
       .to(strokes[1], {strokeDashoffset: 0, duration: 0.6, ease: "power2.inOut"}, "-=0.15")
-      .to(dots[0], {scale: 1, duration: 0.35, ease: "back.out(2)"}, "-=0.1")
+      .to(dots[0], {scale: 1, duration: 0.35, ease: "power4.out"}, "-=0.1")
       .to(strokes[2], {strokeDashoffset: 0, duration: 0.7, ease: "power2.inOut"}, "-=0.2")
-      .to(dots[1], {scale: 1, duration: 0.35, ease: "back.out(2)"}, "-=0.1")
-      .to(dots, {scale: 0, duration: 0.25, ease: "back.in(2)", stagger: 0.08}, "+=2.5")
+      .to(dots[1], {scale: 1, duration: 0.35, ease: "power4.out"}, "-=0.1")
+      .to(dots, {scale: 0, duration: 0.25, ease: "power2.in", stagger: 0.08}, "+=2.5")
       .to(strokes[2], {strokeDashoffset: lens[2], duration: 0.45, ease: "power2.in"}, "<0.15")
       .to(strokes[1], {strokeDashoffset: lens[1], duration: 0.4, ease: "power2.in"}, "-=0.1")
       .to(strokes[0], {strokeDashoffset: lens[0], duration: 0.5, ease: "power2.in"}, "-=0.1");

@@ -17,7 +17,11 @@ export default function FoundingBand() {
     <section className="relative w-full bg-purple px-6 py-24 lg:px-10 lg:py-32">
       <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-8 text-center">
         <Reveal className="flex flex-col items-center gap-5">
-          <p className="eyebrow text-12 text-purple-dark/70">{t("eyebrow")}</p>
+          {/* purple-dark/80 is the lowest step on Tailwind's opacity scale that clears
+              WCAG AA 4.5:1 on bg-purple: /70 composites to #5f4b90 = 3.85:1 (fail),
+              /80 to #503c81 = 4.83:1 (pass). The true 1% minimum is /77 (4.51:1), too
+              thin a margin to spend on an 11-12px label. */}
+          <p className="eyebrow text-12 text-purple-dark/80">{t("eyebrow")}</p>
           <h2 className="whitespace-pre-line text-balance font-sans font-bold text-40 leading-[1.0] text-purple-dark lg:text-70 lg:leading-[0.98] lg:tracking-[-1.2px]">
             {t("title")}
           </h2>
@@ -41,7 +45,7 @@ export default function FoundingBand() {
           <CtaButton href={waLink(t("ctaMsg"))} variant="onLavender">
             {t("cta")}
           </CtaButton>
-          <p className="eyebrow text-11 text-purple-dark/60">{t("note")}</p>
+          <p className="eyebrow text-11 text-purple-dark/80">{t("note")}</p>
         </Reveal>
       </div>
     </section>

@@ -2,6 +2,27 @@ import type {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
 
 /**
+ * The per-locale share card. Static PNGs committed under `public/og/`, built by
+ * `scripts/generate-og-cards.py` (real Chromium, so Arabic shapes and measures
+ * correctly -- see that script's header for why `next/og` could not be used).
+ *
+ * These are the ONLY images the site declares to social platforms. Before this
+ * existed, `twitter:card` promised `summary_large_image` with no image behind
+ * it, so every WhatsApp / Instagram / LinkedIn share of the site rendered a
+ * blank grey rectangle. Relative paths resolve against `metadataBase`.
+ *
+ * Re-run the script whenever `Meta.title` / `siteName` / `city` changes.
+ */
+export function ogImage(locale: string) {
+  return {
+    url: `/og/${locale === "ar" ? "ar" : "en"}.png`,
+    width: 1200,
+    height: 630,
+    alt: locale === "ar" ? "مزج" : "MAZJ",
+  };
+}
+
+/**
  * Per-page metadata for sub-pages: page-specific title/description plus a
  * per-path canonical + hreflang. The root layout's generateMetadata only
  * knows the locale root, so without this every sub-page canonicalizes to the
@@ -16,7 +37,16 @@ export async function pageMetadata(
   const t = await getTranslations({locale, namespace});
   const meta = await getTranslations({locale, namespace: "Meta"});
 
-  const title = `${t("title").replace(/\s*\n\s*/g, " ")} | ${meta("siteName")}`;
+  // The SERP title and the on-page headline have OPPOSITE jobs, and deriving
+  // one from the other let the design job win every time: the <h1> should be
+  // evocative ("The blend is the point"), the <title> must be literal and carry
+  // the query someone actually types ("About MAZJ | Coworking in Al-Khobar").
+  // `metaTitle` is optional -- when a namespace omits it the display `title`
+  // still drives the tag, so adding this key changed nothing on its own.
+  // The headline's hand-placed \n line breaks are collapsed either way; they are
+  // layout, and a newline in a <title> renders as a stray space in the SERP.
+  const headline = t.has("metaTitle") ? t("metaTitle") : t("title");
+  const title = `${headline.replace(/\s*\n\s*/g, " ")} | ${meta("siteName")}`;
   const description = t("intro");
   const isAr = locale === "ar";
 
@@ -45,11 +75,13 @@ export async function pageMetadata(
       url: `/${locale}${path}`,
       locale: isAr ? "ar_SA" : "en_US",
       alternateLocale: isAr ? "en_US" : "ar_SA",
+      images: [ogImage(locale)],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [ogImage(locale).url],
     },
   };
 }

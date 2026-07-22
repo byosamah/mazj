@@ -13,6 +13,7 @@ import {BOOKING} from "@/lib/links";
 function Content() {
   const t = useTranslations("SpaceCoworking");
   const ts = useTranslations("Spaces");
+  const tf = useTranslations("Faq");
   const includes = t.raw("includes") as string[];
   const facts = t.raw("facts") as Array<{label: string; value: string}>;
 
@@ -23,12 +24,17 @@ function Content() {
           not separate products, so two buttons would point at the same URL. */}
       <SpaceDetail
         image="/images/spaces/day-desk.jpg"
-        imageAlt={t("title")}
+        imageAlt={t("photoAlt")}
         body={t("body")}
         facts={facts}
         includesTitle={t("includesTitle")}
         includes={includes}
         ctas={[{label: t("ctaBook"), href: BOOKING.sharedSeat}]}
+        aboutTitle={t("aboutTitle")}
+        about={t.raw("about") as string[]}
+        faqTitle={t("faqTitle")}
+        faq={t.raw("faq") as Array<{q: string; a: string}>}
+        faqAllLabel={tf("allCta")}
       />
       {/* Sibling strip: someone landing here from search could not reach
           any other space without the global nav. SpacesGrid already had
