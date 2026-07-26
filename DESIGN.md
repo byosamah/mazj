@@ -583,10 +583,16 @@ its own compiled ones, though: its published `--radius-lg` is 16px, while the
 
 ### Illustration and iconography
 
-**There is no illustration in this system, and that is a decision.** No
-isometric graphics, no spot illustration, no abstract geometry, no 3D renders.
-The brand's visual substance is photography, and adding an illustration language
-would dilute it.
+**This system currently contains no illustration.** There are no isometric
+graphics, no spot illustration, no abstract geometry, and no 3D renders anywhere
+on the site. The brand's visual substance today is photography.
+
+Read that as a description of what exists, **not as a prohibition**: the question
+of whether MAZJ should have an illustration language is deliberately left open
+here. What follows from it is only this: no illustration language has been
+established, so there is no existing style to match. If one is introduced it is a
+new brand decision, made deliberately and then recorded in this section, rather
+than a look inherited from a template or a stock library.
 
 - **Photography** is the primary visual language: real interiors and real
   members of one specific building, shot in warm daylight with a low-saturation,
@@ -615,9 +621,9 @@ would dilute it.
   without a photograph, the system uses the hairline grid overlay or a masked
   dot field in brown at 18% alpha. Both are quiet by design.
 
-**Anti-patterns.** Do not substitute stock photography for the real rooms. Do
-not add illustration or 3D. Do not recolour photographs toward the coral. Do not
-put a photograph behind body copy without a measured scrim.
+**Anti-patterns.** Do not substitute stock photography for the real rooms. Do not
+recolour photographs toward the coral. Do not put a photograph behind body copy
+without a measured scrim.
 
 ## Components
 
@@ -794,5 +800,5 @@ forgotten:
   **Don't** replace a focus ring with a hover wash, and don't audit target size
   from the element's own rectangle when a pseudo-element carries the hit pad.
 - **Do** let sections breathe at 96px to 128px and let statements stay short.
-  **Don't** fill empty space with ornament, illustration, or an icon set;
-  emptiness is the brand's calm.
+  **Don't** fill empty space with ornament or an icon set; emptiness is the
+  brand's calm.
