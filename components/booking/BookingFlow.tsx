@@ -72,6 +72,19 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
     result: Availability;
   } | null>(null);
 
+  /**
+   * Bumped by the retry button to re-run the availability fetch.
+   *
+   * 🔴 A nonce, because there is nothing else for the effect to depend on. Its
+   * deps are the price, the space and the flow, and a retry changes none of
+   * them. Clearing `loaded` looked like it would work and did the opposite: it
+   * flipped `loadingSlots` back to true and `slotsFailed` to false, so the error
+   * box unmounted, "checking what is free" rendered in its place, and no request
+   * was ever issued. That is a worse dead end than the one the retry was added
+   * to fix, and only a full reload escaped it.
+   */
+  const [retryNonce, setRetryNonce] = useState(0);
+
   const loadingSlots = isReservation && Boolean(priceId) && loaded?.priceId !== priceId;
   const result = loaded?.priceId === priceId ? loaded.result : null;
   const availability = result?.ok ? result.days : null;
@@ -107,7 +120,7 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
     return () => {
       cancelled = true;
     };
-  }, [isReservation, priceId, space.slug]);
+  }, [isReservation, priceId, space.slug, retryNonce]);
 
   // The hand-off. Rekaz hosts the payment page and there is no API to do it
   // here, so the journey leaves at exactly this point and no earlier.
@@ -168,7 +181,7 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
               <p className="text-black/70">{t("error.upstream_unavailable")}</p>
               <button
                 type="button"
-                onClick={() => setLoaded(null)}
+                onClick={() => setRetryNonce((n) => n + 1)}
                 className="mt-3 rounded-full border border-black/20 px-4 py-1.5 text-sm [transition:opacity_200ms,transform_120ms] hover:border-black/40 active:scale-[0.96]"
               >
                 {t("retry")}

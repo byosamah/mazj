@@ -80,17 +80,24 @@ export function localBusinessSchema({
       "@type": "AdministrativeArea",
       name: locale === "ar" ? "المنطقة الشرقية" : "Eastern Province, Saudi Arabia",
     },
-    // The four real mazj.sa products. Booking and live pricing run there, so no
-    // `price` is asserted here: a stale price in schema is worse than none.
+    // The four products, each pointing at its on-site booking page. No `price`
+    // is asserted: prices are live from Rekaz and a stale one in schema is worse
+    // than none.
+    //
+    // 🔴 `absoluteUrl` + the locale, because `BOOKING` holds RELATIVE paths since
+    // booking moved on-site. A relative `url` in JSON-LD is invalid: Google
+    // cannot resolve it without a base, so the offer is dropped or misattributed.
+    // Every other URL in this file is already absolute; these were the only ones
+    // that silently became relative.
     makesOffer: [
-      {name: "Open desk", url: BOOKING.sharedSeat},
-      {name: "Private office", url: BOOKING.privateOffice},
-      {name: "Meeting room (Al-Malqa)", url: BOOKING.meeting},
-      {name: "Events hall (Al-Ma'arij)", url: BOOKING.event},
+      {name: "Open desk", path: BOOKING.sharedSeat},
+      {name: "Private office", path: BOOKING.privateOffice},
+      {name: "Meeting room (Al-Malqa)", path: BOOKING.meeting},
+      {name: "Events hall (Al-Ma'arij)", path: BOOKING.event},
     ].map((o) => ({
       "@type": "Offer",
       itemOffered: {"@type": "Service", name: o.name},
-      url: o.url,
+      url: absoluteUrl(`/${locale}${o.path}`),
       priceCurrency: "SAR",
     })),
   };
