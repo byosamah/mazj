@@ -1,6 +1,6 @@
 # On-site booking
 
-**Date:** 2026-07-27 · **Status:** DRAFT, not yet approved
+**Date:** 2026-07-27 · **Status:** SHIPPED (commit `97190c0`)
 **Phase 2 of 2.** Builds on the Rekaz client proven by
 [Phase 1](./2026-07-27-admin-dashboard-design.md).
 
@@ -196,6 +196,22 @@ never `id`**: price ids rotate on every edit in the Rekaz dashboard, so an
 `id`-keyed map silently loses its English the first time someone changes a
 price. A test asserts every live price has an English label, so a price added in
 Rekaz fails the build rather than quietly rendering Arabic on the English site.
+
+## What the live test found
+
+One real booking was created and cancelled on the production tenant, with the
+owner's permission. It changed the code twice.
+
+🔴 **The payment link is RELATIVE**, not the absolute URL the docs promise. The
+redirect would have sent buyers to our own 404 at the payment step.
+`absolutePaymentLink` fixes it; full detail in the findings doc.
+
+✅ **Idempotency verified on live data.** The same key submitted twice returned
+the identical payment link and created exactly ONE reservation.
+
+✅ **Cancellation releases the slot** immediately (204, window reappears).
+⚠️ Cancelled rows stay in `GET /reservations`, so any count must filter them.
+⚠️ `invoiceId` came back undefined despite being documented.
 
 ## Open questions
 

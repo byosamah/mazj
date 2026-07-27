@@ -43,7 +43,9 @@ It is a pixel-faithful animated multi-page site: home plus `/about` `/contact`
 `/events` `/faq` `/privacy` `/spaces` `/terms`, plus the four space-detail routes
 `/spaces/{coworking,private-office,meeting-room,event-hall}`, all under
 `app/[locale]/`. That is 12 route groups x 2 locales = 24 prerendered pages, with
-`app/[locale]/[...rest]` catching everything else and rendering on demand.
+`app/[locale]/[...rest]` catching everything else and rendering on demand. Since
+2026-07-27 each space also has a `/book` child (4 routes x 2 locales, rendered on
+demand) where booking happens against the Rekaz API.
 `/pricing`→`/spaces` and `/community`→`/about` are redirects in
 `next.config.mjs`. Routes are locale-prefixed: `/en` (LTR) and `/ar` (RTL).
 English is the default; `/` redirects to `/en`.
@@ -64,10 +66,11 @@ routing and [`server/CLAUDE.md`](./server/CLAUDE.md) for the gates.
 - "الملقى / Al-Malqa" and "المعارج / Al-Ma'arij" are **room names** (the meeting
   room and the events hall), NOT city districts. Don't "correct" them against the
   Al-Khobar eyebrow.
-- mazj.sa sells **4** products (was 6): duration is now a variant picker inside
-  each, not a product of its own. `BOOKING` =
-  `sharedSeat`/`privateOffice`/`meeting`/`event`. Re-verify those URLs before
-  trusting them; `mktb-khas-hyz` already 404s.
+- MAZJ sells **4** products (was 6): duration is now a variant picker inside
+  each, not a product of its own. `BOOKING` in `lib/links.ts` =
+  `sharedSeat`/`privateOffice`/`meeting`/`event`, and since 2026-07-27 those are
+  **internal** `/spaces/<space>/book` paths, not mazj.sa URLs. The old store
+  paths live in `LEGACY_STORE_PATHS` and are redirected.
 - The Google rating is **4.7** with few reviews, **not 5.0**. A hardcoded `5.0`
   in the hero trustLine and in Proof was a real shipped bug. Don't put a rating
   claim in the hero or Proof at all; lead with legitimacy signals (address,
@@ -92,29 +95,32 @@ report it as "AI-blocked".
 ### Launch plan (owner decision, 2026-07-27)
 
 **Both `www.mazj.sa` and `www.mazj.org` will serve THIS site, deployed on
-Vercel.** Timing is "later"; nothing here is built yet.
+Vercel.** Timing is "later". No Vercel project exists yet.
 
-🔴 **Three things that decision breaks or forces. Resolve them BEFORE pointing
-either domain at Vercel.**
+🔴 **Three things that decision breaks or forces. Item 1 is now BUILT; items 2
+and 3 are still open and must be resolved BEFORE pointing either domain at
+Vercel.**
 
-1. **The booking links die, and the answer is now Phase 2.** `lib/links.ts`
-   `BOOKING` sends every buyer to `https://mazj.sa/subscription/*` and
-   `https://mazj.sa/reservation/*`, which are **Rekaz store paths**. If
-   `www.mazj.sa` serves this Next.js app those paths hit next-intl's locale
-   redirect, then the `[...rest]` catch-all, and **404**. Verified locally on all
-   four.
+1. **The booking links used to die.** `BOOKING` sent every buyer to
+   `https://mazj.sa/subscription/*` and `https://mazj.sa/reservation/*`, which
+   are **Rekaz store paths**. With `www.mazj.sa` serving this app those hit
+   next-intl's locale redirect, then the `[...rest]` catch-all, and **404**.
+   Verified locally on all four.
 
-   ✅ **Resolved in principle, owner decision 2026-07-27.** Rather than moving
-   the Rekaz store or proxying to it, booking moves ONTO this site (all four
-   products), and the four legacy store paths **301 to their new booking pages**
-   so existing QR codes, ads and shared links keep working. Not built yet: that
-   is Phase 2, and it must ship before either domain points at Vercel.
+   ✅ **RESOLVED AND BUILT, 2026-07-27.** Booking now happens on this site at
+   `/spaces/<space>/book` for all four products, and the legacy store paths 308
+   to their replacements (each in a bare AND a locale-prefixed shape, since
+   `mazj.sa/subscription/<slug>` 308s to `/ar/subscription/<slug>` and that form
+   collides with our own `/ar` prefix). `lib/links.ts` `BOOKING` is now internal
+   paths; `LEGACY_STORE_PATHS` holds the old ones and a test asserts both shapes
+   are redirected.
 
    🔴 **The one thing on-site booking cannot absorb is payment.** Rekaz has no
-   payments API. `POST /reservations/bulk` returns a `paymentLink` to
-   `platform.rekaz.io/i/XXXX`, so the card step still leaves our domain. It
-   leaves to `platform.rekaz.io`, NOT to `mazj.sa`, so it survives the domain
-   move intact. Confirmed against the live API, see
+   payments API, so the card step still leaves our domain, to
+   `platform.rekaz.io`. That host is NOT `mazj.sa`, so it survives the domain
+   move intact. ⚠️ The link arrives RELATIVE, not absolute as documented, and
+   must be resolved against the Rekaz origin or the last click of every purchase
+   lands on our own 404. Confirmed against the live API, see
    [`docs/rekaz-api-findings.md`](./docs/rekaz-api-findings.md).
 
    ⚠️ **The "no prices on the site" guardrail was relaxed for this**, owner
@@ -141,7 +147,7 @@ either domain at Vercel.**
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 172 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
+| `npm run test` / `test:watch` | Vitest. 187 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |

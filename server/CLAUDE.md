@@ -65,6 +65,9 @@ them without checking this section first. Ask the owner.
 |---|---|
 | `rekaz/` | Typed, server-only client for the Rekaz Merchant Public API. See below. |
 | `services/admin-auth.ts` | Gate 1 of the admin's three access gates, plus the magic-link verification. |
+| `services/booking.ts` | 🔴 The booking write path. Rate limit, idempotency, server-side price resolution, slot re-check. Everything the browser sends is a suggestion. |
+| `rekaz/booking.ts` | The two Rekaz writes, plus `absolutePaymentLink`. |
+| `domain/spaces.ts` | Our `/spaces/<slug>` URLs to Rekaz product slugs. |
 | `domain/admin-access.ts` | The `@mazj.org` rule itself. Shared by all three gates. |
 | `domain/riyadh-time.ts` | UTC to `Asia/Riyadh`. Pure. |
 | `supabase/session.ts` | The request-scoped client, carrying a signed-in user. |
@@ -298,6 +301,14 @@ several places that will otherwise cost you an afternoon. The short version:
 tenant. It is read-only for that reason, and skips without credentials. Never
 add a write to it.
 
+⚠️ **Those tests FLAKE, and it is upstream, not us.** Rekaz answers between 1.2s
+and 10.8s for the same endpoint and degrades sharply under concurrent load, so a
+full `npm run verify` occasionally trips the client's 10s timeout and reports one
+or two `upstream_unavailable` failures. **Re-run before investigating**; a clean
+second run is the expected outcome, not a fluke. If it fails twice in a row,
+that is a real signal. The one live booking test that exists was run by hand and
+then deleted, precisely so nothing that writes can flake.
+
 ## The admin's three access gates
 
 `/admin` is `@mazj.org` only. The rule lives in **one** place,
@@ -443,7 +454,7 @@ Run all of this after any schema or security change. All passing as of
 
 1. Connect with `pg` over IPv6 and assert `relrowsecurity` is true, `pg_policies`
    is empty, and `role_table_grants` has zero rows for `anon` / `authenticated`.
-2. `npm run test`: 172 tests. 11 RLS integration tests attack every table with
+2. `npm run test`: 187 tests. 11 RLS integration tests attack every table with
    the publishable key and must all be refused; 12 Rekaz integration tests read
    the live production tenant and pin its response shapes. Both suites **skip**
    rather than fail without credentials, so a fresh clone stays green. 🔴 Run
@@ -471,12 +482,11 @@ paragraph.
 
 ## Out of scope, deliberately
 
-Payments, webhook receivers, customer-facing accounts, storage, realtime, and
-any WRITE to Rekaz. Each gets its own spec. **Do not build them speculatively.**
+Payments (Rekaz exposes no API), webhook receivers, customer-facing accounts,
+storage, realtime, refunds and coupon validation. Each gets its own spec. **Do
+not build them speculatively.**
 
-Auth and Rekaz reads left this list on 2026-07-27 when the admin dashboard
-shipped. The next thing to land here is Phase 2, on-site booking, which is the
-first feature that will POST to Rekaz and therefore the first that genuinely
-needs `idempotency_keys`: `docs/rekaz-api-findings.md` records that Rekaz has no
-idempotency of its own, so a double-tapped booking button creates two
-reservations.
+Auth, Rekaz reads and Rekaz WRITES all left this list on 2026-07-27, as the admin
+dashboard and then on-site booking shipped. `idempotency_keys` finally has its
+caller: `services/booking.ts`, verified on a real booking to return the original
+payment link rather than creating a twin.

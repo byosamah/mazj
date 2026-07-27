@@ -268,13 +268,65 @@ Confirmed absent from both the documentation and the live surface.
 
 | Gap | Consequence |
 |---|---|
-| 🔴 **No payments API** | `POST /reservations/bulk` returns `paymentLink` pointing at `https://platform.rekaz.io/i/XXXX`. Card entry cannot happen on our domain. This is the one hard architectural constraint. |
+| 🔴 **No payments API** | `POST /reservations/bulk` returns a `paymentLink` to a Rekaz-hosted checkout. Card entry cannot happen on our domain. This is the one hard architectural constraint. See the section below: the link is NOT the shape the docs claim. |
 | 🔴 **No webhook signature** | 21 events, 10 retries with exponential backoff, and no HMAC, shared secret or signing header of any kind. Anyone who learns the URL can forge `ReservationConfirmedEvent`. Mitigation: an unguessable path, plus re-fetching the entity by id before trusting any payload. |
 | 🔴 **No end-customer auth** | No customer login, no OTP, no per-customer scoped token. A "my bookings" page means building auth ourselves and filtering with an admin key, where one missing `.eq()` exposes the whole customer base. Same failure mode `server/CLAUDE.md` warns about for the Supabase admin client. |
 | 🟡 **No idempotency keys** | A double-tapped booking button creates two reservations. `idempotency_keys` in our own database stops being optional the day we POST a booking. |
 | 🟡 **No sandbox** | Development and testing run against production data. |
 | 🟡 **No OpenAPI spec** | Every type is hand-written and needs review whenever Rekaz ships a change. There is no drift alarm. |
 | 🟢 No coupon validation, no invoice retrieval, no refund endpoint, no product images (`productProviders[].image` is `null`), 100-record page cap | Smaller. Recorded so nobody rediscovers them. |
+
+## 🔴 The payment link is RELATIVE, not absolute
+
+Measured against a real booking created on 2026-07-27, not read from the docs.
+
+The documentation shows:
+
+```json
+{ "paymentLink": "https://platform.rekaz.io/i/NcRo" }
+```
+
+The live API returned:
+
+```json
+{ "paymentLink": "/orders/pay/RMogHOPQc47FStqK" }
+```
+
+A **relative path**, and a different path shape. This is the single most
+dangerous discrepancy in this document, because of where it lands: redirecting a
+browser to a relative path resolves it against the CURRENT origin, so the final
+click of a purchase sends the buyer to **our own** site and a 404. The booking is
+already created and unpaid at that point, so it also leaves a `Pending`
+reservation holding a room.
+
+**The host cannot be inferred from the store domain.** Verified:
+
+| URL | Result |
+|---|---|
+| `https://platform.rekaz.io/orders/pay/<id>` | **200** |
+| `https://mazj.sa/orders/pay/<id>` | 404 (redirects to `/ar/orders/pay/<id>`) |
+
+`absolutePaymentLink()` in `server/rekaz/booking.ts` resolves it against the API
+**origin** (not the `/api/public` base path, which also 404s) and passes an
+absolute URL through untouched, so the day Rekaz honours its own docs nothing
+breaks. **Never use `paymentLink` raw.**
+
+⚠️ `invoiceId` came back **undefined** on that reservation response despite being
+documented. Do not depend on it.
+
+## Writes: what a real booking looks like
+
+Recorded from the one live test, since there is no sandbox to repeat it in.
+
+- `POST /reservations/bulk` with `customerDetails` inline creates the customer
+  and the reservation in one call. Guest checkout works.
+- The reservation lands in status **`Pending`**, as the packages documentation
+  implies. It becomes `Confirmed` only after the payment link is paid.
+- `PUT /reservations/{id}/cancel` with `{cancellationReason, notifyCustomer}`
+  answers **204** and genuinely releases the slot: the window reappeared as
+  available immediately afterwards.
+- ⚠️ Cancelled reservations REMAIN in `GET /reservations` with
+  `status: "Cancelled"`. Anything counting bookings must filter them out.
 
 ## Webhooks
 
