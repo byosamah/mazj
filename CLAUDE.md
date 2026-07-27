@@ -325,6 +325,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   after removing one, `npm run typecheck` fails with
   `Cannot find module '../../app/<route>/route.js'`. It names a file you
   deliberately deleted and reads like a real error. `rm -rf .next` clears it.
+- ⚠️ **A `*/` inside a block comment ENDS it.** Writing a glob or a path like
+  `/ar/spaces/*/book` in a JSDoc terminates the comment early and everything
+  after it parses as code (`TS1443`, `Unterminated template literal`). Use prose
+  or a single-line `//` comment instead. Scan with a regex for `*/` occurring
+  inside a `/* ... */` block, not by reading.
 - **A JSX comment cannot sit inside an attribute list**, nor as an element's
   *sibling inside a ternary consequent* (`{x ? (<comment/><ul/>) : …}` is two
   adjacent expressions with no wrapper). `{/* … */}` (and `//`) between props is a

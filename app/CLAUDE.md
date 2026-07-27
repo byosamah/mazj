@@ -179,6 +179,12 @@ them again, forever.
 models rather than re-export backend modules. Pages import from `_lib`. The
 underscore keeps Next from routing it.
 
+🔴 **The `(protected)` layout guards PAGE RENDERS, not Server Actions.** An
+action is a public POST endpoint reachable by its id from the client bundle, so
+every admin action must call `requireAdmin()` itself. Sitting under
+`(protected)/` protects nothing. `signOut` is the deliberate exception: requiring
+a session to END one would strand anyone whose token had just expired.
+
 ⚠️ **`_lib/actions.ts` is `"use server"`, so EVERY export becomes a callable
 Server Action.** Do not re-export a helper taking a non-serialisable argument
 (a Supabase client, say) from it: that creates an action nobody can invoke and

@@ -374,12 +374,33 @@ names and occasionally row data, and an error response is the single easiest pla
 in a web application to leak all of it. The detail goes to the log; the client
 gets a code.
 
+🔴 **`route()` and `toPublicError` do NOT protect a Server Action.** They are
+wired into `app/api/**` handlers only, and Next redacts *thrown* errors, not
+*returned* action values, so a returned `AppError.message` serialises to the
+browser verbatim. An action must return the `code` and let the page render its
+own copy from `messages/*.json`. This shipped a real leak: a Rekaz 400 printed
+300 characters of upstream ProblemDetails, its `traceId` and our internal API
+path onto the public booking form, in Arabic, on the English page.
+
 **`instrumentation.ts` throws in production but only WARNS in development**,
 deliberately: most work in this repo is frontend, and refusing to start
 `npm run dev` because nobody has pasted a Supabase key yet would block all of it.
 Same asymmetry as `lib/site.ts`, keyed on `NODE_ENV` so it holds on any host.
 
 ## Tooling
+- **Next 16: `revalidateTag(tag, profile)` takes TWO arguments.** For a Server
+  Action that must see its own write (a Refresh button), use `updateTag(tag)`:
+  `revalidateTag` purges for FUTURE requests, so a redirect after it still
+  renders the cached copy the user just rejected.
+- **`vi.fn(async () => X)` narrows its return type to `X`.** `tsc` then rejects
+  every other outcome the real function can return, while vitest itself runs
+  fine, so `npm run test` passes and `npm run typecheck` fails. Annotate the mock
+  against the real union: `vi.fn(async (): Promise<T> => ...)`.
+- **Mutation-test a money-path fix.** Reintroduce the bug and confirm the test
+  goes red; a test that passes on both the broken and the fixed code proves
+  nothing. Back the file up to an explicit path inside the repo, NOT `$TMPDIR`,
+  which differs between sandboxed and unsandboxed shells (a backup written in one
+  mode is invisible in the other, and the restore silently fails).
 
 - 🔴 **The command sandbox breaks Node's outbound TLS, but not curl's.** Any
   test or script that `fetch`es an external host fails under the sandbox with a
