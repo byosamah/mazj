@@ -17,14 +17,20 @@ language, with which `<head>`**. Also `globals.css`, which physically lives here
   these instead of `next/link` and `next/navigation`** so the active locale prefix
   is preserved.
 - `proxy.ts`: Next.js 16 renamed `middleware.ts` to `proxy.ts`. This runs the
-  next-intl middleware for locale detection and prefixing. Its matcher already
-  excludes `api`, `_next`, `_vercel` and anything with a file extension, so
-  `/api/*` bypasses locale rewriting entirely.
+  next-intl middleware for locale detection and prefixing. Its matcher excludes
+  `api`, **`admin`**, `_next`, `_vercel` and anything with a file extension, so
+  those bypass locale rewriting entirely. 🔴 **`admin` must stay in that list**:
+  without it next-intl rewrites `/admin` to `/en/admin` before any admin code
+  runs, every admin route 404s, and the magic link's redirect target stops
+  existing.
 - `next.config.mjs` wires `createNextIntlPlugin("./i18n/request.ts")`.
-- 🔴 `app/[locale]/layout.tsx` is intentionally the **only** root layout (there is
-  no `app/layout.tsx`): it sets `<html lang dir>`, calls `setRequestLocale(locale)`,
-  and wraps the tree in `NextIntlClientProvider`. `generateMetadata` reads the
-  `Meta` namespace.
+- 🔴 There is **no `app/layout.tsx`**. Instead there are **two root layouts**,
+  side by side, each owning its own `<html>`:
+  - `app/[locale]/layout.tsx` for the public site: sets `<html lang dir>`, calls
+    `setRequestLocale(locale)`, wraps the tree in `NextIntlClientProvider`, and
+    its `generateMetadata` reads the `Meta` namespace.
+  - `app/admin/layout.tsx` for the admin (added 2026-07-27): `lang="en"`,
+    `dir="ltr"`, `robots: noindex`. See the admin section below.
 
 **Layout persistence has two consequences elsewhere.** Because `[locale]/layout.tsx`
 persists across client-side navigations, `ScrollFX` arms only once per hard load
@@ -71,10 +77,12 @@ sitemap entry and JSON-LD URL, deliberately the unresolvable `mazj.example`
 `lib/schema.ts` + `components/JsonLd.tsx` render JSON-LD server-side, with no
 `aggregateRating` on purpose.
 
-`app/robots.ts` has a deliberately **empty** disallow: a `Disallow` would stop
-Google reading the `noindex` meta on `/privacy` and `/terms`, which are also
-deliberately absent from the sitemap. The per-file comments carry the full
-reasoning.
+`app/robots.ts` disallows **only** `/admin`. It stays empty for everything else:
+a `Disallow` would stop Google reading the `noindex` meta on `/privacy` and
+`/terms`, which are also deliberately absent from the sitemap. That trap does
+not apply to `/admin` because nothing anywhere links to it, so there is no
+discovered-but-unreadable state to fall into. The per-file comments carry the
+full reasoning.
 
 🔴 **Never add `Event` JSON-LD to `/events`.** The `upcoming` entries are labelled
 "Example" with "Date to be announced" and carry real host names, so marking them
@@ -137,6 +145,54 @@ string.
   screen. Strip `<script>` blocks first. Full note in [`../CLAUDE.md`](../CLAUDE.md).
 - JSON-LD must be verified by **parsing the `ld+json` block**, not by reading the
   rendered page.
+
+## `app/admin/`: the internal tool
+
+Added 2026-07-27. English only, LTR, **outside the locale system entirely**.
+Backend mechanics (the three access gates, the Rekaz client) live in
+[`../server/CLAUDE.md`](../server/CLAUDE.md); this section is the routing.
+
+```
+app/admin/
+  layout.tsx              root layout: <html lang="en" dir="ltr">, noindex. NO guard.
+  login/                  unprotected, by necessity
+  auth/callback/route.ts  magic-link landing. Writes the session cookie.
+  _lib/                   🔴 the ONLY place here that may import @/server/**
+  (protected)/            everything requiring a signed-in admin
+    layout.tsx            the guard + chrome
+    page.tsx              the dashboard, at /admin
+```
+
+🔴 **Why it is not `app/[locale]/admin/`.** Under the locale tree it would exist
+twice (`/en/admin` and `/ar/admin`) as duplicate content, acquire an hreflang
+pair and a sitemap entry, and inherit the marketing site's scroll and motion
+providers. None of that belongs on a tool three people use.
+
+🔴 **The guard is in `(protected)/layout.tsx`, not in each page.** A new admin
+page is protected because of where it sits, not because someone remembered a
+call. `login/` sits OUTSIDE that group deliberately: inside it, the guard would
+redirect an anonymous visitor to the login page, whose render would redirect
+them again, forever.
+
+🔴 **`_lib/` is a sanctioned ESLint boundary crossing** (the second, after
+`app/api/**`). Only it may import `@/server/**`, and it must export plain view
+models rather than re-export backend modules. Pages import from `_lib`. The
+underscore keeps Next from routing it.
+
+⚠️ **`_lib/actions.ts` is `"use server"`, so EVERY export becomes a callable
+Server Action.** Do not re-export a helper taking a non-serialisable argument
+(a Supabase client, say) from it: that creates an action nobody can invoke and
+widens the public surface. `_lib/session.ts` exists for exactly that reason.
+
+⚠️ **The cookie `setAll` in `_lib/supabase.ts` swallows its error on purpose.**
+Next forbids cookie writes from a Server Component, and Supabase writes cookies
+whenever it silently refreshes a token, so without the catch an ordinary page
+load an hour into a session crashes. The write is deferred, not lost.
+
+Three things keep `/admin` off the public internet, and
+`test/admin-surface.test.ts` asserts the first two: absent from the sitemap
+(including its hreflang clusters), `Disallow` in robots.txt, and
+`robots: {index: false}` on the layout.
 
 ## Adding a route
 

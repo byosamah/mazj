@@ -1,6 +1,6 @@
 # Secured admin + live operations dashboard
 
-**Date:** 2026-07-27 · **Status:** approved by owner, ready to implement
+**Date:** 2026-07-27 · **Status:** SHIPPED (commit `155ce64`)
 **Phase 1 of 2.** Phase 2 (on-site booking) gets its own spec and depends on the
 Rekaz client this phase builds.
 
@@ -191,6 +191,67 @@ shape, or the endpoint becomes an oracle for enumerating staff addresses.
 Booking, payments, webhook receivers, customer-facing accounts, admin roles
 beyond a single flat level, mutating Rekaz data from the dashboard, and any
 Arabic admin UI. Each is a later decision, not a gap in this one.
+
+## What changed during implementation
+
+Recorded because a spec that quietly diverges from the code is worse than no
+spec. Four deviations, all forced by something discovered while building.
+
+**1. Login is a Server Action, not `POST /api/admin/login`.**
+`@supabase/ssr` runs the PKCE flow, so requesting a link writes a code-verifier
+cookie that the callback needs. Both halves therefore need a cookie store they
+can WRITE to. A Server Action has one; it also removes a hand-rolled fetch and a
+JSON contract. The rate limit still lives in the service, so it cannot be
+skipped by a second caller.
+
+**2. The callback accepts `token_hash` as well as `code`.**
+While testing, an admin-generated link came back as `#access_token=...` in a URL
+**fragment**, which a server can never read, and it landed on the site root
+rather than the callback. `completeAdminSignIn` now handles `token_hash`
+(`verifyOtp`), `code` (`exchangeCodeForSession`), and refuses anything else.
+The `token_hash` path also survives requesting a link on a laptop and opening it
+on a phone, which PKCE does not.
+
+**3. The custom email template could not be set.** Supabase refuses template
+edits on the free tier with the default sender (`400: Email template
+modification is not available for free tier projects`). The default template
+plus PKCE works and is what ships. Moving to real SMTP later unlocks the
+template and needs no code change, because of deviation 2.
+
+**4. `app/admin/_lib/**` became a second ESLint boundary crossing.** The spec
+assumed admin pages could import `@/server` freely; they cannot, and widening
+the rule across all of `app/admin` would have been too broad. Only `_lib` may
+cross, and it exports view models rather than re-exporting backend modules.
+Re-verified that violations outside `_lib` still fail.
+
+## Verification performed
+
+- 172 tests pass (was 102). Lint, typecheck and a production build all clean.
+- The `@mazj.org` rule was run against 19 adversarial cases in **both**
+  TypeScript and SQL. Both agree on all 19, including
+  `"anything@mazj.org"@evil.com`.
+- Gate 2 attacked live via Supabase's own `/auth/v1/otp` with the publishable
+  key, bypassing the app entirely: `attacker@example.com`,
+  `someone@mail.mazj.org` and `o.khalil@mazj.org.evil.com` all returned 403 and
+  created no `auth.users` row.
+- The full sign-in chain walked end to end without email: PKCE verifier cookie →
+  auth code → callback → session cookie → `/admin` returning 200 with the
+  signed-in address and all four tiles.
+- 12 Rekaz integration tests pass against the live production tenant, read-only.
+- `/admin` returns 307 to `/admin/login` while anonymous; sitemap holds 20 URLs
+  and none contain `admin`; robots.txt disallows it.
+
+## Open, and owner-facing
+
+- ⚠️ **Email deliverability to `o.khalil@mazj.org` is unconfirmed.** Supabase
+  logged `mail.send`, so it was dispatched, but only the recipient can confirm
+  arrival. The built-in sender is capped at a few messages an hour and is not
+  production-grade; real SMTP is required before anyone else is onboarded.
+- 🔴 **Rotate the Rekaz credentials before launch.** They were pasted into a chat
+  transcript on 2026-07-27.
+- `uri_allow_list` currently holds only `localhost` entries. The production
+  callback URL must be added before deploying, or every magic link will bounce
+  to the site root.
 
 ## Phase 2 preview
 

@@ -17,7 +17,8 @@ source of truth for its layer; copy a rationale into ONE of them, never several.
 | **`CLAUDE.md`** (this file) | Project identity, commands, the i18n rule, cross-cutting gotchas | Always. It is loaded automatically. |
 | [**`app/CLAUDE.md`**](./app/CLAUDE.md) | Locale routing, layout, metadata, JSON-LD, sitemap, share cards, the `lib/` SEO files, `globals.css` ownership | Any route, layout, metadata, SEO or redirect work |
 | [**`components/CLAUDE.md`**](./components/CLAUDE.md) | Component form, RTL, Arabic typography, motion, media, brand assets, and every visual verification recipe | Any UI, styling, animation, image or video work |
-| [**`server/CLAUDE.md`**](./server/CLAUDE.md) | The backend: Supabase, migrations, RLS, API routes, the frontend/backend boundary | Any backend, database or API work |
+| [**`server/CLAUDE.md`**](./server/CLAUDE.md) | The backend: Supabase, migrations, RLS, API routes, the Rekaz client, the admin's access gates, the frontend/backend boundary | Any backend, database, API, Rekaz or auth work |
+| [**`docs/rekaz-api-findings.md`**](./docs/rekaz-api-findings.md) | What the Rekaz API actually **does**, probed live against the production tenant | 🔴 Anything touching Rekaz, before you trust their docs |
 | [**`DESIGN.md`**](./DESIGN.md) | How it **looks**: colour, type, space, shape, motion, component form | Any visual change |
 | [**`TONE.md`**](./TONE.md) | How it **sounds**: voice, register, settled vocabulary, what copy may and may not say | Any user-facing string |
 | [`server/README.md`](./server/README.md) | The backend's layer contract, for humans | Adding anything to `server/` |
@@ -46,6 +47,13 @@ It is a pixel-faithful animated multi-page site: home plus `/about` `/contact`
 `/pricing`→`/spaces` and `/community`→`/about` are redirects in
 `next.config.mjs`. Routes are locale-prefixed: `/en` (LTR) and `/ar` (RTL).
 English is the default; `/` redirects to `/en`.
+
+Since 2026-07-27 there is also **`/admin`**, an English-only internal tool with
+its own root layout, deliberately **outside** the locale system: no locale
+prefix, no hreflang, no sitemap entry, `Disallow` in robots.txt. Sign-in is a
+Supabase magic link restricted to `@mazj.org` by three independent gates. It
+shows live Rekaz operations. See [`app/CLAUDE.md`](./app/CLAUDE.md) for the
+routing and [`server/CLAUDE.md`](./server/CLAUDE.md) for the gates.
 
 **Brand facts (not derivable from the code):**
 
@@ -89,17 +97,29 @@ Vercel.** Timing is "later"; nothing here is built yet.
 🔴 **Three things that decision breaks or forces. Resolve them BEFORE pointing
 either domain at Vercel.**
 
-1. **The booking links die.** `lib/links.ts` `BOOKING` sends every buyer to
-   `https://mazj.sa/subscription/*` and `https://mazj.sa/reservation/*`, which
-   are **Rekaz store paths**. If `www.mazj.sa` serves this Next.js app those
-   paths hit next-intl's locale redirect, then the `[...rest]` catch-all, and
-   **404**. Verified locally on all four: `/subscription/adwyh-almsahh-almshtrkh`,
-   `/subscription/private-office`, `/reservation/ghrfh-alajtmaaat-almlqa`,
-   `/reservation/qaah-alfaalyat-almaarj` all returned 404. This is the revenue
-   path, so it fails loudly and completely. Options, none chosen yet: move the
-   Rekaz store to a subdomain (`book.mazj.sa`) and repoint `BOOKING`; add Vercel
-   rewrites proxying those two path prefixes to Rekaz; or keep the marketing site
-   off the apex of mazj.sa.
+1. **The booking links die, and the answer is now Phase 2.** `lib/links.ts`
+   `BOOKING` sends every buyer to `https://mazj.sa/subscription/*` and
+   `https://mazj.sa/reservation/*`, which are **Rekaz store paths**. If
+   `www.mazj.sa` serves this Next.js app those paths hit next-intl's locale
+   redirect, then the `[...rest]` catch-all, and **404**. Verified locally on all
+   four.
+
+   ✅ **Resolved in principle, owner decision 2026-07-27.** Rather than moving
+   the Rekaz store or proxying to it, booking moves ONTO this site (all four
+   products), and the four legacy store paths **301 to their new booking pages**
+   so existing QR codes, ads and shared links keep working. Not built yet: that
+   is Phase 2, and it must ship before either domain points at Vercel.
+
+   🔴 **The one thing on-site booking cannot absorb is payment.** Rekaz has no
+   payments API. `POST /reservations/bulk` returns a `paymentLink` to
+   `platform.rekaz.io/i/XXXX`, so the card step still leaves our domain. It
+   leaves to `platform.rekaz.io`, NOT to `mazj.sa`, so it survives the domain
+   move intact. Confirmed against the live API, see
+   [`docs/rekaz-api-findings.md`](./docs/rekaz-api-findings.md).
+
+   ⚠️ **The "no prices on the site" guardrail was relaxed for this**, owner
+   decision 2026-07-27: live prices pulled from the Rekaz API may appear INSIDE
+   the booking flow. Marketing pages stay price-free. See `TONE.md`.
 2. **Two domains serving identical content is duplicate content.** `lib/site.ts`
    holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
    `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
@@ -121,7 +141,7 @@ either domain at Vercel.**
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 102 tests, 11 of them RLS integration tests that skip without Supabase credentials. |
+| `npm run test` / `test:watch` | Vitest. 172 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |
@@ -131,6 +151,14 @@ any `NODE_ENV=production` build while the origin is still the `mazj.example`
 placeholder, so a bare `npm run build` fails BY DESIGN. Use
 `NEXT_PUBLIC_SITE_URL=https://<domain> npm run build` until the real domain is in
 the environment.
+
+🔴 **The command sandbox also breaks Node's outbound TLS.** Any test or script
+that `fetch`es an external host fails with a bare `TypeError` while `curl` to the
+same URL returns 200, because curl trusts the system keychain and Node ships its
+own CA store. So `npm run test` and `npm run verify` need the sandbox OFF too,
+not just `build`. The failure is deeply misleading: it surfaces as
+`upstream_unavailable`, i.e. "Rekaz is down", rather than anything about your
+shell. `npm install` needs it off as well (root-owned `~/.npm`).
 
 🔴 **`npm run build` also needs the command sandbox OFF.** Turbopack spawns a
 subprocess that binds a port on the PostCSS step, so a sandboxed build panics
