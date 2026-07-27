@@ -26,6 +26,27 @@ revoked, i.e. reachable only by the secret key:
 | `rate_limit_counters` | Fixed-window counters, one row per bucket, driven by `rate_limit_hit()`. |
 | `idempotency_keys` | Stored responses keyed by `(scope, idempotency_key)`, driven by `idempotency_begin()`. |
 
+🔴 **Both currently have ZERO callers, and that is a known open question, not an
+oversight.** They were built as part of the foundation, before the owner had
+specified what the product needs. `leads`, the only thing that ever used them,
+was dropped on 2026-07-27 for exactly that reason. They survive it because,
+unlike `leads`, they encode no assumption about the product: a rate limiter does
+not care what it limits, and idempotency does not care what it protects.
+
+The decision is deferred until the owner describes the features, and the test is
+simple: **any public write endpoint** (a form, a signup, an RSVP, a booking)
+needs both. A read-only feature, or one that stays entirely on Rekaz, needs
+neither. If the features turn out not to need them, drop them; it is one
+migration and the code is small.
+
+One argument is not speculative. `docs/rekaz-api-review-ar.md` §4.4 records that
+**Rekaz has no idempotency keys**, and that a double-tapped booking button can
+create two bookings. If any feature books through this site, `idempotency_keys`
+is required rather than optional.
+
+⚠️ Do not quietly delete either one to "clean up", and do not build features on
+them without checking this section first. Ask the owner.
+
 **One endpoint**, `runtime = "nodejs"`, `dynamic = "force-dynamic"`:
 
 | Route | Purpose |
@@ -122,8 +143,8 @@ exposure. Revoking means two separate mistakes are required to expose anything.
 
 Postgres also grants `EXECUTE` on functions to `PUBLIC` by default, which would
 expose them over PostgREST's `/rpc/` endpoint to anonymous callers.
-`rate_limit_hit` and `idempotency_begin` both explicitly revoke and re-grant to
-`service_role` only.
+All three functions (`rate_limit_hit`, `idempotency_begin`, `health_ping`)
+explicitly revoke and re-grant to `service_role` only.
 
 `SECURITY DEFINER` functions must `set search_path = ''` and fully qualify every
 name, or Supabase's advisor flags `function_search_path_mutable`, which is a real
@@ -280,7 +301,7 @@ Run all of this after any schema or security change. All passing as of
 
 1. Connect with `pg` over IPv6 and assert `relrowsecurity` is true, `pg_policies`
    is empty, and `role_table_grants` has zero rows for `anon` / `authenticated`.
-2. `npm run test`: 123 tests, 10 of them RLS integration tests that attack every
+2. `npm run test`: 102 tests, 11 of them RLS integration tests that attack every
    table with the publishable key and must all be refused. They **skip** rather
    than fail without credentials, so a fresh clone stays green.
 3. `npm run db:types:check`: generated types match the live schema.
@@ -289,12 +310,20 @@ Run all of this after any schema or security change. All passing as of
    `unused_index` on an empty table.
 5. `npm run check:env` and `npm run verify`.
 
-**End-to-end proof already recorded:** Arabic-Indic phone `٠٥٣٤٦٠٠٤٨٨` stored as
-`+966534600488`; `Idem@Example.COM` stored lowercased; a replayed idempotency key
-returned the identical id with 200 instead of 201; a 30-request flood produced
-exactly 13 rows with `Retry-After: 28`; `ip_hash` stored a 128-bit HMAC rather
-than an address; and error responses leaked none of `SUPABASE`, `supabase.co`,
-`/Users/` or key material while the server log carried the full diagnostic.
+**End-to-end proof, recorded 2026-07-27 against the now-removed `leads`
+endpoint.** Kept because it is evidence about the *mechanisms*, which survive,
+not about the endpoint, which does not: the Arabic-Indic phone `٠٥٣٤٦٠٠٤٨٨`
+normalised to `+966534600488`; `Idem@Example.COM` stored lowercased; a replayed
+idempotency key returned the identical id with 200 instead of 201; a 30-request
+flood produced exactly 13 rows with `Retry-After: 28`, i.e. the limiter cut in at
+precisely the 20th request of the window and rejected requests wrote nothing;
+`ip_hash` stored a 128-bit HMAC rather than an address; and error responses
+leaked none of `SUPABASE`, `supabase.co`, `/Users/` or key material while the
+server log carried the full diagnostic.
+
+⚠️ **That path cannot be re-run today**: there is no write endpoint. The next
+feature that adds one should reproduce these checks rather than trusting this
+paragraph.
 
 ## Out of scope, deliberately
 

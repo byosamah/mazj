@@ -24,7 +24,7 @@ source of truth for its layer; copy a rationale into ONE of them, never several.
 
 **Why it is split this way.** Claude Code loads this root file into every
 session, but a `CLAUDE.md` inside a directory loads only when you actually work
-in that directory. So a backend session does not pay for 45KB of Arabic-clipping
+in that directory. So a backend session does not pay for ~48KB of Arabic-clipping
 rules, and a copy session does not pay for the migration mechanics. Keep it that
 way: when you learn something new, put it in the **narrowest** file that covers
 it, and only put it here if it genuinely bites everywhere.
@@ -121,7 +121,7 @@ either domain at Vercel.**
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 123 tests. |
+| `npm run test` / `test:watch` | Vitest. 102 tests, 11 of them RLS integration tests that skip without Supabase credentials. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |
@@ -286,6 +286,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   step errors `-22` on mixed-size inputs; `pad` rejects `-1` offsets (use
   `(ow-iw)/2`). For labeled or mixed-size sheets, PIL is far easier (see
   `.claude.local.md`).
+- ⚠️ **Deleting a route leaves a stale type in `.next` that fails `tsc`.** Next
+  generates `.next/types/validator.ts` referencing every route it has seen, so
+  after removing one, `npm run typecheck` fails with
+  `Cannot find module '../../app/<route>/route.js'`. It names a file you
+  deliberately deleted and reads like a real error. `rm -rf .next` clears it.
 - **A JSX comment cannot sit inside an attribute list**, nor as an element's
   *sibling inside a ternary consequent* (`{x ? (<comment/><ul/>) : …}` is two
   adjacent expressions with no wrapper). `{/* … */}` (and `//`) between props is a
