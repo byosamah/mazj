@@ -10,8 +10,8 @@ import {
   type BookingFormState,
 } from "@/app/[locale]/spaces/_lib/actions";
 import type {
+  Availability,
   BookableSpace,
-  DaySlots,
   PriceOption,
 } from "@/app/[locale]/spaces/_lib/booking";
 
@@ -31,6 +31,20 @@ import type {
  */
 
 const INITIAL: BookingFormState = {status: "idle"};
+
+/**
+ * Rekaz's custom-field `type` enum, as observed on the live events hall.
+ *
+ * Named because `cf.type === 10` at a call site is unreadable, and because the
+ * file case is the one with a behavioural consequence: Rekaz publishes no upload
+ * endpoint, so a file field cannot be collected through this form at all.
+ */
+const REKAZ_FIELD = {text: 1, number: 2, file: 10} as const;
+
+/** Custom fields that can honestly be rendered as an input. */
+function inputCustomFields<T extends {type: number}>(fields: T[]): T[] {
+  return fields.filter((f) => f.type !== REKAZ_FIELD.file);
+}
 
 export default function BookingFlow({space}: {space: BookableSpace}) {
   const t = useTranslations("Booking");
@@ -55,11 +69,15 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
    */
   const [loaded, setLoaded] = useState<{
     priceId: string;
-    days: DaySlots[] | null;
+    result: Availability;
   } | null>(null);
 
   const loadingSlots = isReservation && Boolean(priceId) && loaded?.priceId !== priceId;
-  const availability = loaded?.priceId === priceId ? loaded.days : null;
+  const result = loaded?.priceId === priceId ? loaded.result : null;
+  const availability = result?.ok ? result.days : null;
+  // Distinguished from "no slots", because they mean opposite things: one is a
+  // fully booked fortnight, the other is our booking system being unreachable.
+  const slotsFailed = result != null && !result.ok;
 
   const [state, formAction] = useActionState(submitBooking, INITIAL);
 
@@ -75,15 +93,15 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
     if (!isReservation || !priceId) return;
     let cancelled = false;
 
-    fetchAvailability(space.slug, priceId).then((days) => {
+    fetchAvailability(space.slug, priceId).then((res) => {
       // `cancelled` guards the out-of-order case: switch duration twice quickly
       // and the first response can land after the second, painting slots for a
       // price the visitor is no longer looking at.
       if (cancelled) return;
-      setLoaded({priceId, days});
+      setLoaded({priceId, result: res});
       // Land on the first day that actually has capacity rather than on today,
       // which is frequently closed (Fri/Sat) or already past its last slot.
-      setDay(days?.find((d) => d.slots.length > 0)?.day ?? "");
+      setDay(res.ok ? (res.days.find((d) => d.slots.length > 0)?.day ?? "") : "");
     });
 
     return () => {
@@ -137,6 +155,26 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
       {isReservation ? (
         <Step n={2} title={t("whenTitle")}>
           {loadingSlots && <p className="text-sm text-black/45">{t("loading")}</p>}
+
+          {/* 🔴 The failure branch. Without it, a Rekaz outage rendered an empty
+              step with a permanently disabled button and no explanation, and the
+              visitor concluded MAZJ was broken rather than that a request had
+              failed. Retry is offered because these outages are transient. */}
+          {!loadingSlots && slotsFailed && (
+            <div
+              role="alert"
+              className="rounded-xl border border-orange/30 bg-orange/5 px-5 py-4 text-sm"
+            >
+              <p className="text-black/70">{t("error.upstream_unavailable")}</p>
+              <button
+                type="button"
+                onClick={() => setLoaded(null)}
+                className="mt-3 rounded-full border border-black/20 px-4 py-1.5 text-sm [transition:opacity_200ms,transform_120ms] hover:border-black/40 active:scale-[0.96]"
+              >
+                {t("retry")}
+              </button>
+            </div>
+          )}
 
           {!loadingSlots && availability && availability.length === 0 && (
             <p className="text-sm text-black/45">{t("noAvailability")}</p>
@@ -228,9 +266,18 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
           />
         </div>
 
-        {space.customFields.length > 0 && (
+        {/* 🔴 FILE FIELDS ARE EXCLUDED, not rendered as text boxes.
+            Rekaz's type 10 is a file upload, and their public API exposes NO
+            upload endpoint, so whatever someone typed into a text input would
+            be sent as a filename-shaped string and silently mean nothing. The
+            events hall's commercial-registration field is optional
+            (`isRequired: false`), so omitting it is a valid booking; it is
+            requested afterwards instead. Collecting the file properly needs
+            private storage and a retention rule, which is its own piece of work.
+            Everything non-file still renders normally. */}
+        {inputCustomFields(space.customFields).length > 0 && (
           <div className="mt-4 grid gap-4">
-            {space.customFields.map((cf) => (
+            {inputCustomFields(space.customFields).map((cf) => (
               <Field
                 key={cf.id}
                 // Prefixed so a crafted form cannot inject arbitrary keys into
@@ -238,10 +285,16 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
                 name={`cf:${cf.name}`}
                 label={t.has(`customField.${cf.name}`) ? t(`customField.${cf.name}`) : cf.label}
                 required={cf.isRequired}
-                type={cf.type === 2 ? "number" : "text"}
+                type={cf.type === REKAZ_FIELD.number ? "number" : "text"}
               />
             ))}
           </div>
+        )}
+
+        {space.customFields.some((cf) => cf.type === REKAZ_FIELD.file) && (
+          <p className="mt-4 rounded-xl border border-black/10 px-5 py-4 text-sm text-black/50">
+            {t("documentLater")}
+          </p>
         )}
       </Step>
 

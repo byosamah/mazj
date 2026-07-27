@@ -9,8 +9,8 @@ import {
 } from "@/server/rekaz/reservations";
 import {
   expiringWithin,
+  fetchAllSubscriptions,
   isActive,
-  listSubscriptions,
 } from "@/server/rekaz/subscriptions";
 import type { RekazReservation } from "@/server/rekaz/types";
 import {
@@ -144,7 +144,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
   const [products, allReservations, subscriptionPage] = await Promise.all([
     listProducts(),
     fetchAllReservations(),
-    listSubscriptions(),
+    fetchAllSubscriptions(),
   ]);
 
   const todayReservations: Tile<ReservationView[]> = allReservations.ok

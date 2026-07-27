@@ -84,6 +84,20 @@ export async function bookableFlowFor(slug: string): Promise<BookingFlow | null>
   return spaceBySlug(slug)?.flow ?? null;
 }
 
+/**
+ * Availability, or the reason there is none.
+ *
+ * 🔴 A bare `DaySlots[] | null` conflated "Rekaz is down" with "nothing is
+ * free", and the form rendered NEITHER: on null it fell through every branch,
+ * leaving an empty step 2 with a permanently disabled submit and no message at
+ * all. A silent dead end at the money step is the worst possible failure mode,
+ * because the visitor concludes the business is broken rather than that the
+ * request failed.
+ */
+export type Availability =
+  | { ok: true; days: DaySlots[] }
+  | { ok: false; reason: "upstream" };
+
 export type DaySlots = {
   /** `YYYY-MM-DD` in Riyadh. */
   day: string;
@@ -108,17 +122,20 @@ export async function loadAvailability(
   spaceSlug: string,
   priceImmutableId: string,
   days = 14
-): Promise<DaySlots[] | null> {
-  const space = await loadBookableSpace(spaceSlug);
-  if (!space || space.flow !== "reservation") return null;
+): Promise<Availability> {
+  const mapping = spaceBySlug(spaceSlug);
+  if (!mapping || mapping.flow !== "reservation") {
+    // Not a slot-booked product. An empty calendar is the honest answer, not an
+    // error: subscriptions have no slots by design.
+    return { ok: true, days: [] };
+  }
 
   const catalog = await listProducts();
-  if (!catalog.ok) return null;
+  if (!catalog.ok) return { ok: false, reason: "upstream" };
 
-  const mapping = spaceBySlug(spaceSlug);
-  const product = catalog.value.items.find((p) => p.slug === mapping?.rekazSlug);
+  const product = catalog.value.items.find((p) => p.slug === mapping.rekazSlug);
   const price = product?.pricing.find((p) => p.immutableId === priceImmutableId);
-  if (!price) return null;
+  if (!price) return { ok: false, reason: "upstream" };
 
   const start = riyadhToday();
   const end = riyadhDate(new Date(Date.now() + days * 86_400_000));
@@ -128,7 +145,7 @@ export async function loadAvailability(
     startDate: start,
     endDate: end,
   });
-  if (!result.ok) return null;
+  if (!result.ok) return { ok: false, reason: "upstream" };
 
   const byDay = new Map<string, DaySlots>();
   for (const slot of filterSlotsToRange(result.value, start, end)) {
@@ -143,7 +160,10 @@ export async function loadAvailability(
     byDay.set(day, entry);
   }
 
-  return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+  return {
+    ok: true,
+    days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
+  };
 }
 
 function riyadhTimeOf(iso: string): string {

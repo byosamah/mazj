@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { clientIp } from "@/server/core/request";
 import { requestAdminMagicLink } from "@/server/services/admin-auth";
 
+import { requireAdmin } from "./auth";
 import { DASHBOARD_CACHE_TAG } from "./dashboard";
 import { adminSupabase } from "./supabase";
 
@@ -76,6 +77,9 @@ export async function requestLoginLink(
 
 /** Ends the session and returns to the login page. */
 export async function signOut(): Promise<void> {
+  // No guard: signing out an already-anonymous caller is a no-op, and requiring
+  // a session to END a session would strand anyone whose token had just expired
+  // on a page with a button that could not work.
   const supabase = await adminSupabase();
   await supabase.auth.signOut();
   redirect("/admin/login");
@@ -90,6 +94,19 @@ export async function signOut(): Promise<void> {
  * somebody presses it: when they believe what they are looking at is stale.
  */
 export async function refreshDashboard(): Promise<void> {
+  // 🔴 AUTHORISED HERE, not by the layout.
+  //
+  // A Server Action is a public POST endpoint. The `(protected)` layout guards
+  // PAGE RENDERS, and an action is not a page render, so this was callable by
+  // anyone who could read its id out of the client bundle. Busting the cache
+  // forces a full uncached refetch of every reservation and subscription, which
+  // means an anonymous caller could drive load straight at the Rekaz API that
+  // also serves mazj.sa's live checkout.
+  //
+  // The narrow fix matters less than the pattern: every admin action added from
+  // here on must guard itself. Sitting under `(protected)/` protects nothing.
+  await requireAdmin();
+
   // `updateTag`, not `revalidateTag`. Next 16 draws the distinction precisely:
   // revalidateTag purges for FUTURE requests, while updateTag gives
   // read-your-own-writes within this action, so the redirect below lands on

@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { clientIp } from "@/server/core/request";
 import { createBooking } from "@/server/services/booking";
 
-import { loadAvailability, type DaySlots } from "./booking";
+import { loadAvailability, type Availability } from "./booking";
 
 /**
  * The booking form's write path.
@@ -112,7 +112,7 @@ export async function submitBooking(
 export async function fetchAvailability(
   spaceSlug: string,
   priceImmutableId: string
-): Promise<DaySlots[] | null> {
+): Promise<Availability> {
   return loadAvailability(spaceSlug, priceImmutableId);
 }
 

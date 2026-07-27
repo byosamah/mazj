@@ -11,6 +11,7 @@ import { log } from "../core/logger";
 import { checkRateLimit, rateLimitedError } from "../core/rate-limit";
 import { err, ok, type Result } from "../core/result";
 import { normalizePhone } from "../domain/phone";
+import { riyadhDate, riyadhToday } from "../domain/riyadh-time";
 import { spaceBySlug, type SpaceMapping } from "../domain/spaces";
 import { env } from "../env";
 import {
@@ -43,6 +44,9 @@ import type { RekazPrice, RekazProduct } from "../rekaz/types";
 /** Bookings permitted per client per window. */
 const LIMIT = 8;
 const WINDOW_SECONDS = 3600;
+
+/** How far ahead a subscription may be scheduled to start. */
+const MAX_START_DAYS_AHEAD = 365;
 
 export type BookingCustomer = {
   name: string;
@@ -534,9 +538,38 @@ async function prepareSubscription(
   customerDetails: RekazCustomerDetails | undefined
 ): Promise<Result<Dispatch, AppError>> {
   const startAt = request.startAt;
-  if (!startAt || !/^\d{4}-\d{2}-\d{2}/.test(startAt)) {
+  if (!startAt || !/^\d{4}-\d{2}-\d{2}$/.test(startAt)) {
     return err(
       errors.validation("Please choose a start date.", { startAt: "required" })
+    );
+  }
+
+  // 🔴 BOUNDED, in both directions. A shape check alone accepted `2020-01-01`,
+  // and the browser is the only thing that was stopping it: the date input's
+  // `min` is a UI hint a crafted POST simply omits. A backdated subscription is
+  // a paid membership whose term is already spent, which Rekaz has no reason to
+  // reject and MAZJ has every reason to.
+  //
+  // The lower bound is TODAY IN RIYADH, not UTC. Between midnight and 3am local,
+  // a UTC "today" is still yesterday, so a customer booking at 1am would have
+  // their own current date refused as being in the past.
+  const today = riyadhToday();
+  if (startAt < today) {
+    return err(
+      errors.validation("That start date has already passed.", {
+        startAt: "past",
+      })
+    );
+  }
+
+  // An upper bound too, so a typo in the year cannot create a subscription that
+  // starts in 2126 and sits in the operations dashboard forever.
+  const horizon = riyadhDate(new Date(Date.now() + MAX_START_DAYS_AHEAD * 86_400_000));
+  if (startAt > horizon) {
+    return err(
+      errors.validation("Please choose a start date within the next year.", {
+        startAt: "too_far",
+      })
     );
   }
 

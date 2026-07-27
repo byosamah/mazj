@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { AppError } from "../core/errors";
-import type { Result } from "../core/result";
+import { log } from "../core/logger";
+import { ok, type Result } from "../core/result";
 import { rekazRequest } from "./client";
 import { REKAZ_PAGE_MAX } from "./reservations";
 import type { RekazPage, RekazSubscription } from "./types";
@@ -39,6 +40,62 @@ export function listSubscriptions(
       ...(statuses?.length ? { statuses: statuses.join(",") } : {}),
     },
   });
+}
+
+/** Enough pages for a tenant an order of magnitude larger than today's. */
+const MAX_PAGES = 10;
+
+/**
+ * Every subscription, across pages.
+ *
+ * 🔴 A single `listSubscriptions()` call returns at most 100 rows, and this
+ * tenant already holds **98**. Two more sign-ups and any count derived from one
+ * page silently starts undercounting: the dashboard's "Active" figure and its
+ * expiring-soon list would simply omit whoever fell off the end, with no error
+ * and no visible gap. A wrong number presented confidently is worse than a
+ * missing one, and this one is a renewal list somebody acts on.
+ *
+ * Paged SEQUENTIALLY. Rekaz degrades badly under concurrent requests (six
+ * parallel calls made an endpoint hang past two minutes that answered in 1.5s
+ * on its own), and that same API serves mazj.sa's live checkout.
+ */
+export async function fetchAllSubscriptions(): Promise<
+  Result<{ items: RekazSubscription[]; totalCount: number }, AppError>
+> {
+  const first = await listSubscriptions({ skipCount: 0 });
+  if (!first.ok) return first;
+
+  const { totalCount } = first.value;
+  const items = [...first.value.items];
+
+  for (let page = 1; page < MAX_PAGES; page++) {
+    if (items.length >= totalCount) break;
+
+    const next = await listSubscriptions({ skipCount: page * REKAZ_PAGE_MAX });
+    if (!next.ok) {
+      // Partial beats nothing: page one holds enough to be useful, and the
+      // dashboard says how fresh it is. But say so, because a silently short
+      // list is the exact failure this function exists to prevent.
+      log.warn("rekaz.subscriptions.partial", {
+        collected: items.length,
+        totalCount,
+        reason: next.error.code,
+      });
+      break;
+    }
+
+    if (next.value.items.length === 0) break;
+    items.push(...next.value.items);
+  }
+
+  if (items.length < totalCount) {
+    log.warn("rekaz.subscriptions.truncated", {
+      collected: items.length,
+      totalCount,
+    });
+  }
+
+  return ok({ items, totalCount });
 }
 
 /**

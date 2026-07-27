@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { absolutePaymentLink } from "./booking";
 import { SPACES, spaceBySlug, isSpaceSlug } from "../domain/spaces";
@@ -73,5 +73,36 @@ describe("space mapping", () => {
     expect(isSpaceSlug("nope")).toBe(false);
     expect(isSpaceSlug(null)).toBe(false);
     expect(isSpaceSlug("coworking")).toBe(true);
+  });
+});
+
+describe("subscription paging", () => {
+  it("🔴 pages past the 100-row cap the tenant is about to cross", async () => {
+    // 98 of 100 used at time of writing. A single-page read starts silently
+    // undercounting the Active tile and dropping people off the renewal list
+    // after two more sign-ups, with no error to notice.
+    const pages = [
+      { totalCount: 250, items: Array.from({ length: 100 }, (_, i) => ({ id: `a${i}` })) },
+      { totalCount: 250, items: Array.from({ length: 100 }, (_, i) => ({ id: `b${i}` })) },
+      { totalCount: 250, items: Array.from({ length: 50 }, (_, i) => ({ id: `c${i}` })) },
+    ];
+    let call = 0;
+    vi.doMock("./client", () => ({
+      rekazRequest: async () => ({ ok: true, value: pages[call++] }),
+    }));
+    vi.resetModules();
+    const { fetchAllSubscriptions } = await import("./subscriptions");
+
+    const result = await fetchAllSubscriptions();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.items).toHaveLength(250);
+      expect(new Set(result.value.items.map((s) => s.id)).size).toBe(250);
+      expect(result.value.totalCount).toBe(250);
+    }
+    expect(call, "should stop as soon as it has them all").toBe(3);
+    vi.doUnmock("./client");
+    vi.resetModules();
   });
 });
