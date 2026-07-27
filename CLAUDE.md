@@ -81,6 +81,37 @@ ALLOWS OAI-SearchBot/PerplexityBot/Googlebot), so it IS citable by
 ChatGPT-search, Perplexity and AI Overviews but not Claude or Gemini: don't
 report it as "AI-blocked".
 
+### Launch plan (owner decision, 2026-07-27)
+
+**Both `www.mazj.sa` and `www.mazj.org` will serve THIS site, deployed on
+Vercel.** Timing is "later"; nothing here is built yet.
+
+🔴 **Three things that decision breaks or forces. Resolve them BEFORE pointing
+either domain at Vercel.**
+
+1. **The booking links die.** `lib/links.ts` `BOOKING` sends every buyer to
+   `https://mazj.sa/subscription/*` and `https://mazj.sa/reservation/*`, which
+   are **Rekaz store paths**. If `www.mazj.sa` serves this Next.js app those
+   paths hit next-intl's locale redirect, then the `[...rest]` catch-all, and
+   **404**. Verified locally on all four: `/subscription/adwyh-almsahh-almshtrkh`,
+   `/subscription/private-office`, `/reservation/ghrfh-alajtmaaat-almlqa`,
+   `/reservation/qaah-alfaalyat-almaarj` all returned 404. This is the revenue
+   path, so it fails loudly and completely. Options, none chosen yet: move the
+   Rekaz store to a subdomain (`book.mazj.sa`) and repoint `BOOKING`; add Vercel
+   rewrites proxying those two path prefixes to Rekaz; or keep the marketing site
+   off the apex of mazj.sa.
+2. **Two domains serving identical content is duplicate content.** `lib/site.ts`
+   holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
+   `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
+   secondary 301 to it, or serve cross-domain canonicals pointing at the primary.
+   Do NOT let both resolve 200 with self-canonicals.
+3. **Which domain is primary is an SEO decision, not a preference.** mazj.org
+   holds the Arabic ranking equity (#1-3 on head terms); mazj.sa is the
+   commercial domain and matches the brand's country. Whichever is secondary must
+   301, not merely redirect in the browser, or that equity is lost. The existing
+   `docs/mazj-org-301-redirect-map.md` assumes mazj.org is retired; re-read it
+   against whatever is decided.
+
 ## Commands
 
 | Command | Notes |
