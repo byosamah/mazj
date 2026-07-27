@@ -22,18 +22,23 @@ import nextVitals from "eslint-config-next/core-web-vitals";
  * `app/api/**` is the one sanctioned crossing point, and route handlers there
  * are kept to a few lines each so the crossing stays narrow.
  *
- * `app/admin/_lib/**` is the second, added 2026-07-27 with the admin dashboard.
- * Admin pages are Server Components that genuinely need the backend, and making
- * them fetch their own HTTP API would mean a server calling itself over the
- * network, with an absolute URL to construct and a cookie jar to forward by
- * hand. So the crossing is a folder rather than a rule-wide exemption: only
- * `_lib` may import `@/server/**`, and it exports plain view models that the
- * pages render. The pages themselves stay on the frontend side of the line.
+ * `app/**\/_lib/**` is the second, added 2026-07-27 with the admin dashboard and
+ * generalised for booking. Server Components genuinely need the backend, and
+ * making them fetch their own HTTP API would mean a server calling itself over
+ * the network, with an absolute URL to construct and a cookie jar to forward by
+ * hand. So the crossing is a NAMED FOLDER rather than a rule-wide exemption:
+ * only a `_lib` directory may import `@/server/**`, and it must export plain
+ * view models and Server Actions, never re-export backend modules. The pages
+ * themselves stay on the frontend side of the line.
  *
  * The underscore matters twice: Next treats `_`-prefixed folders as private so
  * `_lib` can never become a route, and the name makes the crossing obvious in a
  * diff. `import "server-only"` in the modules underneath is what stops any of
  * it reaching a client bundle if someone adds "use client" to the wrong file.
+ *
+ * 🔴 A `_lib` folder is therefore a privileged location. Adding one is a
+ * deliberate act, not a naming convenience: anything inside it can reach the
+ * Supabase secret key and the admin-scope Rekaz credential.
  */
 
 const SERVER_IMPORT_PATTERNS = [
@@ -41,10 +46,11 @@ const SERVER_IMPORT_PATTERNS = [
     group: ["@/server", "@/server/**", "**/server/**"],
     message:
       "Frontend code must not import from server/. There are exactly two " +
-      "sanctioned crossing points: an API route (app/api/**), or app/admin/_lib/** " +
-      "for admin Server Components, which must export plain view models rather " +
-      "than re-export backend modules. Importing a service anywhere else risks " +
-      "pulling the Supabase secret key into a client bundle. See server/README.md.",
+      "sanctioned crossing points: an API route (app/api/**), or a `_lib` folder " +
+      "under app/ (app/**/_lib/**) for Server Components, which must export plain " +
+      "view models and Server Actions rather than re-export backend modules. " +
+      "Importing a service anywhere else risks pulling the Supabase secret key " +
+      "into a client bundle. See server/README.md.",
   },
 ];
 
@@ -76,7 +82,7 @@ export default defineConfig([
       "i18n/**/*.{ts,tsx}",
       "proxy.ts",
     ],
-    ignores: ["app/api/**", "app/admin/_lib/**"],
+    ignores: ["app/api/**", "app/**/_lib/**"],
     rules: {
       "no-restricted-imports": ["error", {patterns: SERVER_IMPORT_PATTERNS}],
     },

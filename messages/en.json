@@ -1263,5 +1263,59 @@
     "cta": "Get the offer",
     "ctaMsg": "Hi MAZJ, I'm building something and I'd love to hear the startups & builders offer.",
     "note": "The offer is one message away. Start with your idea."
+  },
+  "Booking": {
+    "title": "Book your space",
+    "intro": "Choose how long you need, pick a time, and we will hold it for you.",
+    "back": "Back to the space",
+    "unavailable": "Online booking for this space is not available right now. Get in touch and we will arrange it with you.",
+    "durationTitle": "How long do you need?",
+    "whenTitle": "Choose a day and a time",
+    "startTitle": "When would you like to start?",
+    "startHint": "Start today, or pick a later date.",
+    "detailsTitle": "Your details",
+    "name": "Full name",
+    "mobile": "Mobile number",
+    "email": "Email (optional)",
+    "loading": "Checking what is free...",
+    "noAvailability": "Nothing is free in the next two weeks. Get in touch and we will find you a time.",
+    "dayClosed": "We are closed on this day.",
+    "submit": "Continue to payment",
+    "submitting": "One moment...",
+    "vatNote": "Prices include VAT.",
+    "space": {
+      "coworking": "Open desk",
+      "private-office": "Private office",
+      "meeting-room": "Meeting room",
+      "event-hall": "Events hall"
+    },
+    "price": {
+      "3a1c02d4-aa6f-9c18-5379-6155b3a91fcc": "One hour",
+      "3a1c02d4-aa6f-6783-b0a0-5b1b0b2af8be": "Two hours",
+      "3a1c02d4-aa6f-7c08-031a-694d179f71c3": "Three hours",
+      "3a1c02d4-aa6f-ff55-2895-866734b93236": "Four hours",
+      "3a1c02d4-aa70-ccd1-ca6b-1f3e62b5d3fa": "Five hours",
+      "3a14ba38-8e8c-9272-8a4c-2d6f3784b10f": "One day",
+      "3a229610-6162-79bd-ec4b-72352a110f26": "One month",
+      "3a229610-6162-37bd-21ac-aea69897fb1d": "Three months",
+      "3a229610-6162-9120-b666-3d91c71785bf": "Six months",
+      "3a22961d-ecd3-495e-7187-08d3c9b95a9e": "One year",
+      "3a14ba65-3e22-b1a7-b731-8922edc2de24": "Two hours",
+      "3a14ba73-925c-d747-94ef-2235ee7edde2": "Three hours",
+      "3a14ba73-925c-f1a6-d207-719cdc8dea0c": "Four hours",
+      "3a14ba73-925c-509e-e7d6-3b1fc9958e33": "Five hours",
+      "3a157fb0-1745-4c9e-7cf3-c1a53216553c": "One day",
+      "3a157fb0-1745-54fb-d44d-c5b0b28936f4": "Three days",
+      "3a157fb7-5c3a-a172-c0e4-546ba14d1705": "Six days",
+      "3a229618-bb00-9f21-2919-c7705a1446e9": "One month",
+      "3a229618-bb00-98bb-92a6-739c0d2474dc": "Three months",
+      "3a229618-bb00-ffcb-3fd7-87b7e1a1a927": "Six months",
+      "3a229618-bb00-c19b-9f15-45acdaae2eb5": "One year"
+    },
+    "customField": {
+      "3a14ba65-3e22-d2f1-b556-5b32d8ca8be6": "How many people are coming?",
+      "3a1bf7d5-678d-a4d2-dc03-8ef286c23c73": "Commercial registration or activity permit",
+      "b7b81d2b-4b3f-4ab2-b2ff-f7606911a440": "Tell us about the event"
+    }
   }
 }

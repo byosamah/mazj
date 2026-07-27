@@ -97,6 +97,35 @@ const nextConfig = {
       // link equity to the destination, exactly like /pricing above.
       {source: "/community", destination: "/en/about", permanent: true},
       {source: "/:locale(en|ar)/community", destination: "/:locale/about", permanent: true},
+
+      // ---------------------------------------------------------------------
+      // The legacy Rekaz storefront paths.
+      //
+      // 🔴 These only matter once `www.mazj.sa` points at this app, and then
+      // they matter enormously: until 2026-07-27 they WERE the store, so every
+      // QR code, ad and shared link MAZJ has ever published points here. Without
+      // these lines the domain move turns all of them into 404s on the revenue
+      // path.
+      //
+      // ⚠️ Each path exists in TWO shapes, and both are needed.
+      // `mazj.sa/subscription/<slug>` answers 308 and redirects to
+      // `mazj.sa/ar/subscription/<slug>`, so real traffic arrives on both. The
+      // locale-prefixed form is the dangerous one: `/ar/subscription/...` looks
+      // like one of OUR locale routes, so without an explicit rule it sails past
+      // next-intl into the `[...rest]` catch-all and renders a branded 404,
+      // which is harder to notice than a plain one.
+      //
+      // Source of truth for the mapping is `LEGACY_STORE_PATHS` in lib/links.ts.
+      {source: "/subscription/adwyh-almsahh-almshtrkh", destination: "/ar/spaces/coworking/book", permanent: true},
+      {source: "/subscription/private-office", destination: "/ar/spaces/private-office/book", permanent: true},
+      {source: "/reservation/ghrfh-alajtmaaat-almlqa", destination: "/ar/spaces/meeting-room/book", permanent: true},
+      {source: "/reservation/qaah-alfaalyat-almaarj", destination: "/ar/spaces/event-hall/book", permanent: true},
+
+      // The locale-prefixed forms keep whichever locale the visitor arrived on.
+      {source: "/:locale(en|ar)/subscription/adwyh-almsahh-almshtrkh", destination: "/:locale/spaces/coworking/book", permanent: true},
+      {source: "/:locale(en|ar)/subscription/private-office", destination: "/:locale/spaces/private-office/book", permanent: true},
+      {source: "/:locale(en|ar)/reservation/ghrfh-alajtmaaat-almlqa", destination: "/:locale/spaces/meeting-room/book", permanent: true},
+      {source: "/:locale(en|ar)/reservation/qaah-alfaalyat-almaarj", destination: "/:locale/spaces/event-hall/book", permanent: true},
     ];
   },
 };

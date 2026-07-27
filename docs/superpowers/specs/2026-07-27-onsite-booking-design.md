@@ -174,13 +174,34 @@ owner should decide knowingly**, and the options are to accept it, to send our
 own OTP (Supabase can send SMS, at a cost), or to keep the two subscription
 products on the store where verification already exists.
 
+✅ **Owner decision: accept unverified guest checkout.** No OTP. The reasoning
+accepted was that payment still happens on Rekaz, so an unverified booking that
+is never paid stays `Pending` and costs nothing but a held slot.
+
+✅ **Owner decision: match returning customers silently** by mobile number, so
+Rekaz's 284-customer list does not accumulate duplicates of regulars.
+
+🔴 **Silently means silently.** The matched customer's name, email or history is
+NEVER rendered back to the page. This form is public and unauthenticated, so
+echoing anything found by phone number turns it into a lookup tool: type a
+number, learn who it belongs to. The match exists to attach the booking to the
+right Rekaz record on the SERVER, and the response says nothing about whether a
+match happened.
+
+✅ **Owner decision: fully bilingual**, with English written by us.
+
+Rekaz holds no English, so every product name, price name and custom-field label
+needs an English string in `messages/en.json`. 🔴 Key them by **`immutableId`,
+never `id`**: price ids rotate on every edit in the Rekaz dashboard, so an
+`id`-keyed map silently loses its English the first time someone changes a
+price. A test asserts every live price has an English label, so a price added in
+Rekaz fails the build rather than quietly rendering Arabic on the English site.
+
 ## Open questions
 
-1. **Phone verification.** See above. Needs an owner decision.
-2. **Guest checkout or customer matching?** `GET /customers?mobileNumber=` does
-   filter correctly, so an existing customer can be matched by phone instead of
-   duplicated. Worth doing, but it means querying a customer record from a
-   public form, which is an enumeration surface and needs thought.
+1. **What happens after payment?** Rekaz's hosted page decides where the visitor
+   lands, and no return-URL parameter is documented. If none exists, the journey
+   simply ends on Rekaz and we cannot show a confirmation.
 3. **What happens after payment?** Rekaz's hosted page decides where the visitor
    lands. If it can return them to a URL we choose, we need a confirmation page;
    if not, the journey simply ends on Rekaz.
