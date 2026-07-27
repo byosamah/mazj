@@ -35,7 +35,7 @@ Owner, 2026-07-27.
 | Scope | All four products |
 | Entry point | A step on each space page: `/spaces/<space>/book` |
 | Payment handoff | Plain redirect, no explanatory copy |
-| Start date | Match the mazj.sa store's behaviour |
+| Start date | Match the mazj.sa store: default TODAY, editable |
 | Events hall document | Collect it, store it ourselves |
 | Prices | Live from Rekaz, inside the booking flow only. Marketing pages stay price-free |
 | Legacy store URLs | 301 to the new booking pages |
