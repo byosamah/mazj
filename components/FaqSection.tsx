@@ -10,10 +10,11 @@ type Group = {label: string; items: Item[]};
  * page share one source of truth.
  *
  * Two registers, matching how a marketing section differs from a reference leaf:
- *   - landing → `limit` shows the first N questions as a teaser, no categories.
+ *   - landing → `limit` shows the first N questions as a teaser in a two-column
+ *     editorial layout: title + "see all" rail on the start side, questions on
+ *     the end side, so it stops reading as a centred wall of text.
  *   - /faq    → `grouped` shows every question split into categories, each
- *               category a real <h2>. The route previously had NO h2 at all,
- *               because it rendered this section with showHeader={false}.
+ *               category a real <h2>, in a single start-aligned reading column.
  *
  * Answers collapse by default via a checkbox + CSS-grid accordion (`.acc-*` in
  * globals.css). Fifteen permanently-expanded answers is a wall of text, and
@@ -36,70 +37,73 @@ export default function FaqSection({
 
   return (
     <section className="relative w-full bg-beige px-6 py-24 lg:px-10 lg:py-32">
-      {/* On the landing this is a centred marketing section. On /faq it sits
-          under PageIntro, whose h1 is start-aligned inside max-w-[1400px] — so
-          a centred max-w-[860px] column pushed the first question ~250px off
-          the page's own axis and read as a misalignment rather than a
-          composition. Grouped mode therefore shares PageIntro's container and
-          start-aligns the reading column inside it. */}
-      <div
-        className={
-          grouped
-            ? "mx-auto flex w-full max-w-[1400px] flex-col gap-12"
-            : "mx-auto flex w-full max-w-[860px] flex-col gap-12"
-        }
-      >
-        <div className={grouped ? "flex w-full max-w-[860px] flex-col gap-12" : "contents"}>
-        {showHeader && (
-          <Reveal className="flex flex-col items-center gap-5 text-center">
-            <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
-            <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
-              {t("title")}
-            </h2>
-          </Reveal>
-        )}
-
-        {grouped ? (
-          <div className="flex flex-col gap-16">
-            {groups.map((group, gi) => (
-              <div key={group.label} className="flex flex-col gap-2">
-                <Reveal className="pb-2">
-                  <h2 className="font-sans text-24 font-medium leading-tight text-black lg:text-32">
-                    {group.label}
-                  </h2>
-                </Reveal>
-                <dl className="flex flex-col">
-                  {group.items.map((item, i) => (
-                    <FaqRow
-                      key={item.q}
-                      item={item}
-                      id={`faq-${gi}-${i}`}
-                      delay={Math.min(i, 4) * 60}
-                    />
-                  ))}
-                </dl>
-              </div>
-            ))}
+      {grouped ? (
+        /* /faq: shares PageIntro's max-w-[1400px] and start-aligns a
+           max-w-[860px] reading column inside it — a centred column pushed the
+           first question ~250px off the page's own axis. */
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-12">
+          <div className="flex w-full max-w-[860px] flex-col gap-12">
+            {showHeader && (
+              <Reveal className="flex flex-col gap-5">
+                <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
+                <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
+                  {t("title")}
+                </h2>
+              </Reveal>
+            )}
+            <div className="flex flex-col gap-16">
+              {groups.map((group, gi) => (
+                <div key={group.label} className="flex flex-col gap-2">
+                  <Reveal className="pb-2">
+                    <h2 className="font-sans text-24 font-medium leading-tight text-black lg:text-32">
+                      {group.label}
+                    </h2>
+                  </Reveal>
+                  <dl className="flex flex-col">
+                    {group.items.map((item, i) => (
+                      <FaqRow
+                        key={item.q}
+                        item={item}
+                        id={`faq-${gi}-${i}`}
+                        delay={Math.min(i, 4) * 60}
+                      />
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
           </div>
-        ) : (
+        </div>
+      ) : (
+        /* Landing teaser: two-column editorial. Title + "see all" sit in a
+           start-side rail; the questions read down the wider end column. */
+        <div className="mx-auto grid w-full max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-16">
+          <Reveal className="flex flex-col items-start gap-6">
+            {showHeader && (
+              <>
+                <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
+                <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
+                  {t("title")}
+                </h2>
+              </>
+            )}
+            {/* The teaser used to dead-end: /faq's only inbound link was the
+                footer, despite this section advertising the questions. */}
+            {typeof limit === "number" && (
+              <div className="pt-2">
+                <CtaButton href="/faq" variant="dark">
+                  {t("allCta")}
+                </CtaButton>
+              </div>
+            )}
+          </Reveal>
           <dl className="flex flex-col">
             {teaser.map((item, i) => (
               <FaqRow key={item.q} item={item} id={`faq-${i}`} delay={Math.min(i, 4) * 60} />
             ))}
           </dl>
-        )}
-
-        {/* The teaser used to dead-end: /faq's only inbound link was the footer,
-            despite this section literally advertising the questions. */}
-        {typeof limit === "number" && (
-          <Reveal delay={120} className="flex justify-center pt-2">
-            <CtaButton href="/faq" variant="dark">
-              {t("allCta")}
-            </CtaButton>
-          </Reveal>
-        )}
         </div>
-      </div>
+      )}
     </section>
   );
 }

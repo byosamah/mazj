@@ -15,19 +15,20 @@ export default function WhyMazj() {
       {/* Card 2 — the risks (three alternating lines) */}
       <VideoCard label={t("risksLabel")} video="/videos/why-risks.mp4" poster="/images/why-risks.jpg" align="center">
         {/* These three lines are display-sized (45px) but are NOT headings: they are one
-            continuous statement broken across three alternating alignments, and card 1 and
+            continuous statement broken across three lines, all centered, and card 1 and
             card 3 already own the h2 in this section. Because they render as <span>, the
             `html[lang="ar"] h1,h2,h3 {line-height:1.35}` rescue cannot reach them, so
             `leading-tight` (1.25) would crowd or overlap tall Arabic glyphs at 45px.
-            Hence the explicit leading-[1.35], which is safe for Latin at this size too. */}
-        <div className="flex w-full max-w-[1100px] flex-col gap-4 [text-shadow:0_2px_18px_rgba(0,0,0,0.6)]">
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-45 [text-wrap:balance]">
+            Hence the explicit leading-[1.35], which is safe for Latin at this size too.
+            Center-aligned in both locales (symmetric, no RTL mirroring), no text-shadow. */}
+        <div className="flex w-full max-w-[1100px] flex-col gap-4">
+          <Reveal as="span" className="block text-center font-sans text-20 font-medium leading-[1.35] lg:text-45 [text-wrap:balance]">
             {t("risk1")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-end lg:text-45 [text-wrap:balance]" delay={120}>
+          <Reveal as="span" className="block text-center font-sans text-20 font-medium leading-[1.35] lg:text-45 [text-wrap:balance]" delay={120}>
             {t("risk2")}
           </Reveal>
-          <Reveal as="span" className="block text-start font-sans text-20 font-medium leading-[1.35] lg:text-center lg:text-45 [text-wrap:balance]" delay={240}>
+          <Reveal as="span" className="block text-center font-sans text-20 font-medium leading-[1.35] lg:text-45 [text-wrap:balance]" delay={240}>
             {t("risk3")}
           </Reveal>
         </div>

@@ -7,6 +7,7 @@ import "../globals.css";
 import Navigation from "@/components/Navigation";
 import ScrollFX from "@/components/ScrollFX";
 import SmoothScroll from "@/components/motion/SmoothScroll";
+import ScrollReset from "@/components/ScrollReset";
 import JsonLd from "@/components/JsonLd";
 import {ogImage} from "@/lib/metadata";
 import {localBusinessSchema} from "@/lib/schema";
@@ -122,6 +123,9 @@ export default async function LocaleLayout({
           {children}
           {/* Lenis smooth-scroll base (drives ScrollTrigger; skipped under reduced motion) */}
           <SmoothScroll />
+          {/* Reset scroll to top on forward navigation (Lenis otherwise keeps the
+              previous route's scroll — clicking a footer link left you at the bottom) */}
+          <ScrollReset />
           {/* GSAP scroll-motion enhancement layer (clip reveals, chip stagger, parallax, lazy fades) */}
           <ScrollFX />
           {/* Animated film-grain field over the whole page (matches original) */}

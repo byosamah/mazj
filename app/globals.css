@@ -1012,6 +1012,25 @@ html[lang="ar"] .hero-scrim {
     linear-gradient(to bottom, rgba(255, 247, 233, 0.07) 1px, transparent 1px);
 }
 
+/* Copy-corner scrim for the full-bleed PageIntro hero (variant="hero").
+   Darkens ONLY the inline-start band where the eyebrow + headline sit, so the
+   small beige eyebrow clears AA even when a bright photo region lands under it
+   — the measured worst case was AR /events, whose window highlight mirrors onto
+   the start (right) side. A full-width darker scrim would fix it but veil the
+   whole room; this keeps the rest of the photo bright. It flips with the
+   document direction so it always tracks the copy side (start = left in LTR,
+   right in RTL), the same locale-aware approach the landing hero scrim uses. */
+.hero-x-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 52%);
+}
+[dir="rtl"] .hero-x-scrim {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 52%);
+}
+
 /* ============================================================
    FILM GRAIN — the original layers an animated grain field over
    the whole page (pointer-events-none, mix-blend, low opacity).

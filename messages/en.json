@@ -1,7 +1,7 @@
 {
   "Meta": {
     "title": "MAZJ | Shared workspace in Al-Khobar",
-    "description": "MAZJ is a shared workspace in Life Tower, Al-Khobar: flexible desks, private offices, meeting rooms, an events hall, and a community for the Eastern Province.",
+    "description": "MAZJ is a coworking space in Al-Khobar, where the Eastern Province's makers come together: flexible desks, private offices, a meeting room, and an events hall, all in one place.",
     "siteName": "MAZJ",
     "city": "Al-Khobar",
     "metaTitle": "Coworking Space in Al-Khobar, Eastern Province | MAZJ"
@@ -11,7 +11,7 @@
     "events": "Events",
     "about": "About",
     "contact": "Contact",
-    "getStarted": "Book now",
+    "getStarted": "Book a space",
     "home": "MAZJ home",
     "skipToContent": "Skip to content",
     "primaryNav": "Primary",
@@ -24,19 +24,19 @@
   },
   "Hero": {
     "eyebrow": "Shared workspace · Al-Khobar",
-    "titleLine1": "Work in",
-    "titleLine2": "good company.",
-    "subtitle": "Desks, private offices, meeting rooms, and a 30-seat events hall in Life Tower, Al-Khobar. Founding memberships are open now: book by the day or the month.",
-    "trustLine": "Life Tower, Al-Khobar · 24/7 access"
+    "titleLine1": "Find your place.",
+    "titleLine2": "And your people.",
+    "subtitle": "Your morning starts with coffee, your day with colleagues who get what you're working on.",
+    "trustLine": "Staffed Sun to Thu, 9 to 9 · 24/7 member access"
   },
   "SpaceFinder": {
-    "trigger": "What brings you in?",
+    "trigger": "Which space suits you?",
     "cta": "Book this space",
     "ctaShort": "Book",
     "cases": {
       "dayDesk": {
-        "label": "A desk, just for today",
-        "name": "Flexible day pass",
+        "label": "A desk for the day",
+        "name": "Day pass",
         "chips": {
           "capacity": {
             "label": "Fits",
@@ -44,16 +44,16 @@
           },
           "feature": {
             "label": "Includes",
-            "value": "Free drinks + Wi-Fi"
+            "value": "Drinks + Wi-Fi"
           },
           "access": {
             "label": "Access",
-            "value": "Full-day pass"
+            "value": "Full day"
           }
         }
       },
       "meeting": {
-        "label": "A meeting (up to 6)",
+        "label": "A meeting, up to 6",
         "name": "Meeting room · Al-Malqa",
         "chips": {
           "capacity": {
@@ -71,7 +71,7 @@
         }
       },
       "event": {
-        "label": "I'm hosting an event (up to 30)",
+        "label": "An event, up to 30",
         "name": "Events hall · Al-Ma'arij",
         "chips": {
           "capacity": {
@@ -98,7 +98,7 @@
           },
           "feature": {
             "label": "Includes",
-            "value": "Free drinks + Wi-Fi"
+            "value": "Drinks + Wi-Fi"
           },
           "access": {
             "label": "Access",
@@ -107,7 +107,7 @@
         }
       },
       "officeMonth": {
-        "label": "A permanent private office",
+        "label": "Your permanent private office",
         "name": "Private office · monthly",
         "chips": {
           "capacity": {
@@ -120,13 +120,13 @@
           },
           "access": {
             "label": "Access",
-            "value": "24/7 fingerprint"
+            "value": "Members · 24/7"
           }
         }
       },
       "membership": {
         "label": "Shared-space membership",
-        "name": "Shared-space membership",
+        "name": "Open-desk membership",
         "chips": {
           "capacity": {
             "label": "Fits",
@@ -138,7 +138,7 @@
           },
           "access": {
             "label": "Access",
-            "value": "24/7 fingerprint"
+            "value": "Members · 24/7"
           }
         }
       }
@@ -146,25 +146,25 @@
     "chipsDefault": {
       "capacity": {
         "label": "Location",
-        "value": "Al Khobar"
+        "value": "Al-Khobar"
       },
       "feature": {
         "label": "Includes",
-        "value": "Free drinks + Wi-Fi"
+        "value": "Drinks + Wi-Fi"
       },
       "access": {
         "label": "Access",
-        "value": "24/7 fingerprint"
+        "value": "Members · 24/7"
       }
     }
   },
   "Usp": {
     "saveSurtitle": "flexible",
-    "saveTitle": "Desks by the day\nor the month",
+    "saveTitle": "Your desk, by the day\nor by the month",
     "protectSurtitle": "private",
-    "protectTitle": "Private offices\nfor deep focus",
-    "controlSurtitle": "meet",
-    "controlTitle": "Meeting rooms\n& an events hall"
+    "protectTitle": "A private office\nfor your deepest work",
+    "controlSurtitle": "gather",
+    "controlTitle": "A room to meet,\na hall for events"
   },
   "Spaces": {
     "eyebrow": "The spaces",
@@ -176,26 +176,26 @@
     "cards": {
       "openDesk": {
         "name": "Open desk",
-        "capacity": "For 1 person · day or month",
-        "includes": "Free drinks and fast Wi-Fi. Go monthly for 24/7 fingerprint access and 15% off the meeting room.",
-        "photoAlt": "Open desks in the shared coworking space at MAZJ, Life Tower, Al-Khobar"
+        "capacity": "One seat · daily or monthly",
+        "includes": "Pick your seat, with free drinks and fast Wi-Fi. Try a single day, and it counts in full toward your first month; go monthly for 24/7 member access and 15% off the meeting room.",
+        "photoAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar"
       },
       "privateOffice": {
         "name": "Private office",
-        "capacity": "For 1 person · daily or monthly",
-        "includes": "A lockable office of your own, with 20% off the meeting room on monthly plans.",
+        "capacity": "Just for you · daily or monthly",
+        "includes": "Your own door, a whole room to yourself, and 20% off the meeting room on a monthly membership.",
         "photoAlt": "A furnished, lockable private office at MAZJ in Al-Khobar"
       },
       "meetingRoom": {
         "name": "Meeting room · Al-Malqa",
         "capacity": "Up to 6 · by the hour",
-        "includes": "Screen, writable wall, and drinks for the whole table.",
+        "includes": "A big screen, a wall to write on, and drinks for everyone at the table.",
         "photoAlt": "The Al-Malqa meeting room at MAZJ, set for six around the table"
       },
       "eventHall": {
         "name": "Events hall · Al-Ma'arij",
         "capacity": "Up to 30 · 2-5 hour slots",
-        "includes": "Screen and sound system, ready for workshops and meetups.",
+        "includes": "A generous space for your biggest gatherings, with a screen and full sound system, set up and ready from the first minute.",
         "photoAlt": "The Al-Ma'arij events hall at MAZJ, set up for a workshop"
       }
     },
@@ -204,17 +204,17 @@
   "Steps": {
     "eyebrow": "How MAZJ Works",
     "title": "Get set up\nin minutes",
-    "body": "Choose the plan that fits how you work. Reserve a desk, office, or room in a few taps. Show up, tap in with your fingerprint, and get to work.",
+    "body": "Choose the plan that fits how you work. Reserve a desk, office, or room in a few taps. Show up, tap in, and get to work.",
     "qualifyCta": "Book your space",
     "step1Label": "Step 1",
     "step1Heading": "Pick your\nplan",
     "step1Sub": "Day, month, or private",
-    "step1Body": "Start with a day pass, or go monthly for 24/7 fingerprint access and 15% off the meeting room. Private offices too, and no long lock-in.",
+    "step1Body": "Start with a day pass, or go monthly for 24/7 member access and 15% off the meeting room. Private offices too, and no long lock-in.",
     "step1Cta": "See the spaces",
     "step2Label": "Step 2",
     "step2Heading": "Reserve your\nspace",
     "step2Sub": "Booked in a few taps",
-    "step2Body": "Reserve a desk, a meeting room, or the events hall online. Your fingerprint gives you access whenever you need it.",
+    "step2Body": "Reserve a desk, a meeting room, or the events hall online. As a member you get 24/7 access whenever you need it.",
     "step3Label": "Step 3",
     "step3Heading": "Just show up",
     "step3Sub": "Everything's ready",
@@ -225,13 +225,13 @@
   },
   "Why": {
     "card1Label": "why mazj",
-    "card1Statement": "Home is full of distractions.\nCafés are noisy and never really yours.",
-    "risksLabel": "the old way",
-    "risk1": "Rigid, long-term leases you can't walk away from.",
-    "risk2": "A whole office to rent, furnish, and pay for, even in the months you barely use it.",
-    "risk3": "Working alone, cut off from any real community.",
-    "card3Label": "One desk at a time",
-    "card3Statement": "We're building a workspace and a community\nfor the founders, freelancers, and teams\nof the Eastern Province."
+    "card1Statement": "Your best work has an energy,\nand it kindles among people who share your drive.",
+    "risksLabel": "the mazj way",
+    "risk1": "A flexible space that grows with you,",
+    "risk2": "a community working beside you,",
+    "risk3": "and it all blends into one.",
+    "card3Label": "Built for the makers",
+    "card3Statement": "A home for the creators,\nthe founders, and the ones who do the work,\nacross the Eastern Province."
   },
   "Proof": {
     "eyebrow": "The space",
@@ -239,39 +239,39 @@
     "legitimacy": [
       "Life Tower, Al-Olaya",
       "Staffed Sun to Thu, 9 to 9",
-      "24/7 fingerprint access",
+      "24/7 member access",
       "VAT-registered"
     ]
   },
   "HostEvent": {
     "eyebrow": "Host your event",
-    "title": "Be the first to\nfill Al-Ma'arij",
+    "title": "Al-Ma'arij has gathered people\nfor years. Yours is next.",
     "features": "Up to 30 · screen · sound system",
-    "body": "A product launch, a workshop series, a training day, a community night, or a team offsite. Al-Ma'arij seats 30 with a screen and sound system, in Life Tower. Pick your date and book the hall online.",
+    "body": "Product launches, workshop series, training days, community nights, team celebrations: Al-Ma'arij has hosted more than 40 of them since 2022. Pick your date and book the hall online.",
     "bookCta": "Book the hall",
     "photoAlt": "The Al-Ma'arij events hall at MAZJ, set up for a gathering"
   },
   "Network": {
-    "eyebrow": "A growing community",
-    "titleLine1": "Better work happens",
-    "titleLine2": "around better people.",
-    "body": "MAZJ brings founders, freelancers, and teams together under one roof. Share a table, trade ideas, and grow alongside people building the same future.",
-    "qualifyCta": "Join MAZJ"
+    "eyebrow": "A living community",
+    "titleLine1": "Around you, ideas",
+    "titleLine2": "and opportunities grow.",
+    "body": "At MAZJ, people meet and ideas cross paths. A hallway hello can open a door, a shared table can spark a partnership, and the momentum in the room carries you along.",
+    "qualifyCta": "Book your seat"
   },
   "Location": {
-    "eyebrow": "Visit us",
+    "eyebrow": "Come see us",
     "title": "In the heart\nof Al-Khobar",
     "addressLabel": "Address",
     "address": "Life Tower, Zaid Ibn Alkhattab St, Al-Olaya, Al-Khobar",
     "staffedLabel": "Staffed hours",
     "staffedValue": "Sunday to Thursday, 9am to 9pm",
     "membersLabel": "Member access",
-    "membersValue": "24/7, by fingerprint",
+    "membersValue": "24/7",
     "whatsappLabel": "WhatsApp",
-    "whatsappValue": "Message us on WhatsApp",
-    "whatsappMsg": "Hi MAZJ, I'd like to book a tour.",
+    "whatsappValue": "Book a tour on WhatsApp",
+    "whatsappMsg": "Hi MAZJ, I'd love to book a tour of the space.",
     "mapPlaceholder": "Get directions · Life Tower, Al-Olaya, Al-Khobar",
-    "blurb": "MAZJ is a coworking space in Al-Khobar's Al-Olaya district, in Life Tower on Zaid Ibn Alkhattab St: every desk, office, and room on one address."
+    "blurb": "MAZJ is in Al-Khobar's Al-Olaya district, inside Life Tower on Zaid Ibn Alkhattab St. Every desk, office, and room you need is here, under one roof."
   },
   "Faq": {
     "eyebrow": "Need to know",
@@ -282,31 +282,31 @@
         "items": [
           {
             "q": "Can I see it before I commit?",
-            "a": "Yes. Book a free tour on WhatsApp during staffed hours, or come in on a day pass. If you decide to join, your day pass counts in full toward your first month."
+            "a": "We'd love that. Book a free tour on WhatsApp during staffed hours, or start with a day pass and feel the space for yourself. When you decide to join, your day pass counts in full toward your first month."
           },
           {
             "q": "When can I get in?",
-            "a": "The space is staffed Sunday to Thursday, 9am to 9pm. Members with a membership or a private office enter any time, 24/7, using their fingerprint."
+            "a": "Our team welcomes you Sunday to Thursday, 9am to 9pm. Members with a membership or a private office come and go on their own schedule, any hour, 24/7."
           },
           {
             "q": "Where exactly is MAZJ?",
-            "a": "Life Tower, Zaid Ibn Alkhattab St, Al-Olaya, Al-Khobar. The tower is easy to spot from the main road, and reception will point you to the right floor on your first visit."
+            "a": "In Al-Khobar's Al-Olaya district: Life Tower, Zaid Ibn Alkhattab St. The tower is easy to spot from the main road, and reception will point you to the right floor on your first visit."
           },
           {
             "q": "Can I take calls from my desk?",
-            "a": "Short calls at your desk are fine. For longer calls or anything confidential, book the Al-Malqa meeting room by the hour, or ask the team at reception what's free."
+            "a": "Of course. Short calls at your desk are welcome. When you need a longer or more private call, book the Al-Malqa meeting room by the hour, or ask the team at reception what's free."
           },
           {
             "q": "Can I bring guests?",
-            "a": "Day passes and memberships cover one person. For meetings with guests, book the Al-Malqa room, or ask the team at reception during staffed hours."
+            "a": "You're always welcome to bring people along. A day pass and a membership are each for one person, so when you're meeting guests, book the Al-Malqa room to host them properly, or just ask the team at reception during staffed hours."
           },
           {
             "q": "Is there parking?",
-            "a": "Life Tower is easy to reach by car, and parking is available around the tower. Ask the team for the closest option when you visit."
+            "a": "Reaching Life Tower by car is easy, and parking is available around the tower. Ask the team for the closest option when you arrive."
           },
           {
             "q": "Can I get a 24/7 private office in Al-Khobar?",
-            "a": "Yes. A monthly private office at MAZJ in Al-Khobar comes with 24/7 fingerprint access, so you reach your office any hour of any day. Daily private offices run during staffed hours, Sunday to Thursday, 9am to 9pm."
+            "a": "Yes. A monthly private office at MAZJ in Al-Khobar gives you 24/7 access, so you reach your office any hour of any day. Daily private offices run during staffed hours, Sunday to Thursday, 9am to 9pm."
           }
         ]
       },
@@ -315,31 +315,31 @@
         "items": [
           {
             "q": "What's the difference between a day pass and a membership?",
-            "a": "A day pass is a single day in the shared space, with no commitment. A membership runs monthly and adds 24/7 fingerprint access and 15% off the Al-Malqa meeting room. Both are booked on mazj.sa."
+            "a": "A day pass gives you a full day in the shared space, completely at ease. A membership runs monthly and adds 24/7 access and 15% off the Al-Malqa meeting room. Both are booked on mazj.sa."
           },
           {
             "q": "What's included with a desk or office?",
-            "a": "Fast Wi-Fi, free drinks, and the shared areas come with every plan. Members get 15% off the Al-Malqa meeting room, and monthly private offices get 20% off."
+            "a": "Fast Wi-Fi, free drinks, and lively shared areas come with every plan. Members enjoy 15% off the Al-Malqa meeting room, and monthly private offices get 20% off."
           },
           {
             "q": "How do I book the meeting room?",
-            "a": "Al-Malqa is booked by the hour on mazj.sa and seats up to 6, with a screen and a writable wall. Members and monthly private offices get a discount on the rate."
+            "a": "Al-Malqa is booked by the hour on mazj.sa, seats up to 6, and comes with a screen and a writable wall. Members and monthly private offices enjoy a discount on the rate."
           },
           {
             "q": "Can I cancel a booking?",
-            "a": "Bookings are confirmed and paid on mazj.sa and are non-refundable under the current policy. If your plans change, contact the team before your booking date and we'll do our best to help."
+            "a": "Each booking on mazj.sa is reserved just for you and held for your chosen date, so it stays non-refundable once it's placed. If your plans change, reach out before your booking date and we'll gladly help you find another time that works."
           },
           {
             "q": "How new is MAZJ?",
-            "a": "MAZJ opened recently, and the founding members are shaping what it becomes. Join early as one of the first 15 to help set the tone of the community and keep your founding perks."
+            "a": "MAZJ is in its bright early days, and the founding members are shaping what it becomes. Join early as one of the first 15 to help set the tone of the community and keep your founding perks."
           },
           {
             "q": "Is there a day pass for coworking in Al-Khobar?",
-            "a": "Yes. MAZJ, in Al-Khobar's Life Tower, sells a day pass for its shared coworking space: a full day at an open desk with fast Wi-Fi and free drinks, booked on mazj.sa. Your day pass counts in full toward your first month if you go on to join."
+            "a": "Yes. MAZJ, in Al-Khobar, offers a day pass for its shared coworking space: a full day at an open desk with fast Wi-Fi and free drinks, booked on mazj.sa. Your day pass counts in full toward your first month if you go on to join."
           },
           {
             "q": "Is there an hourly meeting room in Al-Khobar?",
-            "a": "Yes. Al-Malqa, MAZJ's meeting room in Al-Khobar's Life Tower, is booked by the hour on mazj.sa. It seats up to 6 and comes with a screen and a writable wall, so you pay only for the time you meet."
+            "a": "Yes. Al-Malqa, MAZJ's meeting room in Al-Khobar, is booked by the hour on mazj.sa. It seats up to 6 and comes with a screen and a writable wall, so you pay only for the time you meet."
           }
         ]
       },
@@ -348,15 +348,15 @@
         "items": [
           {
             "q": "Can I host an event at MAZJ?",
-            "a": "Yes. Al-Ma'arij is our events hall, booked in 2 to 5 hour slots on mazj.sa. It suits workshops, meetups, launches, and training days."
+            "a": "We'd be glad to host you. Al-Ma'arij is our events hall, booked in 2 to 5 hour slots on mazj.sa. It suits workshops, meetups, launches, and training days."
           },
           {
             "q": "How many people fit in the hall?",
-            "a": "Al-Ma'arij seats up to 30, with a screen and a sound system already in place. Tell the team what you're running and they'll help you set the room up."
+            "a": "Al-Ma'arij seats up to 30, with a screen and a sound system ready to go. Tell the team what you're running and they'll set the room up around it."
           },
           {
             "q": "Where can I run a 30-person workshop in Al-Khobar?",
-            "a": "Al-Ma'arij, MAZJ's events hall at Life Tower in Al-Khobar, seats up to 30 with a screen and sound system. Book it in 2 to 5 hour slots on mazj.sa for a workshop, a training day, or a meetup."
+            "a": "Al-Ma'arij, MAZJ's events hall in Al-Khobar, seats up to 30 with a screen and sound system. Book it in 2 to 5 hour slots on mazj.sa for a workshop, a training day, or a meetup."
           }
         ]
       },
@@ -365,7 +365,7 @@
         "items": [
           {
             "q": "How do I pay?",
-            "a": "Checkout happens on mazj.sa. You can pay by card, and split payments with Tamara or Tabby where available."
+            "a": "Payment is simple on mazj.sa: by card, or split into installments with Tamara or Tabby where available."
           },
           {
             "q": "Can I get a VAT invoice?",
@@ -380,10 +380,10 @@
     "titleLine1": "Step into",
     "titleLine2": "MAZJ",
     "eyebrow": "Your desk is waiting",
-    "body": "Come see it for yourself. Book a tour of our space in Life Tower, Al-Khobar, and find the spot where your best work happens.",
-    "qualifyCta": "Book your space",
+    "body": "This is where it all comes together. Bring your ideas, find your people, and let your finest work begin, right here in Al-Khobar.",
+    "qualifyCta": "Book your place",
     "dayPassCta": "Book a day pass",
-    "dayPassNote": "Trying a day pass first? If you join, it counts in full toward your first month."
+    "dayPassNote": "Want to try a day pass first? When you join, it counts in full toward your first month."
   },
   "Footer": {
     "linkAbout": "About",
@@ -393,14 +393,15 @@
     "linkContact": "Contact",
     "linkTerms": "Terms of Service",
     "linkPrivacy": "Privacy Policy",
-    "morePower": "Find your space",
+    "morePower": "See you soon.",
     "zatca": "VAT No. 310240548700003",
-    "footerNav": "Footer"
+    "footerNav": "Footer",
+    "payments": "Accepted payment methods"
   },
   "SpacesPage": {
     "eyebrow": "The spaces",
     "title": "Every space,\none address",
-    "intro": "Four spaces at MAZJ in Life Tower, Al-Khobar. Pick the space first, then how long you need it, and book on mazj.sa where the live price lives.",
+    "intro": "Four spaces at MAZJ in Al-Khobar. Pick the space first, then how long you need it, and book on mazj.sa where the live price lives.",
     "bookCta": "Book on mazj.sa",
     "detailCta": "See the space",
     "sectionEyebrow": "Book direct",
@@ -410,7 +411,7 @@
         "name": "Open desk",
         "capacity": "1 person · a day to a year",
         "durations": "1 day · 1, 3 or 6 months · 1 year",
-        "includes": "An open desk with free drinks and fast Wi-Fi. Go monthly and you get 24/7 fingerprint access and member perks.",
+        "includes": "An open desk with free drinks and fast Wi-Fi. Go monthly and you get 24/7 access and member perks.",
         "photoAlt": "Working at an open desk in the MAZJ shared workspace in Al-Khobar"
       },
       "privateOffice": {
@@ -442,23 +443,23 @@
       "msg": "Hi MAZJ, I'd like help choosing the right space."
     },
     "durationsLabel": "Available for",
-    "metaTitle": "Workspaces for Rent in Al-Khobar: Desks to Halls",
+    "metaTitle": "Workspaces for Rent in Al-Khobar | Desks to Halls",
     "detailAria": "See the space: {space}",
-    "sectionIntro": "MAZJ is a coworking space in the heart of Al-Khobar: open desks in the shared workspace, furnished private offices for rent, the Al-Malqa meeting room by the hour, and the Al-Ma'arij event hall for up to 30. Every space sits on one address in Life Tower, Al-Olaya, with staffed reception Sunday to Thursday and 24/7 fingerprint access on monthly plans.",
-    "sectionIntro2": "All four share one address at Life Tower on Zaid Ibn Alkhattab St, Al-Olaya: book a day at an open desk, take a furnished office by the month, rent Al-Malqa for exactly the hours you meet, or run a workshop for thirty in Al-Ma'arij. Whichever you pick, checkout happens on mazj.sa at the live price, reception is staffed Sunday to Thursday 9am to 9pm, and monthly plans add 24/7 fingerprint access.",
-    "heroAlt": "Open desks in the shared coworking space at MAZJ, Life Tower, Al-Khobar"
+    "sectionIntro": "MAZJ is a coworking space in the heart of Al-Khobar: open desks in the shared workspace, furnished private offices for rent, the Al-Malqa meeting room by the hour, and the Al-Ma'arij event hall for up to 30. Every space sits on one address, with reception staffed Sunday to Thursday and 24/7 member access on monthly plans.",
+    "sectionIntro2": "All four share one address in Al-Olaya, Al-Khobar: book a day at an open desk, take a furnished office by the month, rent Al-Malqa for exactly the hours you meet, or run a workshop for thirty in Al-Ma'arij. Whichever you pick, checkout happens on mazj.sa at the live price, reception is staffed Sunday to Thursday 9am to 9pm, and monthly plans add 24/7 member access.",
+    "heroAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar"
   },
   "SpaceCoworking": {
     "eyebrow": "Open desk",
     "title": "Coworking\nat MAZJ",
     "intro": "A seat in the shared space: for a single focused day, or as an ongoing membership.",
-    "body": "Come for a day or make it your routine. MAZJ's open desks sit in the shared coworking space at Life Tower in Al-Khobar, with the coffee corner and common areas a few steps away. A day pass covers a full day; the shared-space membership adds 24/7 fingerprint access and member perks.",
+    "body": "Come for a day or make it your routine. MAZJ's open desks sit in the shared coworking space in Al-Khobar, with the coffee corner and common areas a few steps away. A day pass covers a full day; the shared-space membership adds 24/7 access and member perks.",
     "includesTitle": "What's included",
     "includes": [
       "Fast Wi-Fi and free drinks",
       "Access to the shared areas",
       "A full day in the space with a day pass",
-      "24/7 fingerprint access and 15% off the meeting room with the membership"
+      "24/7 access and 15% off the meeting room with the membership"
     ],
     "facts": [
       {
@@ -476,12 +477,12 @@
     ],
     "ctaBook": "Book a seat",
     "metaTitle": "Open Desk & Shared Seat Coworking in Al-Khobar",
-    "photoAlt": "Open desks in the shared coworking space at MAZJ, Life Tower, Al-Khobar",
+    "photoAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar",
     "aboutTitle": "The shared workspace, in detail",
     "about": [
-      "MAZJ's coworking space sits in Life Tower, in Al-Khobar's Al-Olaya district: open desks on one address, with the coffee corner, the common areas, and the Al-Malqa meeting room a few steps away. It is a shared workspace built for focused work in good company, whether you come once or every day.",
-      "A day pass is the simplest way in: one booking on mazj.sa covers a full day at an open desk, with fast Wi-Fi and free drinks included. If you go on to join, your day pass counts in full toward your first month. The monthly membership turns the seat into a routine, adds 24/7 fingerprint access, and takes 15% off the Al-Malqa meeting room.",
-      "The space is staffed Sunday to Thursday, 9am to 9pm, and members enter around the clock with their fingerprint. Checkout runs on mazj.sa, where the live price is always current; MAZJ is VAT-registered and issues tax invoices on request."
+      "MAZJ's coworking space sits in Al-Khobar: open desks on one address, with the coffee corner, the common areas, and the Al-Malqa meeting room a few steps away. It is a shared workspace built for focused work in good company, whether you come once or every day.",
+      "A day pass is the simplest way in: one booking on mazj.sa covers a full day at an open desk, with fast Wi-Fi and free drinks included. If you go on to join, your day pass counts in full toward your first month. The monthly membership turns the seat into a routine, adds 24/7 access, and takes 15% off the Al-Malqa meeting room.",
+      "The space is staffed Sunday to Thursday, 9am to 9pm, and members enter around the clock. Checkout runs on mazj.sa, where the live price is always current; MAZJ is VAT-registered and issues tax invoices on request."
     ],
     "faqTitle": "Open desk questions",
     "faq": [
@@ -491,7 +492,7 @@
       },
       {
         "q": "What do I get with the monthly membership?",
-        "a": "Everything the day pass includes, plus 24/7 fingerprint access, member perks, and 15% off the Al-Malqa meeting room."
+        "a": "Everything the day pass includes, plus 24/7 access, member perks, and 15% off the Al-Malqa meeting room."
       },
       {
         "q": "Can I take calls at my desk?",
@@ -499,7 +500,7 @@
       },
       {
         "q": "When is the space open?",
-        "a": "Staffed Sunday to Thursday, 9am to 9pm. With a membership, your fingerprint opens the door any hour of any day."
+        "a": "Staffed Sunday to Thursday, 9am to 9pm. With a membership, you can come and go any hour of any day."
       }
     ]
   },
@@ -507,12 +508,12 @@
     "eyebrow": "Private office",
     "title": "A door you\ncan close",
     "intro": "Hayz: a lockable office of your own, for a day, a week, or every month.",
-    "body": "When the work needs quiet, take a private office at MAZJ in Al-Khobar's Life Tower. Book it daily for a sprint of one day to a week, or monthly (Hayz) as your permanent base, with 24/7 fingerprint entry and 20% off the Al-Malqa meeting room.",
+    "body": "When the work needs quiet, take a private office at MAZJ in Al-Khobar. Book it daily for a sprint of one day to a week, or monthly (Hayz) as your permanent base, with 24/7 access and 20% off the Al-Malqa meeting room.",
     "includesTitle": "What's included",
     "includes": [
       "A private, lockable office",
       "Fast Wi-Fi and free drinks",
-      "24/7 fingerprint access on monthly plans",
+      "24/7 access on monthly plans",
       "20% off the Al-Malqa meeting room on monthly plans"
     ],
     "facts": [
@@ -526,7 +527,7 @@
       },
       {
         "label": "Access",
-        "value": "24/7 by fingerprint on monthly plans"
+        "value": "24/7 on monthly plans"
       }
     ],
     "ctaBook": "Book the office",
@@ -534,8 +535,8 @@
     "photoAlt": "A furnished, lockable private office at MAZJ in Al-Khobar",
     "aboutTitle": "A furnished office, ready from day one",
     "about": [
-      "Hayz is MAZJ's furnished private office for rent in Al-Khobar: a lockable room of your own inside a working coworking space, on a flexible term instead of a long lease. There is nothing to fit out and nothing to set up; fast Wi-Fi, free drinks, and the shared areas of Life Tower come with the door.",
-      "Book it daily for a sprint of one day to a week, or monthly as your permanent base. Monthly offices come with 24/7 fingerprint entry, so the office is yours at any hour, and 20% off the Al-Malqa meeting room for the days your work needs a bigger table.",
+      "Hayz is MAZJ's furnished private office for rent in Al-Khobar: a lockable room of your own inside a working coworking space, on a flexible term that runs as long as you need. There is nothing to fit out and nothing to set up; fast Wi-Fi, free drinks, and the shared areas come with the door.",
+      "Book it daily for a sprint of one day to a week, or monthly as your permanent base. Monthly offices come with 24/7 access, so the office is yours at any hour, and 20% off the Al-Malqa meeting room for the days your work needs a bigger table.",
       "The office sits in Life Tower on Zaid Ibn Alkhattab St, Al-Olaya, with staffed reception Sunday to Thursday, 9am to 9pm. Checkout and the live price run on mazj.sa; MAZJ is VAT-registered and issues tax invoices on request."
     ],
     "faqTitle": "Private office questions",
@@ -546,11 +547,11 @@
       },
       {
         "q": "Can I rent it for a single day?",
-        "a": "Yes. Daily bookings run from one day to a week during staffed hours; monthly offices add 24/7 fingerprint entry."
+        "a": "Yes. Daily bookings run from one day to a week during staffed hours; monthly offices add 24/7 access."
       },
       {
         "q": "Does it work as a long-term base?",
-        "a": "Take it month after month and make it your permanent base in Life Tower, Al-Khobar, with 24/7 access and 20% off Al-Malqa."
+        "a": "Take it month after month and make it your permanent base in Al-Khobar, with 24/7 access and 20% off Al-Malqa."
       },
       {
         "q": "How does payment work?",
@@ -562,7 +563,7 @@
     "eyebrow": "Meeting room",
     "title": "Al-Malqa,\nthe meeting room",
     "intro": "Up to six around the table, booked by the hour on mazj.sa.",
-    "body": "A screen for presenting, a writable wall for thinking out loud, and drinks for the table. Al-Malqa is MAZJ's meeting room at Life Tower in Al-Khobar, sized for up to six and booked by the hour, so you only pay for the time you actually meet.",
+    "body": "A screen for presenting, a writable wall for thinking out loud, and drinks for the table. Al-Malqa is MAZJ's meeting room in Al-Khobar, sized for up to six and booked by the hour, so you only pay for the time you actually meet.",
     "includesTitle": "What's included",
     "includes": [
       "Screen for presenting",
@@ -589,7 +590,7 @@
     "photoAlt": "The Al-Malqa meeting room at MAZJ, set for six around the table",
     "aboutTitle": "An equipped meeting room in Al-Khobar",
     "about": [
-      "Al-Malqa is MAZJ's equipped meeting room in Al-Khobar, at Life Tower in Al-Olaya. It seats up to six around one table, with a screen for presenting, a writable wall for thinking out loud, and drinks for everyone at it.",
+      "Al-Malqa is MAZJ's equipped meeting room in Al-Khobar. It seats up to six around one table, with a screen for presenting, a writable wall for thinking out loud, and drinks for everyone at it.",
       "Renting it is hourly on mazj.sa: pick the slot, pay the live rate, and the room is yours, so a one-hour catch-up costs one hour. Members get 15% off the rate, and monthly private offices get 20%.",
       "It suits client meetings, interviews, and calls that shouldn't happen at a desk. The team at reception is around Sunday to Thursday, 9am to 9pm, if the room needs anything."
     ],
@@ -617,7 +618,7 @@
     "eyebrow": "Events hall",
     "title": "Al-Ma'arij,\nthe events hall",
     "intro": "Room for 30, with screen and sound: made for workshops, meetups, and gatherings.",
-    "body": "The Al-Ma'arij hall is MAZJ's biggest room, at Life Tower in Al-Khobar, seating up to 30 with a screen and sound system. Book it in 2-5 hour slots for a workshop, a meetup, or a team day, and the MAZJ team will be around during staffed hours to help.",
+    "body": "The Al-Ma'arij hall is MAZJ's biggest room in Al-Khobar, seating up to 30 with a screen and sound system. Book it in 2-5 hour slots for a workshop, a meetup, or a team day, and the MAZJ team will be around during staffed hours to help.",
     "includesTitle": "What's included",
     "includes": [
       "Screen and sound system",
@@ -645,7 +646,7 @@
     "photoAlt": "The Al-Ma'arij events hall at MAZJ, set up for a workshop",
     "aboutTitle": "An event hall built for workshops",
     "about": [
-      "Al-Ma'arij is MAZJ's event hall in Al-Khobar: room for up to 30 people in Life Tower, Al-Olaya, with a screen and sound system already in place. Renting the hall works in 2-5 hour slots on mazj.sa, sized for a workshop, a training day, a talk, or a meetup.",
+      "Al-Ma'arij is MAZJ's event hall in Al-Khobar: room for up to 30 people, with a screen and sound system already in place. Renting the hall works in 2-5 hour slots on mazj.sa, sized for a workshop, a training day, a talk, or a meetup.",
       "Tell the team what you're running and they'll help you set the room up for it. The hall has hosted forty-two community events since 2022, from sketching nights to design forums.",
       "Companies and communities book it for launches, training days, and meetups; the MAZJ team is around during staffed hours, Sunday to Thursday 9am to 9pm, to help it run smoothly. Checkout and the live rate are on mazj.sa, with a VAT invoice on request."
     ],
@@ -1000,7 +1001,7 @@
         "h": "MAZJ as knowledge partner, College of Architecture & Design"
       }
     ],
-    "metaTitle": "Events in Al-Khobar: Workshops, Meetups & Talks"
+    "metaTitle": "Events in Al-Khobar | Workshops, Meetups & Talks"
   },
   "AboutPage": {
     "eyebrow": "About MAZJ",
@@ -1027,7 +1028,7 @@
       }
     ],
     "storyTitle": "Why we built MAZJ",
-    "storyBody": "Home is full of distractions and cafés are never really yours. The Eastern Province's founders, freelancers, and teams needed a place of their own: somewhere to do focused work, and to run into the people doing the same. The name says the intent. Different people, different work, different stages, blended into one room.",
+    "storyBody": "Work goes best where focus meets company. That is where MAZJ came from: a table where the work actually gets done, and people around you doing the same. The name says the intent. Different people, different work, different stages, blended into one room.",
     "spaceTitle": "One address",
     "spaceBody": "Life Tower on Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. One address holding the shared floor, the private offices, the Al-Malqa meeting room, and Al-Ma'arij, the hall we run events in. Staffed Sunday to Thursday, 9am to 9pm.",
     "communityTitle": "An urban community",
@@ -1048,22 +1049,22 @@
       },
       {
         "value": "24/7",
-        "label": "fingerprint access for members"
+        "label": "access for members"
       }
     ],
     "eventsCta": "See what's happened here",
     "tourCta": "Come see the space",
     "closingTitle": "Come see it\nfor yourself",
     "closingBody": "The fastest way to understand MAZJ is to spend a day inside it. Book a tour, or look through what the community has already built here.",
-    "metaTitle": "About Us: Coworking in Al-Khobar's Life Tower",
-    "storyAlt": "Inside MAZJ's space in Life Tower, Al-Khobar",
-    "spaceAlt": "A private office in the MAZJ space",
+    "metaTitle": "About Us | Coworking in Al-Khobar",
+    "storyAlt": "Inside MAZJ's space in Al-Khobar",
+    "spaceAlt": "The shared floor at MAZJ in Al-Khobar",
     "communityAlt": "A community event in the Al-Ma'arij hall at MAZJ"
   },
   "ContactPage": {
     "eyebrow": "Contact",
     "title": "Come say hello",
-    "intro": "We're in Life Tower, Al-Khobar. Reach us, visit us, or book a tour of the space.",
+    "intro": "We're in Al-Khobar. Reach us, visit us, or book a tour of the space.",
     "tourEyebrow": "Visit",
     "tourTitle": "Book a tour",
     "tourBody": "Come see the desks, rooms, and hall in person. Message us on WhatsApp during staffed hours and the team will set a time that suits you.",
@@ -1072,7 +1073,7 @@
     "socialsEyebrow": "Follow",
     "socialsTitle": "Find us online",
     "socialsBody": "News, events, and everyday life at MAZJ, and the fastest way to reach the team today.",
-    "metaTitle": "Contact Us: Life Tower, Al-Olaya, Al-Khobar"
+    "metaTitle": "Contact Us | Life Tower, Al-Olaya, Al-Khobar"
   },
   "FaqPage": {
     "eyebrow": "Good to know",
@@ -1083,79 +1084,159 @@
     "closingCta": "See the spaces",
     "closingAlt": "Ask on WhatsApp",
     "closingMsg": "Hi MAZJ, I have a question about the space.",
-    "metaTitle": "Coworking in Al-Khobar: Hours, Access & Booking FAQ"
+    "metaTitle": "Coworking in Al-Khobar | Hours, Access & Booking FAQ"
   },
   "TermsPage": {
     "eyebrow": "Legal",
     "title": "Terms of Service",
-    "intro": "The terms that apply to bookings and to use of the MAZJ space.",
-    "reviewNote": "This page is a working draft pending legal review. It does not yet reflect final terms.",
+    "intro": "The terms that govern your bookings, your membership, and your use of the MAZJ space.",
     "effectiveLabel": "Last updated",
-    "effectiveDate": "2026-07-21",
+    "effectiveDate": "2026-07-23",
     "sections": [
       {
         "h": "Who we are",
-        "body": "MAZJ (مزج) operates a shared workspace in Life Tower, Zaid Ibn Alkhattab St, Al-Olaya, Al-Khobar. Bookings and subscriptions are made through mazj.sa. [Placeholder: full legal entity details to be added.]"
+        "body": "MAZJ (مزج) is a shared workspace operated by MAZJ Al-Omrania One Person Company, registered in the Kingdom of Saudi Arabia, at Life Tower, Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. These terms govern your use of our website (mazj.org), your bookings on mazj.sa, and the MAZJ space itself. Our VAT registration number is shown at the foot of this page."
       },
       {
-        "h": "Bookings & payment",
-        "body": "Spaces are booked and paid for on mazj.sa at the prices shown at checkout. Payment methods include cards and, where available, Tamara and Tabby. [Placeholder: to be completed with the final payment terms.]"
+        "h": "Accepting these terms",
+        "body": "By booking a space, entering the premises, or using our website, you agree to these terms. You must be at least 18 years old and have the legal capacity to enter into an agreement. Where you accept online, your electronic acceptance is valid and binding under the Electronic Transactions Law of Saudi Arabia, with the same effect as a signature."
       },
       {
-        "h": "Cancellations & refunds",
-        "body": "Under the current policy, confirmed bookings are non-refundable. If your plans change, contact the team before your booking date. [Placeholder: exact cancellation and rescheduling terms to be confirmed.]"
+        "h": "Your membership and the spaces",
+        "body": "A booking or membership gives you a limited, revocable licence to use the space and services you have paid for. It is not a lease or tenancy, and gives you no ownership or property interest in the premises. Depending on your plan, it may include the open desk, a private office (حيّز), the meeting room (Al-Malqa), the events hall (Al-Ma'arij), or a day pass."
       },
       {
-        "h": "Access & conduct",
-        "body": "Member access uses personal fingerprint enrollment and may not be shared. Staffed hours are Sunday to Thursday, 9am to 9pm; members enter 24/7. We ask everyone to respect the space and the people working in it. [Placeholder: house rules to be finalised.]"
+        "h": "Bookings and payment",
+        "body": "Spaces are booked and paid for on mazj.sa at the prices shown at checkout. Prices are in Saudi Riyals and include 15% VAT unless stated otherwise, and a tax invoice is issued for each purchase in line with ZATCA rules. Payment methods include cards, Tamara and Tabby. Subscriptions renew and are billed as described on your plan, with fees payable in advance."
       },
       {
-        "h": "Liability",
-        "body": "[Placeholder: liability, insurance, and indemnity terms to be drafted with counsel.]"
+        "h": "Cancellations and refunds",
+        "body": "Bookings are made for a specific date or period. Once a booking is confirmed, the fee is non-refundable, and the events hall may require a deposit. Where Saudi consumer law gives a cancellation right, it applies only where the service has not yet been used and the booking is not for a fixed date that has passed. If your plans change, contact us before your booked time and we will help where we can. Any refundable deposit is returned after your account is settled."
       },
       {
-        "h": "Contact & registration",
-        "body": "Questions about these terms can be sent through the contact page. Registration details are listed below. [Placeholder: governing law clause to be added.]"
+        "h": "Access and security",
+        "body": "Eligible members are given 24/7 access using a personal digital access credential — a QR code or an access card — issued through our booking system; the space is also staffed during opening hours. Your access credential is personal and must not be shared, lent or transferred, and you must not let anyone enter behind you without their own access. Tell us immediately if your credential is lost or misused. We may enter any area for cleaning, maintenance, inspection, security or emergencies."
+      },
+      {
+        "h": "House rules and conduct",
+        "body": "MAZJ is a shared, professional space. We ask everyone to be respectful and considerate, and we do not tolerate harassment or discrimination of any kind. Please keep noise reasonable, keep shared areas tidy, and follow Saudi law and local norms of public conduct. Smoking and vaping indoors, alcohol, and any unlawful or improper activity are not allowed."
+      },
+      {
+        "h": "Guests and visitors",
+        "body": "You are welcome to bring guests within the limits of your plan. Guests should be registered, sign in at reception, and stay with you during their visit. You are responsible for your guests' conduct and for any damage they cause. Deliveries and couriers are received at reception."
+      },
+      {
+        "h": "How the space may not be used",
+        "body": "You may not run a competing coworking or workspace business from MAZJ, and you may not resell, sublet or transfer your desk, access or membership to anyone else. You may not use MAZJ's address as your registered, commercial or legal address without a separate written agreement with us. Illegal activity, and weapons or hazardous materials, are strictly prohibited."
+      },
+      {
+        "h": "Meeting room and events hall",
+        "body": "The meeting room (Al-Malqa) and events hall (Al-Ma'arij) are booked through our booking system and are subject to time and capacity limits. A no-show or a late cancellation may forfeit the fee. Events in Al-Ma'arij may be subject to setup and teardown arrangements and to sign-off by our team."
+      },
+      {
+        "h": "Your property, damage and insurance",
+        "body": "You are responsible for your own belongings; MAZJ is not responsible for personal property that is lost, stolen or damaged on the premises. You are responsible for any damage that you or your guests cause to MAZJ's property or equipment. We recommend that you arrange your own insurance for your property and business."
+      },
+      {
+        "h": "Internet and acceptable use",
+        "body": "We provide internet access for your work, but we cannot guarantee that it will always be available or secure, so please keep your own devices protected. You must not use our network for anything unlawful or abusive, and we may disconnect any device that threatens the network or other members."
+      },
+      {
+        "h": "Intellectual property",
+        "body": "The MAZJ name, logo, website and content belong to us. You may use the website and services for your own personal and business use in line with these terms, but you may not copy, reproduce or reuse our brand or content without our written permission."
+      },
+      {
+        "h": "Our liability",
+        "body": "To the fullest extent allowed by Saudi law, MAZJ's total liability to you for any claim is limited to the amount you paid for the booking that gave rise to it, and we are not liable for indirect or consequential loss such as lost profit or business. Nothing in these terms limits or excludes liability for fraud, gross negligence, death or personal injury, or anything else that cannot be excluded under Saudi law."
+      },
+      {
+        "h": "Suspension and termination",
+        "body": "We may suspend or end your access if you break these terms, if fees are unpaid, or if your conduct is unlawful or incompatible with a shared workspace. When your access ends, you must remove your belongings, leave the premises, and settle any outstanding balance."
+      },
+      {
+        "h": "Your privacy",
+        "body": "We handle your personal data as described in our Privacy Policy, which forms part of these terms, in line with the Personal Data Protection Law of Saudi Arabia."
+      },
+      {
+        "h": "Changes to these terms",
+        "body": "We may update these terms from time to time. The date at the top shows when they last changed, and by continuing to use our services after a change you accept the updated terms."
+      },
+      {
+        "h": "Governing law and disputes",
+        "body": "These terms are governed by the laws and regulations of the Kingdom of Saudi Arabia and the principles of Islamic Sharia. Any dispute arising from them, or from your use of our services, is subject to the exclusive jurisdiction of the competent courts of the Kingdom of Saudi Arabia in the Eastern Province (Al-Khobar)."
+      },
+      {
+        "h": "Contact and registration",
+        "body": "MAZJ is operated by MAZJ Al-Omrania One Person Company, at Life Tower, Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. For any question about these terms, reach us through the contact page, on WhatsApp, or by email at info@mazj.org. Our Commercial Registration and VAT numbers are shown below."
       }
     ],
-    "zatca": "ZATCA tax number: 310240548700003",
-    "cr": "CR number: [to be added]"
+    "cr": "MAZJ Al-Omrania One Person Company · Commercial Registration No. 2051222684"
   },
   "PrivacyPage": {
     "eyebrow": "Legal",
     "title": "Privacy Policy",
-    "intro": "How MAZJ handles your information.",
-    "reviewNote": "This page is a working draft pending legal review. It does not yet reflect final terms.",
+    "intro": "How MAZJ collects, uses, and protects your personal data, under the Personal Data Protection Law of Saudi Arabia.",
     "effectiveLabel": "Last updated",
-    "effectiveDate": "2026-07-21",
+    "effectiveDate": "2026-07-23",
     "sections": [
       {
-        "h": "Scope",
-        "body": "This policy covers information handled when you visit this site, book through mazj.sa, or use the MAZJ space. [Placeholder: pending legal review.]"
+        "h": "Who we are",
+        "body": "MAZJ (مزج) is operated by MAZJ Al-Omrania One Person Company, a company registered in the Kingdom of Saudi Arabia, at Life Tower, Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. For the purposes of the Personal Data Protection Law (PDPL), we are the party that controls how your personal data is processed. Our website (mazj.org) and our booking store (mazj.sa) are operated by the same company."
       },
       {
-        "h": "What we collect",
-        "body": "Booking and contact details you provide on mazj.sa, and, for members, the fingerprint enrollment used for door access. [Placeholder: full data inventory to be completed.]"
+        "h": "Scope of this policy",
+        "body": "This policy explains how we handle personal data when you visit our website, book or pay through mazj.sa, contact us, or use the MAZJ space as a member or visitor. It follows the Personal Data Protection Law of the Kingdom of Saudi Arabia and its regulations, overseen by the Saudi Data & AI Authority (SDAIA)."
       },
       {
-        "h": "How we use it",
-        "body": "To run bookings, operate access to the space, respond to enquiries, and share community updates you ask for. [Placeholder: purposes to be finalised.]"
+        "h": "The data we collect",
+        "body": "Depending on how you interact with us, we may collect:\n— Contact and account details you give us, such as your name, phone number and email.\n— Booking and payment details when you reserve a space on mazj.sa.\n— The access credential we issue you (a QR code or an access card) to enter the space, and records of your entry.\n— Footage from security cameras (CCTV) in and around the premises.\n— Website and device information, including cookies, IP address and how you use the site.\n— The content of your messages when you contact us by WhatsApp, email or the contact form."
       },
       {
-        "h": "Sharing",
-        "body": "Bookings and payment are processed by the mazj.sa booking platform and its payment providers, including Tamara and Tabby where used. [Placeholder: processor list to be confirmed.]"
+        "h": "Access to the space",
+        "body": "Members enter the space using a personal digital access credential — a QR code or an access card — issued through our booking system. We keep a record of entry to help keep the space secure."
       },
       {
-        "h": "Retention & security",
-        "body": "[Placeholder: retention periods and security measures to be documented.]"
+        "h": "Security cameras (CCTV)",
+        "body": "We operate CCTV in common and entry areas to keep members, guests and property safe. Footage is kept for a limited period and then deleted, is accessible only to authorised staff, and is shared outside MAZJ only where the law requires it."
       },
       {
-        "h": "Your rights & contact",
-        "body": "To ask about, correct, or delete your information, reach us through the contact page. [Placeholder: rights under the Saudi PDPL to be detailed.]"
+        "h": "How we use your data",
+        "body": "We use your data to:\n— Manage your bookings, subscriptions and membership (to perform our agreement with you).\n— Operate secure access to the space and keep it safe.\n— Respond to your enquiries and provide support.\n— Meet our legal, tax and invoicing obligations, including ZATCA requirements.\n— Keep the site secure and improve it.\n— Send you updates or offers only where you have given us separate, explicit consent, which you can withdraw at any time."
+      },
+      {
+        "h": "Cookies and analytics",
+        "body": "Our website uses cookies and analytics tools (such as Google Analytics) to understand how the site is used and to improve it. You can control or block cookies through your browser settings, though some parts of the site may not work as intended if you do."
+      },
+      {
+        "h": "Who we share your data with",
+        "body": "We share personal data only as needed to run our service:\n— Payment providers who process your payment on mazj.sa (such as Tamara, Tabby and card networks). We do not store your full card details.\n— The booking platform that powers mazj.sa, and our hosting and IT providers.\n— Government authorities where we are legally required to disclose it.\nWe do not sell your personal data."
+      },
+      {
+        "h": "Transfers outside Saudi Arabia",
+        "body": "Some of our service providers may process data outside the Kingdom. Where that happens, we transfer only what is necessary and rely on the conditions and safeguards allowed under the PDPL and the Regulation on Personal Data Transfer Outside the Kingdom."
+      },
+      {
+        "h": "How long we keep your data",
+        "body": "We keep personal data only as long as we need it for the purpose we collected it, or as long as the law requires. Tax and invoicing records are kept for the period required by ZATCA. Your access credential is deactivated when your membership ends, and entry records and CCTV footage are kept on a short rolling basis before they are deleted."
+      },
+      {
+        "h": "How we protect your data",
+        "body": "We use organisational and technical measures to protect your data, and we limit access to staff who need it. No system can be guaranteed completely secure, but we work to keep your data safe and to respond quickly to any incident."
+      },
+      {
+        "h": "Your rights",
+        "body": "Under the PDPL you have the right to:\n— Be informed about how your data is used.\n— Access your data and obtain a copy of it.\n— Correct data that is inaccurate or out of date.\n— Ask us to delete your data.\n— Withdraw your consent at any time.\nTo exercise any of these, contact us through the details below, and we will respond within 30 days. If you are not satisfied, you may complain to the Saudi Data & AI Authority (SDAIA) through the National Data Governance Platform."
+      },
+      {
+        "h": "Children",
+        "body": "Our services are meant for adults. We do not knowingly collect the personal data of anyone under 18. If you believe a child has given us their data, contact us and we will remove it."
+      },
+      {
+        "h": "Changes and contact",
+        "body": "We may update this policy from time to time; the date at the top shows when it last changed. For any privacy question or request, reach us through the contact page or on WhatsApp, or by email at info@mazj.org. You can also contact the Saudi Data & AI Authority (SDAIA) if you wish to raise a concern with the regulator."
       }
     ],
-    "zatca": "ZATCA tax number: 310240548700003",
-    "cr": "CR number: [to be added]"
+    "cr": "MAZJ Al-Omrania One Person Company · Commercial Registration No. 2051222684"
   },
   "NotFound": {
     "title": "Page not found",
@@ -1171,16 +1252,16 @@
     "bookOnline": "Book online"
   },
   "Founding": {
-    "eyebrow": "Founding members",
-    "title": "Be one of the\nfirst 15",
-    "body": "MAZJ is new, and the first 15 members shape what it becomes. Join now as a founding member: help set the tone of the community, get first pick of the space, and keep your founding perks for good.",
+    "eyebrow": "Startups & builders",
+    "title": "Building something?\nBuild it here",
+    "body": "MAZJ has a special offer for startups and builders, made to give your idea its first push. Tell us what you're working on, and we'll tell you what's waiting.",
     "perks": [
-      "Shape the community from day one",
-      "First pick of desks and offices",
-      "Founding perks, yours to keep"
+      "A real address in Al-Khobar",
+      "24/7 access for the long hours",
+      "Al-Malqa, your room on pitch day"
     ],
-    "cta": "Claim a founding spot",
-    "ctaMsg": "Hi MAZJ, I'd like to become a founding member.",
-    "note": "Only 15 founding memberships. Message us to claim yours."
+    "cta": "Get the offer",
+    "ctaMsg": "Hi MAZJ, I'm building something and I'd love to hear the startups & builders offer.",
+    "note": "The offer is one message away. Start with your idea."
   }
 }

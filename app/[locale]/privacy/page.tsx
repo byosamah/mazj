@@ -14,11 +14,9 @@ function Content() {
     <>
       <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} />
       <LegalSections
-        reviewNote={t("reviewNote")}
         effectiveLabel={t("effectiveLabel")}
         effectiveDate={t("effectiveDate")}
         sections={sections}
-        // TODO(owner): add the real CR number; the CR line below is a labelled placeholder.
         footLines={[t("cr")]}
       />
     </>

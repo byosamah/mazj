@@ -45,3 +45,7 @@ yarn-error.log*
 
 # audit/verification screenshot dumps (session artifacts, not source)
 /.audit-shots/
+
+# DESIGN.md extraction artifacts (Playwright captures + computed-token JSON).
+# Re-generate with the designmd-ripper skill; DESIGN.md itself IS source.
+/.designmd/

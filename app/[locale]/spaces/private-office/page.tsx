@@ -19,11 +19,15 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/office-month.jpg" imageRatio="aspect-[4/5]" index="02" />
+      {/* Two different private-office frames, not the same one twice: the
+          opener is the row of glass rooms seen from the floor (architectural,
+          no single subject for the 85px h1 to sit on top of), the detail below
+          is the inside of one room. */}
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/office-month.jpg" index="02" />
       {/* One CTA: daily and monthly (Hayz) are now durations chosen at mazj.sa
           checkout, not separate products, so both buttons hit the same URL. */}
       <SpaceDetail
-        image="/images/spaces/office-month.jpg"
+        image="/images/spaces/office-day.jpg"
         imageAlt={t("photoAlt")}
         body={t("body")}
         facts={facts}

@@ -7,8 +7,12 @@ import {waLink, MAPS_URL} from "@/lib/contact";
  * section and the contact page always show the same facts. WhatsApp and the
  * map are real links now; the phone row is intentionally omitted until a
  * verified number exists (never render "Coming soon" on a contact method).
+ *
+ * `surface` lets a route tint the section without forking the component: the
+ * landing passes `bg-beige-card` (tan) so this block steps off the cream FAQ
+ * that follows it; contact + the space pages keep the default cream.
  */
-export default function LocationHours() {
+export default function LocationHours({surface = "bg-beige"}: {surface?: string}) {
   const t = useTranslations("Location");
 
   const rows: Array<{label: string; value: string; href?: string}> = [
@@ -19,9 +23,9 @@ export default function LocationHours() {
   ];
 
   return (
-    <section className="relative w-full bg-beige px-6 py-24 lg:px-10 lg:py-32">
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <Reveal className="flex flex-col gap-5 lg:ps-[8%]">
+    <section className={`relative w-full ${surface} px-6 py-24 lg:px-10 lg:py-32`}>
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+        <Reveal className="flex flex-col gap-6">
           <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
           <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
             {t("title")}
@@ -32,18 +36,20 @@ export default function LocationHours() {
           <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
             {t("blurb")}
           </p>
-          <dl className="mt-4 flex max-w-[480px] flex-col">
+          {/* Address + WhatsApp span the row; staffed/members pair up beneath —
+              a composed 2-up grid rather than a flat single-column list. */}
+          <dl className="mt-2 grid grid-cols-1 gap-x-10 gap-y-5 sm:grid-cols-2">
             {rows.map((row, i) => (
-              <div key={i} className="flex flex-col gap-1 border-t border-black/10 py-5">
+              <div
+                key={i}
+                className={`flex flex-col gap-1.5 border-t border-black/10 pt-4 ${
+                  i === 0 || i === 3 ? "sm:col-span-2" : ""
+                }`}
+              >
                 <dt className="eyebrow text-12 text-muted">{row.label}</dt>
                 <dd className="text-15 leading-relaxed text-black lg:text-16 [font-variant-numeric:tabular-nums]">
-                  {/* The WhatsApp value was a bare inline <a> at text-15, so it
-                      got nothing but its own line box: 106.0 x 19.0 measured at
-                      390px, less than half the 44px guideline (WCAG 2.5.8), and
-                      it repeats on six routes. The `before:` pseudo-element
-                      centres a 44px-tall hit box on the line without adding
-                      padding, so the row's rhythm and the rule above it do not
-                      move. Width already clears 44 at 106px. */}
+                  {/* 44px-tall hit box on the WhatsApp line (WCAG 2.5.8) without
+                      moving the row rhythm; the value already clears 44px wide. */}
                   {row.href ? (
                     <a
                       href={row.href}
@@ -62,21 +68,23 @@ export default function LocationHours() {
           </dl>
         </Reveal>
 
-        {/* Links to MAZJ's real Google listing (Life Tower). This was an EMPTY
-            tan box with a caption — the largest visual element on the contact
-            page was a placeholder, on the one page whose subject is location.
-            It now carries a real photo of the space with the directions label
-            over a scrim, so the block shows something before it asks for a tap. */}
-        <Reveal delay={120} className="flex items-center justify-center">
+        {/* Links to MAZJ's real Google listing (Life Tower). Carries a static
+            Google-map still of the pin (public/images/location-map.jpg) with the
+            "Get directions" label over a bottom scrim; taps through to Maps.
+            Deliberately the clean, unlabelled-pin capture, NOT the variant that
+            bakes a 4.7-star rating card onto the map (no rating claims on the
+            page, per brand). Regenerate the still from Google Maps if the pin
+            ever moves. */}
+        <Reveal delay={120} className="flex">
           <a
             href={MAPS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative flex aspect-[4/3] w-full max-w-[560px] items-end overflow-clip rounded-[16px] bg-beige-card transition-transform duration-[120ms] active:scale-[0.96] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
+            className="group relative flex aspect-[4/3] w-full items-end overflow-clip rounded-[16px] bg-beige-card transition-transform duration-[120ms] active:scale-[0.96] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/spaces/office-day.jpg"
+              src="/images/location-map.jpg"
               alt=""
               loading="lazy"
               decoding="async"

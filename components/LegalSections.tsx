@@ -11,9 +11,8 @@ import Reveal from "./Reveal";
  * h1 (max-w-[1400px], start-aligned) previously jumped ~270px to a centred
  * max-w-[860px] body, reading as a misalignment rather than a composition.
  *
- * The review notice used to be brown-on-tan-on-beige at roughly 1.17:1, i.e.
- * functionally invisible. A disclaimer nobody can read is worse than none, so
- * it now carries a coral rule and full-strength ink.
+ * An optional review notice (coral rule, full-strength ink) renders above the
+ * clauses only when a `reviewNote` is passed; the live legal routes ship none.
  */
 export default function LegalSections({
   reviewNote,
@@ -22,7 +21,8 @@ export default function LegalSections({
   sections,
   footLines = [],
 }: {
-  reviewNote: string;
+  /** Optional disclaimer box above the clauses. Omit to ship none. */
+  reviewNote?: string;
   effectiveLabel: string;
   /** ISO date (YYYY-MM-DD). Rendered machine-readable, displayed localised. */
   effectiveDate: string;
@@ -51,9 +51,11 @@ export default function LegalSections({
         </Reveal>
 
         <div className="flex flex-col gap-10 lg:col-span-8 xl:col-start-5 xl:col-span-8">
-          <Reveal className="flex items-start gap-4 border-s-2 border-orange bg-beige-card/60 p-6 ps-5">
-            <p className="text-14 leading-relaxed text-brown [text-wrap:pretty]">{reviewNote}</p>
-          </Reveal>
+          {reviewNote && (
+            <Reveal className="flex items-start gap-4 border-s-2 border-orange bg-beige-card/60 p-6 ps-5">
+              <p className="text-14 leading-relaxed text-brown [text-wrap:pretty]">{reviewNote}</p>
+            </Reveal>
+          )}
 
           {/* One observer staggers every clause. Previously each section got
               delay={0}, so all of them wiped in as a single block — the only
