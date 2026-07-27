@@ -24,6 +24,10 @@ yarn-error.log*
 .env
 .env*.local
 .env.*
+# ...except the committed template, which holds names and comments, no values.
+# Without this negation the `.env.*` line above swallows it and new contributors
+# get no record of which variables the app needs.
+!.env.example
 
 # deploy / platform
 .vercel
