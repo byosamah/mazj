@@ -93,7 +93,7 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
 - **Surface the strongest hook at the point of decision.** The day-pass-counts-toward-your-first-month line belongs **on the open-desk booking card**, not buried in the FAQ.
 - **Concrete proof beats a vague claim.** ✗ "hosted them all" → ✓ "hosted more than 40 events since 2022" (only when truthful).
 - **Warm + honest on hard facts.** Lead with the positive frame, state the fact plainly, offer help.
-  - Refund: *"Each booking on mazj.sa is reserved just for you and held for your chosen date, so it stays non-refundable once it's placed. If your plans change, reach out before your booking date and we'll gladly help you find another time that works."*
+  - Refund: *"Each booking is reserved just for you and held for your chosen date, so it stays non-refundable once it's placed. If your plans change, reach out before your booking date and we'll gladly help you find another time that works."* (Quoted post-sweep. It read "Each booking on mazj.sa" until 2026-07-27; naming the domain added nothing.)
 - **Lead with welcome, let limits follow.** ✗ open with "each covers one person" → ✓ "You're always welcome to bring people along. A day pass is for one person, so for guests, book Al-Malqa…"
 - **Do not repeat a fact within one viewport.** The hero states the location once; use the trustline for a *fresh* legitimacy signal (staffed hours), not the address again.
 
@@ -101,7 +101,20 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
 
 ## 6. Hard constraints (never violate)
 
-- **No prices or money amounts, ever.** Booking and checkout live on **mazj.sa**; link out. (Membership perks like "15% / 20% off the meeting room" are allowed.)
+- 🔴 **Prices: RELAXED 2026-07-27 (owner ruling). Marketing copy stays money-free; the BOOKING FLOW shows live prices.**
+  - Everything outside `/spaces/*/book` keeps the old rule: no SAR amounts in headings, intros, FAQ answers, space pages or meta. (Membership perks like "15% / 20% off the meeting room" were always allowed and still are.)
+  - Inside the booking flow, prices are shown, pulled live from the Rekaz API. Nobody enters card details without seeing a total.
+  - **Never hardcode a price in copy.** Rekaz rotates price ids when a price is edited, and a number typed into `messages/*.json` goes stale silently. The flow reads them at request time.
+- 🔴 **Booking happens HERE now, not on mazj.sa. Copy must never send people away.**
+  - The site used to link out to the Rekaz storefront, so 58 strings said so. They were swept on 2026-07-27, and the trap is that the LINKS were fixed first: `lib/links.ts` pointed at `/spaces/<space>/book` while the button beside it still read "Book on mazj.sa". Changing a link does not change the sentence around it.
+  - ✗ `احجز عبر mazj.sa` / "Book on mazj.sa" → ✓ `احجز الآن` / "Book now"
+  - ✗ `وتُحجز بالساعة عبر mazj.sa.` → ✓ `وتُحجز بالساعة.` **Usually the location is simply deleted.** "Booked by the hour" is warmer and shorter than naming a domain, and per §3.2 prose that repeats what the widget already does is dead words.
+  - ✗ `يتم الدفع عبر mazj.sa حيث السعر المحدّث دائماً` → ✓ `ويظهر السعر المحدّث أثناء الحجز`
+  - ⚠️ **Payment still leaves the site** (Rekaz exposes no payments API, so checkout is a Rekaz-hosted page). The owner chose a plain redirect with no explanatory copy, so **do not write a line about the hand-off**. Do not describe payment as happening "on our site" either; say the price is shown as you book and stop there.
+  - The one surviving `mazj.sa` mention is `PrivacyPage.sections[0]`, which discloses that both properties belong to the same company. That is an ownership fact, not a booking instruction, and it stays.
+- 🔴 **Legal copy is a factual claim, not tone.** Terms and Privacy said bookings were "booked and paid for on mazj.sa", and the Privacy data-flow section named the wrong processor. Both were corrected in the same sweep, and the Privacy disclosure now names **Rekaz** as the booking and payments platform, which is what PDPL expects and what "on mazj.sa" never conveyed. **When the product changes, re-read `TermsPage` and `PrivacyPage` before assuming only marketing is affected.**
+- **No em-dashes (—) anywhere**, Arabic or English. Use commas, colons, periods, parentheses (Arabic: `،` and `:`).
+  - ⚠️ **They hid as list bullets.** Terms and Privacy shipped with 46 `U+2014` characters used as line-start markers, which read as legitimate punctuation and survived every prose read-through. Swept to `•` on 2026-07-27. Grep for the codepoint, do not trust your eyes.
 - **No em-dashes (—) anywhere**, Arabic or English. Use commas, colons, periods, parentheses (Arabic: `،` and `:`).
 - **Never mention biometric / fingerprint.** Access is a **QR code or a card**.
 - **"24/7" is members-only.** Reception is staffed `الأحد إلى الخميس، 9 صباحاً حتى 9 مساءً`. Keep this accurate.
