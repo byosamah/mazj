@@ -315,7 +315,7 @@ export default function Hero() {
           The autumn photo is the poster shown until the first frame loads. */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-black">
         {/* preload="metadata": this is the LCP-adjacent element on desktop so it
-            is not starved outright, but it is a ~13 MB file and `metadata` stops
+            is not starved outright, but it is a ~4.8 MB file and `metadata` stops
             the browser pulling all of it before the headline has painted.
             aria-hidden because it is pure decoration: without it some screen
             readers announce a bare, unlabelled media element. */}

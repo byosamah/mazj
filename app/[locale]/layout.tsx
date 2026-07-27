@@ -142,12 +142,16 @@ export default async function LocaleLayout({
             confirmed it painted on top. So the fix for one WCAG failure (2.2.2)
             created another (1.4.4 content loss), which is not a trade worth making.
 
-            It now lives in the footer's bottom chrome row, in NORMAL FLOW, where
-            it occludes nothing and reflows with everything else. Every one of the
-            12 real routes renders <Footer />, so it is still reachable sitewide,
-            and the footer is also where its beige-on-coral styling was designed
-            to sit. The only routes without it are not-found and the error
-            boundaries, which carry no autoplaying video.
+            It briefly moved to the footer's bottom chrome row, in normal flow,
+            and was then UNMOUNTED ENTIRELY at the owner's request. So it renders
+            on no route at all today: components/MotionToggle.tsx is dead code
+            (see the comment in components/Footer.tsx), and this is a known,
+            ACCEPTED 2.2.2 gap, not an open bug. Do not re-add it from an audit.
+            If it ever returns it belongs in that footer row, in normal flow,
+            never as a fixed floating chip. Consequence to remember: nothing
+            stamps html[data-motion="paused"] any more, so the globals.css pause
+            block is unreachable and the ambient videos play for everyone,
+            including visitors who ask for reduced motion.
           */}
         </NextIntlClientProvider>
       </body>
