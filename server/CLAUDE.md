@@ -18,30 +18,49 @@ Scope: the Supabase-backed backend added 2026-07-27. Before this the repo was
 
 ## What exists
 
-**Three tables**, all in `public`, all RLS-enabled with zero policies and grants
+**Two tables**, both in `public`, both RLS-enabled with zero policies and grants
 revoked, i.e. reachable only by the secret key:
 
 | Table | Purpose |
 |---|---|
-| `leads` | First-party interest capture. 🔴 **NOT a reservation**: Rekaz owns those. Constraints worth knowing: `leads_needs_a_contact_channel` (email OR phone must be present, so an unreachable lead cannot exist even via a manual insert or a bulk import) and the `phone_e164` regex `^\+[1-9][0-9]{7,14}$`. |
 | `rate_limit_counters` | Fixed-window counters, one row per bucket, driven by `rate_limit_hit()`. |
 | `idempotency_keys` | Stored responses keyed by `(scope, idempotency_key)`, driven by `idempotency_begin()`. |
+
+**One endpoint**, `runtime = "nodejs"`, `dynamic = "force-dynamic"`:
+
+| Route | Purpose |
+|---|---|
+| `GET /api/health` | Calls `health_ping()` and reports latency. A health check that cannot fail tells you nothing. |
+
+🔴 **`health_ping()` must never gain a dependency on an application table.** The
+probe originally queried `leads`, so dropping that table took the health endpoint
+down with it. A liveness check should depend on nothing but the database being
+reachable.
 
 Enumerated columns use `text` + `check` rather than Postgres enums, because
 adding a value to an enum inside a transaction is restricted and dropping one is
 impossible, whereas a check constraint is a single `ALTER`.
 
-**Two endpoints**, both `runtime = "nodejs"` and `dynamic = "force-dynamic"`:
+### `leads` was dropped on 2026-07-27
 
-| Route | Purpose |
-|---|---|
-| `GET /api/health` | Real database round trip, reporting latency. A health check that cannot fail tells you nothing. |
-| `POST /api/leads` | Rate limit → shape validation → idempotency → domain rules → write. Optional `Idempotency-Key` header. This is the proving slice: it exercises the whole path without touching a single component. |
+It was the foundation's proving slice: it demonstrated the whole path end to end
+(validation, rate limiting, idempotency, Arabic-Indic phone normalisation, RLS,
+error mapping) and nothing on the site ever called it. The owner had not yet
+specified what the product needs, and a speculative table does not belong in
+production.
 
-🔴 **Order of operations in `services/leads.ts` is not arbitrary.** The rate limit
-runs FIRST, before parsing: parsing untrusted JSON costs CPU, and an endpoint that
-validates before limiting can be exhausted by garbage that was never going to be
-accepted.
+**It is recoverable from git** (commit `64abee4`): the table, the domain rules,
+the zod schema, the service, the route and the tests. It held 0 rows when
+dropped, so no data was lost. `test/rls.integration.test.ts` asserts it stays
+gone, so a stale migration cannot quietly resurrect it.
+
+`server/domain/phone.ts` was **kept** despite being its only consumer. It is
+pure, tested, has no database or runtime footprint, and encodes knowledge that is
+expensive to rediscover (Arabic-Indic and Persian digits, and the `+966 (0)5…`
+trunk-prefix trap). It currently has no caller.
+
+`set_updated_at()` was also kept: it is generic infrastructure any future table
+with an `updated_at` column will use.
 
 ## 🔴 The boundary
 
@@ -65,11 +84,10 @@ five lines each) and **`instrumentation.ts`**.
   FRONTEND `lib/`, but from `server/db/x.ts` the same string means the backend's
   own. Same name, two meanings, so the boundary rule false-positived on 11
   legitimate internal imports. **Don't reintroduce a `server/lib/`.**
-- The four product identifiers in `domain/leads.ts` are **deliberately
-  duplicated** from `lib/links.ts` rather than imported, because an import edge
-  back into frontend code would defeat the boundary. `leads.sync.test.ts` is the
-  only file here allowed to import from `lib/`, and only to assert the two lists
-  have not drifted.
+- When a module here needs a constant that also exists in `lib/`, **duplicate it
+  rather than importing across the boundary**, and add a test that asserts the two
+  stay in sync. That pattern lived in `leads.sync.test.ts` before `leads` was
+  dropped; reuse the shape, not the file.
 
 ## The two Supabase clients
 
@@ -167,7 +185,7 @@ site works, not a nicety. Stored as E.164, enforced by a check constraint.
 Postgres.** A NUL passes `JSON.parse`, passes `z.string()`, and survives
 whitespace collapsing, then the driver rejects it with `unsupported Unicode
 escape sequence`, which the db layer maps to `upstream_unavailable`: a 503 blaming
-our database for the caller's input. `domain/leads.ts` `collapse()` strips the C0/C1 ranges `U+0000`-`U+0008`, `U+000E`-`U+001F` and `U+007F`-`U+009F`, deliberately skipping `U+0009`-`U+000D` (tab, newline, CR and friends) because the whitespace pass has already turned those into spaces.
+our database for the caller's input. The `collapse()` helper (removed with `leads`, see git `64abee4`) stripped the C0/C1 ranges `U+0000`-`U+0008`, `U+000E`-`U+001F` and `U+007F`-`U+009F`, deliberately skipping `U+0009`-`U+000D` (tab, newline, CR and friends) because the whitespace pass has already turned those into spaces.
 
 ⚠️ **Write those ranges as escape sequences, never as literal bytes.** A literal
 control byte in a `.ts` file is a hard ESLint parse error (`Unexpected keyword or

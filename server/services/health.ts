@@ -1,6 +1,6 @@
 import "server-only";
 
-import { pingDatabase } from "../db/leads";
+import { pingDatabase } from "../db/health";
 import type { AppError } from "../core/errors";
 import { err, ok, type Result } from "../core/result";
 

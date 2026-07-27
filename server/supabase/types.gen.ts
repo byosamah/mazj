@@ -45,57 +45,6 @@ export type Database = {
         }
         Relationships: []
       }
-      leads: {
-        Row: {
-          consent_at: string | null
-          created_at: string
-          email: string | null
-          full_name: string | null
-          id: string
-          interest: string
-          ip_hash: string | null
-          locale: string
-          note: string | null
-          page_path: string | null
-          phone_e164: string | null
-          source: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          consent_at?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          interest: string
-          ip_hash?: string | null
-          locale?: string
-          note?: string | null
-          page_path?: string | null
-          phone_e164?: string | null
-          source?: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          consent_at?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          interest?: string
-          ip_hash?: string | null
-          locale?: string
-          note?: string | null
-          page_path?: string | null
-          phone_e164?: string | null
-          source?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       rate_limit_counters: {
         Row: {
           bucket: string
@@ -119,6 +68,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      health_ping: { Args: never; Returns: string }
       idempotency_begin: {
         Args: {
           p_fingerprint: string

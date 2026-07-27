@@ -4,6 +4,15 @@
 **Status:** BUILT and verified. Owner picked all four recommended options.
 **Scope:** the foundation only. Product features arrive in later specs.
 
+**Update 2026-07-27 (later the same day):** the `leads` proving slice was
+**dropped** at the owner's instruction. It had done its job, nothing on the site
+called it, and the owner's product requirements are still unstated, so keeping a
+speculative table in production was the wrong default. Everything about it is
+recoverable from commit `64abee4`. `/api/health` was decoupled from it via a new
+`health_ping()` function, which fixed a latent flaw: a liveness probe should
+never depend on a business table. `rate_limit_counters` and `idempotency_keys`
+remain, pending that same conversation.
+
 **Outcome:** live on Supabase project `sxksrvqehiqnonsirwtb` ("mazj-production",
 `eu-central-1`). 103 tests passing, lint and typecheck clean, production build
 passing, security advisors clean. Query latency from Dammam fell from 250ms
