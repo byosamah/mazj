@@ -1,8 +1,9 @@
 import "server-only";
 
 import type { AppError } from "../core/errors";
-import { map, type Result } from "../core/result";
-import { riyadhDate, riyadhDayRangeUtc } from "../domain/riyadh-time";
+import { log } from "../core/logger";
+import { map, ok, type Result } from "../core/result";
+import { isWithin, riyadhDate, riyadhDayRangeUtc } from "../domain/riyadh-time";
 import { rekazRequest } from "./client";
 import type { RekazPage, RekazReservation, RekazSlot } from "./types";
 
@@ -22,6 +23,19 @@ export type ListReservationsOptions = {
   maxResultCount?: number;
 };
 
+/**
+ * One page of reservations.
+ *
+ * 🔴 **Every filter this endpoint documents is silently IGNORED.** Measured
+ * against the live tenant on 2026-07-27: `dateMin`, `dateMax`, `upcoming` and
+ * `statuses` all return the identical first 100 rows of 555, spanning February
+ * to October. Not an error, not a warning, just the unfiltered list wearing the
+ * shape of a filtered one.
+ *
+ * The options are still accepted and still sent, because they cost nothing and
+ * the day Rekaz implements them this starts working. **But no caller may rely
+ * on them.** Use `fetchAllReservations` and filter in code.
+ */
 export function listReservations(
   options: ListReservationsOptions = {}
 ): Promise<Result<RekazPage<RekazReservation>, AppError>> {
@@ -31,12 +45,90 @@ export function listReservations(
     query: {
       maxResultCount: REKAZ_PAGE_MAX,
       ...rest,
-      // Rekaz expects a repeated `statuses` parameter. A comma-joined single
-      // value is accepted for the one-status case we use; anything richer needs
-      // real repeated params and a change here.
       ...(statuses?.length ? { statuses: statuses.join(",") } : {}),
     },
   });
+}
+
+/**
+ * Hard ceiling on pages fetched, so a growing tenant can never turn one
+ * dashboard render into an unbounded crawl of Rekaz.
+ */
+const MAX_PAGES = 4;
+
+/**
+ * How far back in CREATION time to page before stopping.
+ *
+ * The stop condition has to be expressed in creation time because that is the
+ * only thing the ordering guarantees. The reasoning: a reservation for a future
+ * date was necessarily created before that date, so paging back six months of
+ * creations catches every upcoming booking with a lead time under six months.
+ * For a coworking space that is every real booking; a year-ahead events-hall
+ * reservation would be missed, which is why `MAX_PAGES` is a backstop rather
+ * than the primary limit and why the truncation is logged.
+ */
+const CREATION_LOOKBACK_DAYS = 180;
+
+/**
+ * Every reservation Rekaz will give us, across pages.
+ *
+ * 🔴 This exists because filtering server-side is impossible (see above) AND
+ * because the sort order is not what you would guess. Rows come back ordered by
+ * **`creationTime` descending, NOT `startAt`**. Verified over all 555 rows:
+ * `creationTime` is monotonically descending, `startAt` is not.
+ *
+ * The consequence is the trap. "Recent pages hold the upcoming bookings" is
+ * true only while people book close to the date. A booking made three months
+ * ago for next Tuesday sits on page 4, so any code that reads page 1 and calls
+ * it "upcoming" silently loses exactly the long-lead bookings, which for an
+ * events hall are the large ones. Reading one page looks correct for months and
+ * then quietly drops the most valuable reservation of the year.
+ *
+ * 555 rows is six requests. Page 1 is fetched first for `totalCount`, then the
+ * rest go out together, so the wall clock is two round trips rather than six.
+ */
+export async function fetchAllReservations(
+  now: Date = new Date()
+): Promise<Result<RekazReservation[], AppError>> {
+  const cutoff = now.getTime() - CREATION_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+  const all: RekazReservation[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const result = await listReservations({ skipCount: page * REKAZ_PAGE_MAX });
+
+    // A failed page is not a reason to show nothing. Page 1 holds the most
+    // recently created rows, which is where every imminent booking lives, so a
+    // partial list beats an error the reader cannot act on.
+    if (!result.ok) {
+      if (page === 0) return result;
+      log.warn("rekaz.reservations.partial", {
+        page,
+        collected: all.length,
+        reason: result.error.code,
+      });
+      break;
+    }
+
+    const { items, totalCount } = result.value;
+    all.push(...items);
+
+    if (all.length >= totalCount || items.length < REKAZ_PAGE_MAX) break;
+
+    // Stop as soon as this page's oldest creation predates the lookback. Every
+    // later page is older still, so nothing relevant can be down there.
+    const oldest = items[items.length - 1]?.creationTime;
+    if (oldest && Date.parse(oldest) < cutoff) break;
+
+    if (page === MAX_PAGES - 1) {
+      log.warn("rekaz.reservations.truncated", {
+        totalCount,
+        fetched: all.length,
+        reason: `hit the ${MAX_PAGES}-page cap before reaching the ${CREATION_LOOKBACK_DAYS}-day lookback`,
+      });
+    }
+  }
+
+  return ok(all);
 }
 
 /**
@@ -47,14 +139,14 @@ export function listReservations(
  * yesterday's bookings labelled as today's, and drops the events hall's
  * 21:00-24:00 slots onto the wrong date entirely.
  */
-export function listReservationsOnDay(
+export function reservationsOnDay(
+  all: RekazReservation[],
   day: string
-): Promise<Result<RekazPage<RekazReservation>, AppError>> {
+): RekazReservation[] {
   const { start, end } = riyadhDayRangeUtc(day);
-  return listReservations({
-    dateMin: start.toISOString(),
-    dateMax: end.toISOString(),
-  });
+  return all
+    .filter((r) => isWithin(r.startAt, start, end))
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
 }
 
 export type SlotQuery = {

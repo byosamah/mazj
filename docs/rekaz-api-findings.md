@@ -78,6 +78,18 @@ different endpoints:
 `private-office`), confirming those URLs are still correct as of today. `url` is
 `null` on all four, so the storefront URL is built from the slug, not returned.
 
+⚠️ **The live store is locale-prefixed and our links are not.**
+`https://mazj.sa/subscription/<slug>` answers **308** and redirects to
+`https://mazj.sa/ar/subscription/<slug>`. It works today, but the 301 map for
+launch must cover **both** shapes, and `/ar/subscription/...` is the awkward one:
+it collides with this site's own `/ar` locale prefix, so it would hit the
+`[...rest]` catch-all rather than 404ing at the edge.
+
+⚠️ **No subscription start-date constraints are configured.**
+`subscriptionStartAt`, `subscriptionStartAtLimit` and `subscriptionStartAtMax`
+are `null` on every product, in both the API and the storefront's own embedded
+data. So Rekaz imposes no bound and the start date is entirely a UI decision.
+
 ⚠️ **Do not hardcode these ids.** Every `pricing[].id` in the catalog differs from
 its `immutableId`, and the price ids carry a `3a2296xx` prefix stamped in July
 2026 while the immutable ids date to 2024. That means **price ids are rotated
@@ -167,6 +179,63 @@ documented example where `isAvailable: false` coexists with
 Across 192 real slots, **zero** had `isAvailable: false`. The published example
 appears to be simply wrong rather than describing a real semantic. The genuine
 oddity is the date padding above, which the docs never mention.
+
+## 🔴 `GET /reservations` ignores every filter it documents
+
+The most dangerous finding in this document, because it fails **silently and
+plausibly**. Measured against the live tenant, 555 reservations:
+
+| Query | Result |
+|---|---|
+| no filter | 100 rows, `totalCount` 555 |
+| `upcoming=true` | **identical 100 rows** |
+| `dateMin` + `dateMax` (2-day window) | **identical 100 rows** |
+| `statuses=Confirmed` | **identical 100 rows** |
+| `skipCount` / `maxResultCount` | genuinely works |
+
+No error, no warning. You get the unfiltered list wearing the shape of a
+filtered one, so a date-bounded query looks like it worked and quietly returns
+whatever happened to be on page 1.
+
+🔴 **And the sort order is not what you would guess.** Rows come back ordered by
+**`creationTime` descending, NOT `startAt`.** Verified across all 555:
+`creationTime` is monotonically descending; `startAt` is not.
+
+Those two facts combine into a trap worth stating plainly. "Read page 1, that is
+where the upcoming bookings are" is true only while customers book close to the
+date. A reservation created three months ago for next Tuesday sits on page 4, so
+that code silently drops exactly the long-lead bookings, which for an events
+hall are the expensive ones. It looks correct for months and then loses the
+biggest reservation of the year.
+
+**The only correct approach is to page and filter in code.**
+`fetchAllReservations` does that, stopping once a page's oldest `creationTime`
+predates a 180-day lookback, capped at 4 pages.
+
+⚠️ `GET /customers?mobileNumber=` **does** filter correctly (284 customers → 1).
+So filtering is implemented on some endpoints and not others, with nothing in
+the documentation to distinguish them. **Verify each filter you rely on.**
+
+## Performance, and why concurrency is the wrong instinct
+
+Rekaz is slow and highly inconsistent. Measured sequentially, gently:
+
+| Endpoint | Observed |
+|---|---|
+| `/branches` | 0.8s to 3.3s |
+| `/products` | 1.2s to **10.8s** |
+| `/subscriptions` | 1.5s to 3.4s |
+| `/reservations` (100 rows) | ~6s |
+
+🔴 **Do not parallelise requests to Rekaz.** Firing six page requests at once
+made `/subscriptions` hang past **two minutes**, having answered in 1.5s moments
+earlier sequentially. Whether that is rate limiting or simply strain, the
+conclusion is the same, and there is a second reason that outranks throughput:
+**this API also serves mazj.sa, where real customers are checking out.** Load
+pointed at it is load pointed at the revenue path.
+
+`fetchAllReservations` therefore pages **sequentially** with an early stop, and
+the admin dashboard caches the assembled result for 60 seconds.
 
 ## Errors
 

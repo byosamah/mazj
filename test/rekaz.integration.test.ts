@@ -7,7 +7,12 @@ import {
   listProviders,
   splitByBookingFlow,
 } from "@/server/rekaz/catalog";
-import { getSlotsRaw, listReservations } from "@/server/rekaz/reservations";
+import {
+  fetchAllReservations,
+  getSlotsRaw,
+  listReservations,
+  REKAZ_PAGE_MAX,
+} from "@/server/rekaz/reservations";
 import { listSubscriptions } from "@/server/rekaz/subscriptions";
 import { unwrap } from "@/server/core/result";
 
@@ -189,6 +194,53 @@ describe.skipIf(!hasRekazCredentials)("rekaz live API", () => {
         expect(typeof reservation.status).toBe("string");
         expect(typeof reservation.productName).toBe("string");
       }
+    });
+
+    it("🔴 IGNORES every documented filter on /reservations", async () => {
+      // The finding this whole pagination strategy exists for. dateMin, dateMax,
+      // upcoming and statuses are all accepted and all silently ignored: each
+      // returns the identical unfiltered first page. If this ever goes red,
+      // Rekaz have implemented filtering and `fetchAllReservations` can stop
+      // pulling the entire table on every dashboard render.
+      const [unfiltered, filtered] = await Promise.all([
+        listReservations({ maxResultCount: 100 }),
+        listReservations({
+          maxResultCount: 100,
+          dateMin: "2026-07-28T00:00:00Z",
+          dateMax: "2026-07-30T00:00:00Z",
+          upcoming: true,
+          statuses: ["Confirmed"],
+        }),
+      ]);
+
+      const a = unwrap(unfiltered).items.map((r) => r.id);
+      const b = unwrap(filtered).items.map((r) => r.id);
+
+      expect(b, "filters appear to work now, revisit fetchAllReservations").toEqual(a);
+    });
+
+    it("🔴 orders reservations by creationTime, NOT startAt", async () => {
+      // The second half of the trap. Because ordering is by creation, a booking
+      // made months ago for next week is NOT on page 1, so "read the first page
+      // for upcoming bookings" silently drops long-lead reservations. That is
+      // why the dashboard pages through everything.
+      const page = unwrap(await listReservations({ maxResultCount: 100 }));
+      const created = page.items.map((r) => r.creationTime);
+
+      const descending = created.every(
+        (v, i) => i === 0 || created[i - 1]! >= v
+      );
+      expect(descending, "creationTime is no longer the sort key").toBe(true);
+    });
+
+    it("pages through the whole reservation list without duplicates", async () => {
+      const all = unwrap(await fetchAllReservations());
+      const ids = all.map((r) => r.id);
+
+      expect(all.length).toBeGreaterThan(REKAZ_PAGE_MAX);
+      expect(new Set(ids).size, "pagination returned duplicate rows").toBe(
+        ids.length
+      );
     });
 
     it("returns subscriptions in the paginated envelope", async () => {

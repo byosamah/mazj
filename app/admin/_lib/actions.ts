@@ -1,11 +1,13 @@
 "use server";
 
+import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { clientIp } from "@/server/core/request";
 import { requestAdminMagicLink } from "@/server/services/admin-auth";
 
+import { DASHBOARD_CACHE_TAG } from "./dashboard";
 import { adminSupabase } from "./supabase";
 
 /**
@@ -72,8 +74,20 @@ export async function signOut(): Promise<void> {
   redirect("/admin/login");
 }
 
-/** Re-runs the dashboard's data fetch. The page is uncached, so this suffices. */
+/**
+ * Forces a fresh pull from Rekaz.
+ *
+ * 🔴 Must invalidate the tag, not merely redirect. The dashboard's data is
+ * cached for 60 seconds, so a bare redirect would re-render the identical
+ * cached figures and the button would appear broken in the one situation
+ * somebody presses it: when they believe what they are looking at is stale.
+ */
 export async function refreshDashboard(): Promise<void> {
+  // `updateTag`, not `revalidateTag`. Next 16 draws the distinction precisely:
+  // revalidateTag purges for FUTURE requests, while updateTag gives
+  // read-your-own-writes within this action, so the redirect below lands on
+  // genuinely refetched data instead of the cached copy the user just rejected.
+  updateTag(DASHBOARD_CACHE_TAG);
   redirect("/admin");
 }
 

@@ -1,6 +1,6 @@
 import { refreshDashboard } from "../_lib/actions";
 import {
-  loadDashboard,
+  loadDashboardCached,
   type ReservationView,
   type RoomOccupancy,
   type Tile,
@@ -9,17 +9,20 @@ import {
 /**
  * The operations dashboard.
  *
- * 🔴 `force-dynamic`, no caching, on purpose. Every number here answers a
- * question somebody is asking RIGHT NOW ("is the meeting room free?", "who is
- * coming in today?"). A cached occupancy board is not a faster dashboard, it is
- * a dashboard that lies, and it lies most convincingly at exactly the moment
- * the answer is changing. The "last updated" line exists so the reader can see
- * how fresh the answer is rather than assume.
+ * `force-dynamic` because the page is per-session: it reads the auth cookie and
+ * must never be prerendered or shared.
+ *
+ * The DATA behind it is cached for 60s, which is a deliberate reversal of the
+ * design's original "no caching"; `CACHE_SECONDS` in `_lib/dashboard.ts`
+ * carries the measurements that forced it. The "last updated" line is what
+ * keeps that honest: it reports when the data was actually assembled, not when
+ * the page was rendered, so a stale figure announces itself. Refresh busts the
+ * cache rather than merely re-rendering.
  */
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const data = await loadDashboard();
+  const data = await loadDashboardCached();
 
   return (
     <main className="space-y-10">

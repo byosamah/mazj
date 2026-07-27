@@ -1,7 +1,12 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import { bookableRooms, listProducts } from "@/server/rekaz/catalog";
-import { listReservations, listReservationsOnDay } from "@/server/rekaz/reservations";
+import {
+  fetchAllReservations,
+  reservationsOnDay,
+} from "@/server/rekaz/reservations";
 import {
   expiringWithin,
   isActive,
@@ -9,8 +14,6 @@ import {
 } from "@/server/rekaz/subscriptions";
 import type { RekazReservation } from "@/server/rekaz/types";
 import {
-  isWithin,
-  riyadhDayRangeUtc,
   riyadhTime,
   riyadhToday,
   toRiyadhParts,
@@ -88,45 +91,91 @@ export type DashboardData = {
 const UPCOMING_DAYS = 7;
 const EXPIRY_HORIZON_DAYS = 30;
 
+/** Cache key and invalidation tag for the Refresh button. */
+export const DASHBOARD_CACHE_TAG = "admin-dashboard";
+
+/**
+ * Seconds the operations view may be reused before Rekaz is asked again.
+ *
+ * ⚠️ **This reverses the design's original "no caching at all".** That decision
+ * argued a stale occupancy board is worse than none, which is true in the
+ * abstract and was wrong here for two measured reasons.
+ *
+ * First, Rekaz is slow and wildly inconsistent: `/products` was observed
+ * between 1.2s and 10.8s, `/reservations` at ~6s, and the assembled page took
+ * 2.8s to 7.8s. A dashboard that takes eight seconds to answer "is the meeting
+ * room free" is not a more truthful dashboard, it is one nobody opens.
+ *
+ * Second, and more important, that API also serves mazj.sa, where real
+ * customers are checking out. Re-querying the whole reservation table on every
+ * page view, refresh and stray tab is load pointed at the revenue path.
+ *
+ * The staleness objection is answered by honesty rather than by freshness: the
+ * page renders the exact instant the data was assembled, and Refresh busts this
+ * cache outright. Sixty seconds of drift on a room-occupancy board is
+ * operationally invisible; eight seconds of blank screen is not.
+ */
+const CACHE_SECONDS = 60;
+
+/**
+ * The cached entry point. Use this from pages.
+ *
+ * `unstable_cache` is safe here only because `loadDashboard` reads no cookies
+ * and no headers. If a future tile needs per-user data, it must NOT go through
+ * this function: one admin's view would be served to the next.
+ */
+export const loadDashboardCached = unstable_cache(
+  async (): Promise<DashboardData> => loadDashboard(),
+  ["admin-dashboard-v1"],
+  { revalidate: CACHE_SECONDS, tags: [DASHBOARD_CACHE_TAG] }
+);
+
 export async function loadDashboard(now: Date = new Date()): Promise<DashboardData> {
   const today = riyadhToday(now);
 
-  // Fired together rather than in sequence: four serial round trips to Riyadh
-  // from Frankfurt is most of a second of staring at a spinner for no reason.
-  const [products, todayPage, upcomingPage, subscriptionPage] = await Promise.all([
+  // Fired together rather than in sequence: serial round trips to Riyadh from
+  // Frankfurt are most of a second of staring at a spinner for no reason.
+  //
+  // 🔴 ONE reservations call feeds both the "today" and "upcoming" tiles, and
+  // it fetches EVERYTHING. Rekaz ignores `dateMin`, `dateMax`, `upcoming` and
+  // `statuses` entirely, and orders by `creationTime` rather than `startAt`, so
+  // there is no server-side way to ask for a date range and no page that
+  // reliably holds the upcoming bookings. See `fetchAllReservations`.
+  const [products, allReservations, subscriptionPage] = await Promise.all([
     listProducts(),
-    listReservationsOnDay(today),
-    listReservations({ upcoming: true }),
+    fetchAllReservations(),
     listSubscriptions(),
   ]);
 
-  const todayReservations: Tile<ReservationView[]> = todayPage.ok
+  const todayReservations: Tile<ReservationView[]> = allReservations.ok
     ? {
         ok: true,
-        // Re-filtered to the Riyadh day even though the query already bounded
-        // it. Rekaz's slots endpoint demonstrably pads a requested date range
-        // rather than honouring it, and having been surprised once by that on
-        // one endpoint, trusting it on another is optimism, not engineering.
-        data: withinDay(todayPage.value.items, today).map(toReservationView),
+        data: reservationsOnDay(allReservations.value, today).map(
+          toReservationView
+        ),
       }
-    : { ok: false, message: failureMessage(todayPage.error.code) };
+    : { ok: false, message: failureMessage(allReservations.error.code) };
 
   return {
     generatedAt: now.toISOString(),
     today,
     todayReservations,
 
-    occupancy: buildOccupancy(products, todayPage.ok ? todayPage.value.items : null, now),
+    occupancy: buildOccupancy(
+      products,
+      allReservations.ok ? reservationsOnDay(allReservations.value, today) : null,
+      now
+    ),
 
-    upcoming: upcomingPage.ok
+    upcoming: allReservations.ok
       ? {
           ok: true,
-          data: upcomingPage.value.items
+          data: allReservations.value
             .filter((r) => withinNextDays(r, now, UPCOMING_DAYS))
             .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
             .map(toReservationView),
         }
-      : { ok: false, message: failureMessage(upcomingPage.error.code) },
+      : { ok: false, message: failureMessage(allReservations.error.code) },
 
     subscriptions: subscriptionPage.ok
       ? {
@@ -179,13 +228,6 @@ function buildOccupancy(
           .map(toReservationView)[0] ?? null,
     })),
   };
-}
-
-function withinDay(items: RekazReservation[], day: string): RekazReservation[] {
-  const { start, end } = riyadhDayRangeUtc(day);
-  return items
-    .filter((r) => isWithin(r.startAt, start, end))
-    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
 }
 
 function withinNextDays(r: RekazReservation, now: Date, days: number): boolean {
