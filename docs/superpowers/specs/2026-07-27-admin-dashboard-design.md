@@ -241,17 +241,26 @@ Re-verified that violations outside `_lib` still fail.
 - `/admin` returns 307 to `/admin/login` while anonymous; sitemap holds 20 URLs
   and none contain `admin`; robots.txt disallows it.
 
-## Open, and owner-facing
+## Resolved, and still open
 
-- ⚠️ **Email deliverability to `o.khalil@mazj.org` is unconfirmed.** Supabase
-  logged `mail.send`, so it was dispatched, but only the recipient can confirm
-  arrival. The built-in sender is capped at a few messages an hour and is not
-  production-grade; real SMTP is required before anyone else is onboarded.
-- 🔴 **Rotate the Rekaz credentials before launch.** They were pasted into a chat
-  transcript on 2026-07-27.
-- `uri_allow_list` currently holds only `localhost` entries. The production
-  callback URL must be added before deploying, or every magic link will bounce
-  to the site root.
+✅ **Email delivery works.** The owner signed in successfully on 2026-07-27, so
+Supabase's built-in sender does reach `o.khalil@mazj.org` and the org-member
+restriction did not apply. The end-to-end auth chain is confirmed by a human, not
+just by a scripted walk.
+
+⚠️ Still the built-in sender though: a few messages an hour, not
+production-grade, and custom templates are refused on the free tier. **Real SMTP
+is required before a second person is onboarded.** No code change needed for that
+switch, because `completeAdminSignIn` already handles both the PKCE `code` and
+the `token_hash` shapes.
+
+⚠️ **Rekaz credential rotation: deferred by the owner** ("no need for now",
+2026-07-27). Recorded rather than re-argued. The credential is admin-scope, so
+raise it again at launch.
+
+🔴 **`uri_allow_list` still holds only `localhost` entries.** The production
+callback URL must be added before deploying, or every magic link bounces to the
+site root. This one is not resolved and will silently break sign-in on day one.
 
 ## Phase 2 preview
 
