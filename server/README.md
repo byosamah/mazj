@@ -1,4 +1,9 @@
-# `server/` — the MAZJ backend
+# `server/`: the MAZJ backend
+
+> **This file is the layer contract**: what each layer is for and what it may
+> import. For the mechanics, the traps and the verification recipes, see
+> [`./CLAUDE.md`](./CLAUDE.md). For why the backend exists at all, see
+> [`../docs/superpowers/specs/2026-07-27-backend-foundation-design.md`](../docs/superpowers/specs/2026-07-27-backend-foundation-design.md).
 
 Everything in this folder is backend code. The rule that makes it worth having
 its own folder is a single constraint:
