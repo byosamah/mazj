@@ -194,6 +194,27 @@ Three things keep `/admin` off the public internet, and
 (including its hreflang clusters), `Disallow` in robots.txt, and
 `robots: {index: false}` on the layout.
 
+**The sidebar is the extension point.** `app/admin/nav.ts` is a plain data file
+listing the sections; adding one is an entry there plus
+`(protected)/<segment>/page.tsx`, and it inherits the auth guard and the chrome
+automatically. 🔴 `nav.ts` must stay dependency-free: `Sidebar.tsx` is a client
+component, so anything reachable from it ships to the browser, and it must never
+import from `_lib/` (which can reach the Supabase secret key and the admin-scope
+Rekaz credential).
+
+🔴 **The admin uses `next/link` and `next/navigation`, NOT `@/i18n/navigation`.**
+The locale-aware versions prepend `/en` or `/ar`, and `/en/admin` does not exist
+because `proxy.ts` excludes admin from the matcher. Every such link would 404.
+
+⚠️ **Screenshotting an authenticated admin page by saving its HTML into
+`public/` breaks any component that reads `usePathname()`.** The snapshot is
+served from `/__admin-preview.html` while the markup was rendered for `/admin`,
+so the active nav item disagrees between server and client and React reports a
+hydration mismatch in the dev overlay. It is an artifact of the capture, not a
+bug in the page: verify the real route by asserting on its server-rendered HTML
+(`aria-current="page"`, one `<main>`, one `<h1>`) rather than trusting the
+overlay on a snapshot.
+
 ## Adding a route
 
 Create `app/[locale]/<route>/page.tsx`, add a `*Page` namespace to **both**

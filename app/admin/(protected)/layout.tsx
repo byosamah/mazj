@@ -1,8 +1,10 @@
 import { signOut } from "../_lib/actions";
 import { requireAdmin } from "../_lib/auth";
+import Sidebar from "./Sidebar";
 
 /**
- * Everything under here requires a signed-in `@mazj.org` admin.
+ * Everything under here requires a signed-in `@mazj.org` admin, and everything
+ * under here gets the sidebar.
  *
  * A route group, so `(protected)` never appears in a URL: this layout wraps
  * `/admin` itself, and every page added beside it, without changing a path.
@@ -12,6 +14,10 @@ import { requireAdmin } from "../_lib/auth";
  * remembered a call. The alternative is one forgotten line away from a page
  * that serves MAZJ's booking data to anyone who guesses its URL, and that line
  * gets forgotten on the day someone is in a hurry.
+ *
+ * That property is the reason the sidebar lives here too. Adding a section is
+ * an entry in `../nav.ts` plus a `page.tsx`; it inherits the auth check and the
+ * chrome without either being wired by hand.
  *
  * `/admin/login` deliberately sits OUTSIDE this group. Inside it, the guard
  * would redirect an anonymous visitor to the login page, whose own render would
@@ -23,29 +29,30 @@ export default async function ProtectedAdminLayout({
   const user = await requireAdmin();
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-10 flex flex-wrap items-baseline justify-between gap-4 border-b border-black/10 pb-5">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">MAZJ Admin</h1>
-          <p className="mt-1 text-sm text-black/50">
-            Operations, live from Rekaz
-          </p>
-        </div>
+    <div className="lg:flex">
+      <Sidebar email={user.email} />
 
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-black/60">{user.email}</span>
+      {/* `min-w-0` is load-bearing next to a flex sidebar: without it a wide
+          child (the reservations table, which scrolls horizontally on purpose)
+          sets the flex item's minimum size to its own content width and pushes
+          the sidebar off screen instead of scrolling inside its own box. */}
+      <div className="min-w-0 flex-1">
+        <header className="flex items-center justify-end gap-4 border-b border-black/10 px-6 py-4">
+          <span className="truncate text-sm text-black/60 lg:hidden">
+            {user.email}
+          </span>
           <form action={signOut}>
             <button
               type="submit"
-              className="rounded-full border border-black/15 px-4 py-1.5 text-sm transition-colors hover:border-black/40 hover:bg-black/5"
+              className="rounded-full border border-black/15 px-4 py-1.5 text-sm [transition:opacity_200ms,transform_120ms] hover:border-black/40 hover:bg-black/5 active:scale-[0.96]"
             >
               Sign out
             </button>
           </form>
-        </div>
-      </header>
+        </header>
 
-      {children}
+        <main className="px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }

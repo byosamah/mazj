@@ -25,7 +25,13 @@ export default async function AdminDashboardPage() {
   const data = await loadDashboardCached();
 
   return (
-    <main className="space-y-10">
+    // A <div>, not a <main>: the layout already provides the landmark, and two
+    // nested <main> elements is an a11y error that screen readers report.
+    <div className="mx-auto max-w-5xl space-y-10">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-black/50">
           Last updated{" "}
@@ -116,7 +122,7 @@ export default async function AdminDashboardPage() {
           )}
         </TileBody>
       </Section>
-    </main>
+    </div>
   );
 }
 
