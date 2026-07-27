@@ -22,6 +22,7 @@ import {
   type RekazCustomerDetails,
 } from "../rekaz/booking";
 import { listBranches, listProducts } from "../rekaz/catalog";
+import { reconcileReservation, reconcileSubscription } from "../rekaz/reconcile";
 import { getSlots } from "../rekaz/reservations";
 import type { RekazPrice, RekazProduct } from "../rekaz/types";
 
@@ -101,6 +102,8 @@ type IndeterminateRecord = {
   space: string;
   reason: string;
   at: string;
+  /** Rekaz's own reference, when reconciliation confirmed the booking exists. */
+  reference: string | null;
 };
 
 function isIndeterminate(body: unknown): boolean {
@@ -129,13 +132,14 @@ function asBookingResult(body: unknown): BookingResult | null {
 async function markIndeterminate(
   scope: string,
   key: string,
-  detail: { space: string; reason: string }
+  detail: { space: string; reason: string; reference?: string | null }
 ): Promise<void> {
   const record: IndeterminateRecord = {
     [INDETERMINATE_MARKER]: true,
     space: detail.space,
     reason: detail.reason,
     at: new Date().toISOString(),
+    reference: detail.reference ?? null,
   };
 
   const stored = await completeIdempotent({ scope, key, status: 409, body: record });
@@ -228,11 +232,20 @@ export async function createBooking(
       // A previous attempt reached Rekaz and never got a definitive answer. The
       // booking may exist. Retrying would create a second one, so this key is
       // terminally closed and a human has to look.
-      log.warn("booking.replayed_indeterminate", { space: space.slug });
+      const stored = begin.value.body as Partial<IndeterminateRecord>;
+      log.warn("booking.replayed_indeterminate", {
+        space: space.slug,
+        reference: stored.reference ?? null,
+      });
       return err(
-        errors.conflict(
-          "We could not confirm that booking. Please contact us before trying again."
-        )
+        stored.reference
+          ? errors.conflict(
+              `Your booking was created (reference ${stored.reference}) but we could not open payment. Please contact us with that reference.`,
+              { fields: { reference: stored.reference } }
+            )
+          : errors.conflict(
+              "We could not confirm that booking. Please contact us before trying again."
+            )
       );
     }
 
@@ -325,15 +338,67 @@ export async function createBooking(
     //
     // Any other code is a definitive refusal from Rekaz: nothing was created,
     // and the key is safe to release.
-    if (receipt.error.code === "upstream_unavailable") {
-      await markIndeterminate(scope, request.idempotencyKey, {
-        space: space.slug,
-        reason: receipt.error.message,
-      });
-    } else {
+    if (receipt.error.code !== "upstream_unavailable") {
       await abandonIdempotent({ scope, key: request.idempotencyKey });
+      return receipt;
     }
-    return receipt;
+
+    // 🔴 Indeterminate. Rather than dead-end the customer, GO AND LOOK.
+    //
+    // Rekaz cannot answer "did request X succeed", but it can answer "does a
+    // booking matching this description exist", and we know exactly what we just
+    // tried to create. Reservations are ordered by creation, so ours would be at
+    // the top; subscriptions are findable by the one filter that endpoint
+    // honours. See `server/rekaz/reconcile.ts`.
+    const found =
+      space.flow === "reservation"
+        ? await reconcileReservation({ mobile, slotFrom: request.slotFrom! })
+        : await reconcileSubscription({
+            customerId: customerId ?? (await lookupCustomerId(mobile)),
+            startAt: request.startAt!,
+          });
+
+    const outcome = found.ok ? found.value.outcome : "unknown";
+
+    if (outcome === "absent") {
+      // Confidently not created, so the customer may simply try again. This is
+      // the common case: a timeout usually means the request never completed.
+      log.warn("booking.timeout_not_created", { space: space.slug, mobileSuffix: mobile.slice(-3) });
+      await abandonIdempotent({ scope, key: request.idempotencyKey });
+      return receipt;
+    }
+
+    // Either the booking EXISTS, or we could not ask. Both must hold the key: a
+    // retry would duplicate a real booking in the first case, and might in the
+    // second. The difference is only what the customer is told.
+    const reference = found.ok && found.value.outcome === "found" ? found.value.reference : null;
+
+    log.error("booking.indeterminate", {
+      space: space.slug,
+      outcome,
+      reference,
+      mobileSuffix: mobile.slice(-3),
+      submittedName: name,
+      reason: receipt.error.message,
+    });
+
+    await markIndeterminate(scope, request.idempotencyKey, {
+      space: space.slug,
+      reason: receipt.error.message,
+      reference,
+    });
+
+    return err(
+      reference
+        ? // 🔴 Confirmed created but unpayable: Rekaz exposes no payment link on
+          // a fetched booking, so it CANNOT be recovered automatically. The
+          // reference is what lets MAZJ finish this by hand.
+          errors.conflict(
+            `Your booking was created (reference ${reference}) but we could not open payment. Please contact us with that reference.`,
+            { fields: { reference } }
+          )
+        : receipt.error
+    );
   }
 
   if (!receipt.value.paymentLink) {
@@ -484,6 +549,19 @@ async function prepareSubscription(
       items: [{ priceId: price.id, quantity: 1 }],
     })
   );
+}
+
+/**
+ * The customer's Rekaz id, looked up after a write we could not confirm.
+ *
+ * Needed because a booking for a NEW customer has no `customerId` on our side,
+ * yet the failed write may have created one. Without this, subscription
+ * reconciliation has nothing to search by and every timeout would report
+ * "unknown" and dead-end the customer.
+ */
+async function lookupCustomerId(mobile: string): Promise<string | null> {
+  const found = await findCustomerByMobile(mobile);
+  return found.ok ? (found.value?.id ?? null) : null;
 }
 
 /**

@@ -39,7 +39,18 @@ import { loadAvailability, type DaySlots } from "./booking";
  */
 export type BookingFormState =
   | { status: "idle" }
-  | { status: "error"; code: string; field?: string }
+  | {
+      status: "error";
+      code: string;
+      field?: string;
+      /**
+       * Rekaz's own booking reference, present ONLY when a write we could not
+       * confirm turned out to have succeeded. It is the single thing that lets
+       * the customer and MAZJ resolve that booking by hand, since Rekaz exposes
+       * no way to recover a payment link for an existing booking.
+       */
+      reference?: string;
+    }
   | { status: "ready"; paymentLink: string };
 
 export async function submitBooking(
@@ -77,10 +88,17 @@ export async function submitBooking(
   });
 
   if (!result.ok) {
+    // A confirmed-but-unpayable booking carries a reference and needs its own
+    // copy: "that time was just taken" and "you ARE booked, ring us" are both
+    // `conflict`, and telling a booked customer to pick another slot would be
+    // the worst possible advice.
+    const reference = result.error.fields?.reference;
+
     return {
       status: "error",
-      code: result.error.code,
+      code: reference ? "booking_exists" : result.error.code,
       field: result.error.fields ? Object.keys(result.error.fields)[0] : undefined,
+      ...(reference ? { reference } : {}),
     };
   }
 

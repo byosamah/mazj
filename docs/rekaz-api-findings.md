@@ -328,6 +328,32 @@ Recorded from the one live test, since there is no sandbox to repeat it in.
 - ⚠️ Cancelled reservations REMAIN in `GET /reservations` with
   `status: "Cancelled"`. Anything counting bookings must filter them out.
 
+## Reconciling a write you never got an answer to
+
+Rekaz has no idempotency and no way to ask about a request by id, so a timed-out
+POST leaves the booking in an unknown state. Two properties of the API make that
+recoverable, and both were measured:
+
+| Resource | How to find a just-created record |
+|---|---|
+| Reservations | Ordered **`creationTime` DESC**, so it is at the top of page 1. Match on `customerMobile` + exact `startAt` + recency. |
+| Subscriptions | 🔴 **`customerId` genuinely filters here** (98 rows to 1), unlike every filter on `/reservations`. |
+
+🔴 **Rekaz stores mobile numbers WITHOUT the leading `+`** (`966500000000` where
+we send `+966500000000`), so a direct comparison never matches and reconciliation
+would silently always report "not found". Strip to digits before comparing.
+
+⚠️ `customerMobile` and `customerName` come back **empty strings** on some older
+records, so neither can be a required match field in general. They are populated
+on records we create ourselves via `customerDetails`.
+
+🔴 **A fetched booking carries NO payment link.** `GET /reservations` exposes
+`orderId`, `orderPaymentStatusString` and `meetingUrl`, and nothing resembling a
+checkout URL. So a reconciled booking can be confirmed to exist and handed to
+operations with its `reservationNumber`, but the customer **cannot** be sent to
+checkout automatically. That is why `server/services/booking.ts` returns the
+reference and tells them to make contact rather than retrying.
+
 ## Webhooks
 
 Registered at `platform.rekaz.io/Identity/apikeys`. Envelope is

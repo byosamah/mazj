@@ -252,9 +252,11 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
               would print Rekaz's Arabic ProblemDetails, its traceId and our
               internal paths onto the checkout page. `error.unknown` catches any
               code without its own line rather than rendering nothing. */}
-          {t.has(`error.${state.code}`)
-            ? t(`error.${state.code}`)
-            : t("error.unknown")}
+          {state.code === "booking_exists" && state.reference
+            ? t("error.booking_exists", {reference: state.reference})
+            : t.has(`error.${state.code}`)
+              ? t(`error.${state.code}`)
+              : t("error.unknown")}
         </p>
       )}
 

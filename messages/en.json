@@ -1327,7 +1327,8 @@
       "unauthorized": "Something went wrong. Please try again.",
       "forbidden": "Something went wrong. Please try again.",
       "upstream_unavailable": "Our booking system is not responding. Please try again in a moment, and get in touch if it keeps happening.",
-      "internal": "Something went wrong on our side. Please try again."
+      "internal": "Something went wrong on our side. Please try again.",
+      "booking_exists": "Your booking was created, reference {reference}, but we could not open the payment page. Please contact us with that reference and we will finish it with you. Do not book again."
     }
   }
 }

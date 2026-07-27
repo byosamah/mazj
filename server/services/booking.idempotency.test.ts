@@ -91,6 +91,26 @@ vi.mock("@/server/rekaz/catalog", () => ({
   listBranches: async () => ({ ok: true, value: [{ id: "branch-1" }] }),
 }));
 
+// Typed against the real union, or TypeScript narrows the mock to whatever the
+// initial implementation happens to return and rejects every other outcome.
+type ReconcileResult = {
+  ok: true;
+  value:
+    | { outcome: "found"; reference: string }
+    | { outcome: "absent" }
+    | { outcome: "unknown" };
+};
+
+const ABSENT: ReconcileResult = { ok: true, value: { outcome: "absent" } };
+
+const reconcileReservation = vi.fn(async (): Promise<ReconcileResult> => ABSENT);
+const reconcileSubscription = vi.fn(async (): Promise<ReconcileResult> => ABSENT);
+
+vi.mock("@/server/rekaz/reconcile", () => ({
+  reconcileReservation: (...a: unknown[]) => reconcileReservation(...(a as [])),
+  reconcileSubscription: (...a: unknown[]) => reconcileSubscription(...(a as [])),
+}));
+
 vi.mock("@/server/rekaz/reservations", () => ({
   // The slot the request names is always still free, so the only failure under
   // test is the write itself.
@@ -126,15 +146,20 @@ beforeEach(() => {
   vi.clearAllMocks();
   beginIdempotent.mockResolvedValue({ ok: true, value: { kind: "proceed" } });
   completeIdempotent.mockResolvedValue({ ok: true, value: undefined });
+  reconcileReservation.mockResolvedValue({ ok: true, value: { outcome: "absent" } });
+  reconcileSubscription.mockResolvedValue({ ok: true, value: { outcome: "absent" } });
 });
 
 describe("releasing the idempotency key", () => {
-  it("🔴 does NOT release it when the write timed out", async () => {
-    // The exact shape `client.ts` produces for an AbortSignal timeout. Rekaz may
-    // have committed; we never heard. This is the case that bills twice.
+  it("🔴 does NOT release it when a timed-out write turns out to EXIST", async () => {
+    // The case that bills twice. Rekaz committed; we never heard the answer.
     createReservation.mockResolvedValue({
       ok: false,
       error: { code: "upstream_unavailable", message: "Rekaz did not respond within 10000ms" },
+    });
+    reconcileReservation.mockResolvedValue({
+      ok: true,
+      value: { outcome: "found", reference: "15284726" },
     });
 
     const result = await createBooking({ ...REQUEST });
@@ -142,10 +167,44 @@ describe("releasing the idempotency key", () => {
     expect(result.ok).toBe(false);
     expect(
       abandonIdempotent,
-      "released the key after a timeout: a retry now creates a second booking"
+      "released the key on a booking that exists: a retry now creates a second one"
     ).not.toHaveBeenCalled();
-    // Terminally closed instead, so the 90s in_progress reclaim cannot resurrect it.
+    // Terminally closed, so the 90s in_progress reclaim cannot resurrect it.
     expect(completeIdempotent).toHaveBeenCalledTimes(1);
+    // The customer is given Rekaz's reference, which is the only way this gets
+    // resolved: a fetched booking exposes no payment link.
+    if (!result.ok) expect(result.error.fields?.reference).toBe("15284726");
+  });
+
+  it("🔴 does NOT release it when reconciliation could not answer", async () => {
+    // Unknown is not absent. Retrying might duplicate, so the key is held.
+    createReservation.mockResolvedValue({
+      ok: false,
+      error: { code: "upstream_unavailable", message: "timeout" },
+    });
+    reconcileReservation.mockResolvedValue({ ok: true, value: { outcome: "unknown" } });
+
+    const result = await createBooking({ ...REQUEST });
+
+    expect(result.ok).toBe(false);
+    expect(abandonIdempotent).not.toHaveBeenCalled();
+    expect(completeIdempotent).toHaveBeenCalledTimes(1);
+  });
+
+  it("DOES release it when the timed-out write provably did NOT land", async () => {
+    // The common case. Going and looking is what turns a dead end into an
+    // ordinary retry instead of stranding the customer at "contact us".
+    createReservation.mockResolvedValue({
+      ok: false,
+      error: { code: "upstream_unavailable", message: "timeout" },
+    });
+    reconcileReservation.mockResolvedValue({ ok: true, value: { outcome: "absent" } });
+
+    const result = await createBooking({ ...REQUEST });
+
+    expect(result.ok).toBe(false);
+    expect(abandonIdempotent).toHaveBeenCalledTimes(1);
+    expect(completeIdempotent).not.toHaveBeenCalled();
   });
 
   it("🔴 does NOT release it when Rekaz answers 2xx with no payment link", async () => {
@@ -160,6 +219,7 @@ describe("releasing the idempotency key", () => {
     expect(result.ok).toBe(false);
     expect(abandonIdempotent).not.toHaveBeenCalled();
     expect(completeIdempotent).toHaveBeenCalledTimes(1);
+    expect(createReservation).toHaveBeenCalledTimes(1);
   });
 
   it("DOES release it when Rekaz definitively refused", async () => {
@@ -240,6 +300,7 @@ describe("replaying a key", () => {
           space: "meeting-room",
           reason: "timeout",
           at: "2026-07-27T19:00:00Z",
+          reference: "15284726",
         },
       },
     } as never);
@@ -248,7 +309,12 @@ describe("replaying a key", () => {
 
     expect(createReservation).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("conflict");
+    if (!result.ok) {
+      expect(result.error.code).toBe("conflict");
+      // The reference survives the replay, so a customer who reloads and tries
+      // again still gets the number they need to ring MAZJ with.
+      expect(result.error.fields?.reference).toBe("15284726");
+    }
   });
 
   it("refuses a stored body that is not a usable result", async () => {
