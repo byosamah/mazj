@@ -122,8 +122,20 @@ export async function rekazRequest<T>(
   try {
     return ok(JSON.parse(text) as T);
   } catch (cause) {
+    // 🔴 `upstream_unavailable`, NOT `internal`, and the distinction is
+    // load-bearing on the booking path.
+    //
+    // This branch only runs on a 2xx, which means Rekaz ACCEPTED the request. On
+    // a POST that is a booking and an invoice that now exist; we simply cannot
+    // read the confirmation. `server/services/booking.ts` treats
+    // `upstream_unavailable` as "dispatched, no definitive answer" and refuses to
+    // release the idempotency key, which is the correct handling here. Calling it
+    // `internal` would release the key and let a retry create a duplicate.
     return err(
-      fromUnknown(cause, `Rekaz returned unparseable JSON: ${method} ${path}`)
+      errors.upstreamUnavailable(
+        `Rekaz returned unparseable JSON on a ${response.status}: ${method} ${path}`,
+        { cause }
+      )
     );
   }
 }

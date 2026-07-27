@@ -108,8 +108,34 @@ export async function requestAdminMagicLink(
       reason: error.message,
       status: error.status,
     });
-    // Still `ok` to the caller. See the note above: differentiating here would
-    // reveal that this address is one of ours.
+
+    // 🔴 A MAILER QUOTA FAILURE IS REPORTED, unlike every other failure here.
+    //
+    // Supabase's built-in sender is capped at 2 emails per hour PROJECT-WIDE,
+    // not per address and not per IP. Our own limit is 5 per client, so an
+    // anonymous visitor staying comfortably inside it can drain the whole
+    // project's hourly budget and lock every admin out. Swallowing that told
+    // the locked-out admin "a link is on its way" while nothing had been sent,
+    // which turns a fixable outage into an unexplainable one.
+    //
+    // Surfacing it does NOT weaken the anti-enumeration property, and the
+    // distinction is exactly the point: enumeration is about whether an ADDRESS
+    // is valid, and a global quota failure is address-independent. It says
+    // nothing about who is or is not a MAZJ admin.
+    //
+    // Lowering the limit is the obvious wrong fix: the identity is a hashed
+    // `x-forwarded-for`, which is client-forgeable, so no number binds. The real
+    // fix is custom SMTP, which raises the cap and removes the shared budget.
+    if (error.status === 429) {
+      return err(
+        errors.upstreamUnavailable(
+          "Email is temporarily unavailable. Please try again shortly."
+        )
+      );
+    }
+
+    // Every other failure stays silent. See the note above: differentiating
+    // here would reveal that this address is one of ours.
     return ok();
   }
 

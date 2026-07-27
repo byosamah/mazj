@@ -21,9 +21,25 @@ import { loadAvailability, type DaySlots } from "./booking";
  * nothing else about money.
  */
 
+/**
+ * 🔴 Carries an error CODE, never a message.
+ *
+ * `AppError.message` is written for logs and developers, and on this path it is
+ * assembled in `server/rekaz/client.ts` from up to 300 characters of the raw
+ * upstream response body, Rekaz's `traceId`, and our own internal method and
+ * path. `toPublicError` exists to strip exactly that, but it is wired into
+ * `route()`, which a Server Action never passes through, and Next redacts
+ * THROWN errors rather than RETURNED action values. So a returned message
+ * serialises to the browser verbatim.
+ *
+ * Returning the code instead means the browser sees a fixed vocabulary and the
+ * page renders its own copy, in the reader's own language. That second part is
+ * not a nicety: the service's strings are English, and this form ships on
+ * the Arabic booking pages.
+ */
 export type BookingFormState =
   | { status: "idle" }
-  | { status: "error"; message: string; field?: string }
+  | { status: "error"; code: string; field?: string }
   | { status: "ready"; paymentLink: string };
 
 export async function submitBooking(
@@ -63,7 +79,7 @@ export async function submitBooking(
   if (!result.ok) {
     return {
       status: "error",
-      message: result.error.message,
+      code: result.error.code,
       field: result.error.fields ? Object.keys(result.error.fields)[0] : undefined,
     };
   }

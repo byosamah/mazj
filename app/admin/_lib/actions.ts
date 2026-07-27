@@ -52,12 +52,19 @@ export async function requestLoginLink(
   });
 
   if (!result.ok) {
+    // Fixed strings chosen by CODE, never `result.error.message`: that message
+    // is written for logs and can carry upstream detail.
     return {
       sent: false,
       message:
         result.error.code === "rate_limited"
           ? "Too many attempts. Please wait a while before trying again."
-          : "Something went wrong. Please try again.",
+          : result.error.code === "upstream_unavailable"
+            ? // The project-wide email quota is exhausted. Saying so is honest and
+              // reveals nothing about the address, and the alternative (reporting
+              // success) left an admin waiting for a link that was never sent.
+              "Email is temporarily unavailable. Please try again shortly."
+            : "Something went wrong. Please try again.",
     };
   }
 

@@ -1316,6 +1316,18 @@
       "3a14ba65-3e22-d2f1-b556-5b32d8ca8be6": "How many people are coming?",
       "3a1bf7d5-678d-a4d2-dc03-8ef286c23c73": "Commercial registration or activity permit",
       "b7b81d2b-4b3f-4ab2-b2ff-f7606911a440": "Tell us about the event"
+    },
+    "error": {
+      "unknown": "Something went wrong. Please try again.",
+      "validation_failed": "Please check the details above and try again.",
+      "rate_limited": "That is a lot of attempts. Please wait a few minutes and try again.",
+      "conflict": "That time was just taken. Please choose another.",
+      "idempotency_key_reused": "Please start that booking again.",
+      "not_found": "That option is no longer available.",
+      "unauthorized": "Something went wrong. Please try again.",
+      "forbidden": "Something went wrong. Please try again.",
+      "upstream_unavailable": "Our booking system is not responding. Please try again in a moment, and get in touch if it keeps happening.",
+      "internal": "Something went wrong on our side. Please try again."
     }
   }
 }

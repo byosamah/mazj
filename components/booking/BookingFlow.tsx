@@ -247,7 +247,14 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
 
       {state.status === "error" && (
         <p role="alert" className="text-sm text-orange">
-          {state.message}
+          {/* Copy by CODE, from i18n. The action deliberately never returns a
+              message: `AppError.message` is built from the raw upstream body and
+              would print Rekaz's Arabic ProblemDetails, its traceId and our
+              internal paths onto the checkout page. `error.unknown` catches any
+              code without its own line rather than rendering nothing. */}
+          {t.has(`error.${state.code}`)
+            ? t(`error.${state.code}`)
+            : t("error.unknown")}
         </p>
       )}
 
