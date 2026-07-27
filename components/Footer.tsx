@@ -1,12 +1,23 @@
 import {useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
 import {SOCIALS} from "@/lib/links";
-import MotionToggle from "./MotionToggle";
 
 const SOCIAL_LINKS = [
   {label: "X", href: SOCIALS.x},
   {label: "Linkedin", href: SOCIALS.linkedin},
   {label: "Instagram", href: SOCIALS.instagram},
+];
+
+// Accepted payment methods, the real acceptance marks from mazj.sa's footer
+// (checkout lives on mazj.sa). Heights differ on purpose: the mada/Mastercard/
+// Visa marks sit in a padded 41x26 box, so they need a taller box than the
+// tight Tamara/Tabby wordmarks to read at the same optical size.
+const PAYMENTS = [
+  {brand: "tamara", alt: "Tamara", src: "/payments/tamara.svg", h: "h-4"},
+  {brand: "tabby", alt: "Tabby", src: "/payments/tabby.svg", h: "h-4"},
+  {brand: "mada", alt: "mada", src: "/payments/mada.svg", h: "h-6"},
+  {brand: "mastercard", alt: "Mastercard", src: "/payments/mastercard.svg", h: "h-6"},
+  {brand: "visa", alt: "Visa", src: "/payments/visa.svg", h: "h-6"},
 ];
 
 export default function Footer() {
@@ -109,48 +120,61 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Socials + ZATCA. IN NORMAL FLOW, not absolutely pinned (WCAG 1.4.4
-          Resize Text). They used to be `absolute bottom-10 start-6` and
-          `absolute bottom-[84px] end-6`. At 200% text-only zoom text-12 becomes
-          24px, both rows doubled in height and grew UPWARD from their fixed
-          bottom offsets while the vertically-centred grid stayed put, so the
-          socials row clipped by 37.81px (INSTAGRAM cut off) and the ZATCA line
-          landed on top of the h2, text over text. Text zoom does not change the
-          viewport, so no media query could have caught it.
-          A flex row with wrap reflows at any text size: the two sit on one line
-          at default size (socials start, ZATCA end, exactly as before) and stack
-          when the text grows. `mt-auto` plus `my-auto` on the grid above keeps
-          the grid optically centred in the remaining space, so the default
-          appearance is unchanged. Logical props throughout, so RTL mirrors. */}
-      <div className="eyebrow relative z-10 mx-auto mt-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-x-12 gap-y-2 pt-10 text-12 text-beige/90">
-        {/* gap-x-10 below sm: at 320 the EN row (44+60+74px labels + two 48px
-            gaps = 274px) missed the 272px container by 2px, so INSTAGRAM
-            wrapped alone onto a stranded second line. AR fit (263.5px) because
-            html[lang=ar] neutralises the Latin eyebrow tracking. 40px gaps put
-            EN at 258px; sm: restores the original rhythm where it never wrapped. */}
-        <div className="flex flex-wrap items-center gap-x-10 sm:gap-x-12">
-          {SOCIAL_LINKS.map((s) => (
-            <a
-              key={s.label}
-              href={s.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="[transition:opacity_200ms,transform_120ms] active:scale-[0.96] hover:opacity-70 inline-flex items-center min-h-[44px] min-w-[44px]"
-            >
-              {s.label}
-            </a>
+      {/* Bottom cluster in normal flow (NOT absolutely pinned — WCAG 1.4.4):
+          payment methods on top, then socials + ZATCA. */}
+      <div className="relative z-10 mx-auto mt-auto flex w-full max-w-[1400px] flex-col gap-8 pt-10">
+        <ul
+          aria-label={t("payments")}
+          className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
+        >
+          {PAYMENTS.map((p) => (
+            <li key={p.brand} className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.src} alt={p.alt} loading="lazy" decoding="async" className={`${p.h} w-auto`} />
+            </li>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-          {/* WCAG 2.2.2 pause control. Lives HERE, in normal flow, not as a
-              fixed floating chip in the layout: as `fixed bottom-4 end-4
-              z-[9999]` on an opaque chip it occluded the ZATCA line by
-              71.4 x 3.7px at 390px even at default zoom, and by 44,640 px
-              squared at 200% text zoom. Fixing 2.2.2 by breaking 1.4.4 is not
-              a trade worth making. Its beige-on-coral styling was designed for
-              this row anyway, and every real route renders this footer. */}
-          <MotionToggle />
-          <div className="tabular-nums">{t("zatca")}</div>
+        </ul>
+
+        {/* Socials + ZATCA. A flex row with wrap reflows at any text size: the
+            two sit on one line at default size (socials start, ZATCA end) and
+            stack when text zoom grows them, where the old `absolute` pins
+            clipped INSTAGRAM and dropped ZATCA onto the h2. Logical props, so
+            RTL mirrors. */}
+        <div className="eyebrow flex w-full flex-wrap items-center justify-between gap-x-12 gap-y-2 text-12 text-beige/90">
+          {/* gap-x-10 below sm keeps the EN socials row (274px) from stranding
+              INSTAGRAM on a second line inside the 272px container at 320px. */}
+          <div className="flex flex-wrap items-center gap-x-10 sm:gap-x-12">
+            {SOCIAL_LINKS.map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="[transition:opacity_200ms,transform_120ms] active:scale-[0.96] hover:opacity-70 inline-flex items-center min-h-[44px] min-w-[44px]"
+              >
+                {s.label}
+              </a>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {/* The WCAG 2.2.2 pause control (MotionToggle) was deliberately
+                unmounted at the owner's request: a known, accepted 2.2.2 gap.
+                Do not re-add from an audit; if it returns it belongs in THIS
+                row, never as a fixed floating chip (it occluded ZATCA). */}
+            <div className="tabular-nums">{t("zatca")}</div>
+            {/* Official ZATCA "VAT registered" seal — MAZJ's own compliance
+                badge, the same file mazj.sa serves. alt="" because the tax line
+                beside it already announces the registration + number, so the
+                seal is visual reinforcement, not new info. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/payments/vat-badge.svg"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-12 w-auto"
+            />
+          </div>
         </div>
       </div>
     </footer>

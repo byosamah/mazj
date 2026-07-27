@@ -26,7 +26,7 @@ import Footer from "@/components/Footer";
  */
 function Content() {
   const t = useTranslations("EventsPage");
-  return <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/event.jpg" imageRatio="aspect-[4/5]" />;
+  return <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/event.jpg" />;
 }
 
 export async function generateMetadata({

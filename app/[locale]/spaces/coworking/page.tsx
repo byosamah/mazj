@@ -19,7 +19,7 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/day-desk.jpg" imageRatio="aspect-[4/5]" index="01" />
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/day-desk.jpg" index="01" />
       {/* One CTA: day and month are now durations chosen at mazj.sa checkout,
           not separate products, so two buttons would point at the same URL. */}
       <SpaceDetail

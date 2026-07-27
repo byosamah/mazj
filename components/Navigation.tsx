@@ -205,8 +205,11 @@ export default function Navigation() {
               behind a permanent blur, not a reveal. `mazj-button.mp4` is
               Daylight's own button crop (byte-identical), so it is framed for a
               127x45 box rather than squeezed down from a hero-sized clip.
-              Recolored to brand coral the usual way (0.78 dim, matching the
-              hero/step-card luma bracket, + mix-blend-color overlay).
+              Recolored to brand coral via a mix-blend-color overlay, and NOT
+              dimmed: the clip's own mean luma (~136) already equals #FF5A48's
+              blend luminosity (137.5), so the coral lands on true brand at full
+              brightness. (hero/step-card dim theirs to 0.78; this one is the
+              header's brand button and must read as exact #FF5A48, not darker.)
               `isolate` scopes the blend; `overflow-clip` holds the 4px radius.
               `bg-orange` on the link is the base coral the video paints over,
               so the button is never bare before the first frame decodes. */}
@@ -236,7 +239,7 @@ export default function Navigation() {
           {isDesktop && (
             <video
               aria-hidden
-              className="pointer-events-none absolute inset-0 h-full w-full object-cover [filter:brightness(0.78)]"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
               autoPlay
               muted
               loop
@@ -257,27 +260,15 @@ export default function Navigation() {
               The blur is what collapses the ripples into a near-solid coral and
               keeps the white label legible over moving footage. */}
           <span aria-hidden className="pointer-events-none absolute inset-0 backdrop-blur-[8px]" />
-          {/* Contrast scrim (WCAG 1.4.3 AA). The white 14px label measured 3.08:1
-              on the coral fill against the 4.5:1 normal-text minimum, on the
-              site's primary conversion button, on all 24 pages.
-              🔴 The coral is MAZJ-owned and must not move, so the fix darkens the
-              LOCAL BACKDROP instead, the same idiom as .hero-scrim. A black film
-              is exactly an HSV value-scale: at any alpha the hue stays 5.90° and
-              the saturation stays 0.7176, bit for bit; only value drops. So the
-              brand hue survives untouched while 0.22 takes the label to 4.812:1.
-              The alternative, recolouring the label to the repo's #111 ink, scores
-              higher (6.12:1) but was rejected: it inverts the button's polarity,
-              contradicts the white-label DOM order documented above, and would be
-              the site's only dark-on-coral element (footer dune, subscribe card
-              and hero window all pair coral with white/beige).
-              Alpha is 0.22, not the 0.19 minimum that bare maths allows (4.51:1):
-              the fill's luminosity is supplied by a LOOPING VIDEO through
-              blend:color, so it breathes frame to frame, and a bright frame would
-              eat a hairline margin. Do NOT recover brightness by relaxing the
-              video's brightness(0.78) instead; that value is derived to match
-              luma across hero/step-card/mazj-button, and moving it would break the
-              coral match between them. */}
-          <span aria-hidden className="pointer-events-none absolute inset-0 bg-black/[0.22]" />
+          {/* No contrast scrim, and no video dim, ON PURPOSE. The white 14px
+              label sits ~3.08:1 on full-brightness coral, below the AA 4.5:1
+              minimum, and that is the OWNER'S explicit brand-over-metric choice:
+              the button must read as true #FF5A48, not a darkened variant. A
+              black film (0.22) once lifted the label to 4.812:1 but darkened the
+              coral, and the owner rejected it hard ("it's our branding"). It is
+              removed here for the same reason. 🔴 Do NOT re-add a scrim, or
+              re-dim the video, from a contrast audit: any real fix must keep the
+              coral at full #FF5A48 brightness and come from the owner. */}
           <span className="relative text-14 font-medium text-white">{t("getStarted")}</span>
         </Link>
       </div>

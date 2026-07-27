@@ -21,7 +21,10 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/office-day.jpg" imageRatio="aspect-[4/5]" />
+      {/* Hospitality, not product: this opener used to be a private-office pod,
+          which is a room you buy, not a welcome. The two private-office frames
+          are reserved for /spaces/private-office. */}
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/contact-welcome.jpg" />
 
       {/* Tour requests + reaching us. The primary CTA is the approved WhatsApp
           Business line (lib/contact.ts), matching how every other tour CTA on

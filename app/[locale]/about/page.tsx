@@ -43,7 +43,9 @@ function Content() {
     {
       title: t("spaceTitle"),
       body: t("spaceBody"),
-      img: "/images/spaces/office-day.jpg",
+      /* "One address" describes the whole floor, so it shows the whole floor.
+         It used to show a private-office pod, which is one product on it. */
+      img: "/images/spaces/day-desk.jpg",
       alt: t("spaceAlt"),
       w: 1200,
       h: 800,
@@ -72,7 +74,7 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/why-mazj.jpg" imageRatio="aspect-[4/5]" />
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/why-mazj.jpg" />
 
       {/* MAZJ's own three-word framework, from its Arabic brand language on
           mazj.org: مقصد راسخ / وظيفية فاعلة / تكوين أخَّاذ. The Arabic term leads

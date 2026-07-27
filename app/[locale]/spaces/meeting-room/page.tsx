@@ -19,7 +19,7 @@ function Content() {
 
   return (
     <>
-      <PageIntro eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/meeting.jpg" imageRatio="aspect-[4/5]" index="03" />
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/spaces/meeting.jpg" index="03" />
       <SpaceDetail
         image="/images/spaces/meeting.jpg"
         imageAlt={t("photoAlt")}

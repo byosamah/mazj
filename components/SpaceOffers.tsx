@@ -26,7 +26,7 @@ import {waLink} from "@/lib/contact";
  */
 const OFFERS = [
   {id: "sharedSeat", href: BOOKING.sharedSeat, detailHref: "/spaces/coworking", img: "/images/spaces/membership.jpg"},
-  {id: "privateOffice", href: BOOKING.privateOffice, detailHref: "/spaces/private-office", img: "/images/spaces/office-month.jpg"},
+  {id: "privateOffice", href: BOOKING.privateOffice, detailHref: "/spaces/private-office", img: "/images/spaces/office-day.jpg"},
   {id: "meeting", href: BOOKING.meeting, detailHref: "/spaces/meeting-room", img: "/images/spaces/meeting.jpg"},
   {id: "eventHall", href: BOOKING.event, detailHref: "/spaces/event-hall", img: "/images/spaces/event.jpg"},
 ] as const;

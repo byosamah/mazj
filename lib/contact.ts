@@ -13,6 +13,12 @@ export function waLink(message: string): string {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
-/** MAZJ's exact Google Maps listing (Life Tower, Al-Olaya, Al-Khobar). */
-export const MAPS_URL =
-  "https://www.google.com/maps/place/MAZJ/@26.302126,50.1744241,17z/data=!3m1!4b1!4m6!3m5!1s0x3e49e7e96770490b:0x301a83f295e48c10!8m2!3d26.302126!4d50.176999";
+/**
+ * MAZJ's Google Maps listing (Life Tower, Al-Olaya, Al-Khobar). This is the
+ * owner's own "Share" link, so the "Get directions" card (LocationHours) and
+ * the JSON-LD `hasMap` (lib/schema.ts) both open the exact pin the owner
+ * shared. A previous hand-built /maps/place URL dropped Google's place-entity
+ * id (/g/11fn4f5r64), so it resolved to a bare-coordinate view instead of the
+ * MAZJ listing — replaced with the share link to guarantee the right place.
+ */
+export const MAPS_URL = "https://maps.app.goo.gl/NmPodnzY1E8iQ9uU8";
