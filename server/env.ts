@@ -63,6 +63,34 @@ const schema = z.object({
    * link to all previously stored hashes, which is a feature.
    */
   IP_HASH_SALT: z.string().min(16, "use at least 16 characters of randomness"),
+
+  /**
+   * Rekaz Merchant Public API origin, including `/api/public`.
+   *
+   * No trailing slash, for the same reason as `SUPABASE_URL`: paths are
+   * concatenated onto it.
+   */
+  REKAZ_API_BASE: z
+    .url("must be a full URL including https://")
+    .refine((v) => !v.endsWith("/"), "must not end with a trailing slash"),
+
+  /**
+   * The base64 `key:secret` pair Rekaz issues, sent as `Authorization: Basic`.
+   *
+   * 🔴 This is an ADMIN-SCOPE credential, not a storefront key. `GET /customers`
+   * with it returns MAZJ's entire customer list, which is personal data under
+   * PDPL. Treat it exactly like `SUPABASE_SECRET_KEY`: server-only, never
+   * `NEXT_PUBLIC_`, never logged, never in an error response.
+   *
+   * Rekaz displays a generated key once and cannot re-show it, only regenerate.
+   */
+  REKAZ_AUTH_BASIC: z.string().min(20, "looks too short to be a base64 key pair"),
+
+  /**
+   * Sent as the `__tenant` header. 🔴 TWO underscores: the Quick Start page
+   * documents `_tenant`, which the live API does not accept.
+   */
+  REKAZ_TENANT_ID: z.string().min(8, "looks too short to be a tenant id"),
 });
 
 export type BackendEnv = z.infer<typeof schema>;
@@ -73,6 +101,9 @@ function readEnv(): BackendEnv {
     SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     IP_HASH_SALT: process.env.IP_HASH_SALT,
+    REKAZ_API_BASE: process.env.REKAZ_API_BASE,
+    REKAZ_AUTH_BASIC: process.env.REKAZ_AUTH_BASIC,
+    REKAZ_TENANT_ID: process.env.REKAZ_TENANT_ID,
   });
 
   if (parsed.success) return parsed.data;
@@ -98,6 +129,9 @@ const ENV_VAR_NAMES: Record<string, string> = {
   SUPABASE_PUBLISHABLE_KEY: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   SUPABASE_SECRET_KEY: "SUPABASE_SECRET_KEY",
   IP_HASH_SALT: "IP_HASH_SALT",
+  REKAZ_API_BASE: "REKAZ_API_BASE",
+  REKAZ_AUTH_BASIC: "REKAZ_AUTH_BASIC",
+  REKAZ_TENANT_ID: "REKAZ_TENANT_ID",
 };
 
 let cached: BackendEnv | null = null;

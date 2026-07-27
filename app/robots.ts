@@ -12,14 +12,23 @@ import {absoluteUrl} from "@/lib/site";
  * discovered from those links. Disallow and noindex cancel each other out. Pick
  * noindex, which is what `lib/metadata.ts` already does.
  *
- * Nothing else here needs blocking: there are no faceted URLs, no search
- * results, no parameterised routes, and no admin surface.
+ * `/admin` IS disallowed, and that is not a contradiction of the paragraph
+ * above. The trap there is specific: disallowing a page that is LINKED TO stops
+ * a crawler reading its noindex while leaving it free to index the bare URL it
+ * found in the link. Nothing anywhere links to `/admin`, so there is no
+ * discovered-but-unreadable state to fall into, and the Disallow is pure
+ * benefit. The admin layout sets `robots: {index: false}` as well, so a crawler
+ * that ignores this file still gets told.
+ *
+ * Nothing else needs blocking: there are no faceted URLs, no search results and
+ * no parameterised routes.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: "/admin",
     },
     sitemap: absoluteUrl("/sitemap.xml"),
   };
