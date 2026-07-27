@@ -77,6 +77,14 @@ sitemap entry and JSON-LD URL, deliberately the unresolvable `mazj.example`
 `lib/schema.ts` + `components/JsonLd.tsx` render JSON-LD server-side, with no
 `aggregateRating` on purpose.
 
+🔴 **`lib/schema.ts` consumes `lib/links.ts` `BOOKING` for `makesOffer[].url`.**
+When `BOOKING` became relative internal paths (booking moved on-site), those
+Offer URLs silently became relative, which is invalid in JSON-LD: Google cannot
+resolve them without a base and drops or misattributes the offers. They were the
+only URLs in that file not already wrapped in `absoluteUrl()`, which is why it
+went unnoticed. **Any change to `BOOKING`'s shape must be checked against
+`schema.ts`**, and JSON-LD URLs must be absolute AND locale-prefixed.
+
 `app/robots.ts` disallows **only** `/admin`. It stays empty for everything else:
 a `Disallow` would stop Google reading the `noindex` meta on `/privacy` and
 `/terms`, which are also deliberately absent from the sitemap. That trap does

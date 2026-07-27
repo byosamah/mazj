@@ -387,6 +387,13 @@ packages, 5 providers, 4 products, 1 branch.
 
 ## Credential hygiene
 
+⚠️ **The tenant id is NOT a secret; the Basic key is.** `REKAZ_TENANT_ID` appears
+throughout repo history (a `cdn.rekaz.io/tenants/<id>/` URL in
+`components/CLAUDE.md`, since the initial commit) and is public on mazj.sa in
+every product image URL. Alone it returns **401**. Only `REKAZ_AUTH_BASIC` is a
+credential, and it has never been committed. Verified across all refs before the
+first push to GitHub, so a future secret scan need not panic at the hit count.
+
 ⚠️ The current credentials were pasted into a chat transcript on 2026-07-27.
 Rekaz displays a generated key **once**, so they cannot be re-read from the
 dashboard, only regenerated. **Rotate them before launch** at

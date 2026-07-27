@@ -277,6 +277,14 @@ footer link left you parked at the bottom. It resets Lenis
 DELIBERATELY skips back/forward (popstate restores position), `#hash` targets, and
 language switch (next-intl `usePathname` is locale-stripped). **Don't remove it.**
 
+🔴 **A "retry" must change something the effect DEPENDS on.** The booking flow's
+availability retry called `setLoaded(null)` and never refetched: the effect is
+keyed on price/space/flow and a retry changes none of them, so no request was
+issued, and clearing the state also unmounted the error box and left a permanent
+"checking what is free" line. Use a `retryNonce` in the dep array. **Test the
+DEPENDENCY LIST, not a render:** a render test with a mocked fetch passes against
+the broken version, because the defect is that the effect never re-runs.
+
 ## A11y and responsive primitives
 
 Added in the 2026-07 audit pass. **Reuse these, don't recreate them.**
