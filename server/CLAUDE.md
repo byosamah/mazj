@@ -7,8 +7,14 @@ Scope: the Supabase-backed backend added 2026-07-27. Before this the repo was
   first if you are adding anything here; it explains what each layer may import
   and how to add a table. This file is the mechanics, the traps and the
   verification recipes.
-- Design record and the reasoning behind every decision →
+- Design records →
   [`../docs/superpowers/specs/2026-07-27-backend-foundation-design.md`](../docs/superpowers/specs/2026-07-27-backend-foundation-design.md)
+  (the foundation) and
+  [`../docs/superpowers/specs/2026-07-27-admin-dashboard-design.md`](../docs/superpowers/specs/2026-07-27-admin-dashboard-design.md)
+  (the admin, and Phase 2's boundary)
+- 🔴 **What the Rekaz API actually DOES**, probed live →
+  [`../docs/rekaz-api-findings.md`](../docs/rekaz-api-findings.md). Read this
+  before the review letter below; where they disagree, this one was measured.
 - 🔴 **Strategic context** → [`../docs/rekaz-api-review-ar.md`](../docs/rekaz-api-review-ar.md).
   This backend exists to fill the gaps that document identifies. Read it before
   designing anything that touches bookings.
@@ -26,8 +32,14 @@ revoked, i.e. reachable only by the secret key:
 | `rate_limit_counters` | Fixed-window counters, one row per bucket, driven by `rate_limit_hit()`. |
 | `idempotency_keys` | Stored responses keyed by `(scope, idempotency_key)`, driven by `idempotency_begin()`. |
 
-🔴 **Both currently have ZERO callers, and that is a known open question, not an
-oversight.** They were built as part of the foundation, before the owner had
+⚠️ **`rate_limit_counters` gained its first real caller on 2026-07-27**: the
+admin magic-link request in `services/admin-auth.ts`. That endpoint is public
+and sends email, which is exactly the test this section set. The paragraph below
+still applies to `idempotency_keys`, which remains uncalled until something
+POSTs a booking.
+
+🔴 **`idempotency_keys` still has ZERO callers, and that is a known open
+question, not an oversight.** They were built as part of the foundation, before the owner had
 specified what the product needs. `leads`, the only thing that ever used them,
 was dropped on 2026-07-27 for exactly that reason. They survive it because,
 unlike `leads`, they encode no assumption about the product: a rate limiter does
@@ -46,6 +58,19 @@ is required rather than optional.
 
 ⚠️ Do not quietly delete either one to "clean up", and do not build features on
 them without checking this section first. Ask the owner.
+
+**Two feature areas**, added 2026-07-27 with the admin dashboard:
+
+| Module | Purpose |
+|---|---|
+| `rekaz/` | Typed, server-only client for the Rekaz Merchant Public API. See below. |
+| `services/admin-auth.ts` | Gate 1 of the admin's three access gates, plus the magic-link verification. |
+| `services/booking.ts` | 🔴 The booking write path. Rate limit, idempotency, server-side price resolution, slot re-check. Everything the browser sends is a suggestion. |
+| `rekaz/booking.ts` | The two Rekaz writes, plus `absolutePaymentLink`. |
+| `domain/spaces.ts` | Our `/spaces/<slug>` URLs to Rekaz product slugs. |
+| `domain/admin-access.ts` | The `@mazj.org` rule itself. Shared by all three gates. |
+| `domain/riyadh-time.ts` | UTC to `Asia/Riyadh`. Pure. |
+| `supabase/session.ts` | The request-scoped client, carrying a signed-in user. |
 
 **One endpoint**, `runtime = "nodejs"`, `dynamic = "force-dynamic"`:
 
@@ -97,8 +122,18 @@ The second direction is the load-bearing one: it is precisely what makes this
 folder liftable into its own package or its own deployed service later without a
 rewrite. Every framework import added here is a nail in that door.
 
-The two sanctioned crossings are **`app/api/**`** (route handlers, kept to about
-five lines each) and **`instrumentation.ts`**.
+The sanctioned crossings are **`app/api/**`** (route handlers, kept to about
+five lines each), **`instrumentation.ts`**, and, since 2026-07-27,
+**`app/admin/_lib/**`**.
+
+The third was added with the admin dashboard. Admin pages are Server Components
+that genuinely need the backend, and making them fetch their own HTTP API would
+mean a server calling itself over the network with an absolute URL to build and
+a cookie jar to forward by hand. So the crossing is a folder, not a rule-wide
+exemption: only `_lib` may import `@/server/**`, and it exports plain view models
+that the pages render. The underscore keeps Next from ever routing it and makes
+the crossing obvious in a diff. **Do not import `@/server/*` from an admin page
+directly, and do not re-export a backend module from `_lib`**: export data.
 
 - **It is `server/core/`, NOT `server/lib/`.** It was named `lib` originally and
   had to be renamed: from `server/x.ts` the pattern `../lib/**` means the
@@ -123,8 +158,22 @@ Confusing them is the most expensive mistake available in this codebase.
   only job is letting `test/rls.integration.test.ts` attack the tables the way a
   browser could, and assert it is refused.
 
-A third client (request-scoped, carrying a signed-in user's session via
-`@supabase/ssr`) belongs here the day authentication ships. Not before.
+- **`supabase/session.ts`** is the third client, added 2026-07-27 when
+  authentication shipped. It uses the PUBLISHABLE key and carries one visitor's
+  session, so RLS applies to everything it does. Reaching for `supabaseAdmin()`
+  to answer a question about the current user throws away the only mechanism
+  that keeps one user out of another's rows.
+
+  🔴 **Never cache a session client across requests.** It closes over one
+  visitor's cookie jar, so a module-level singleton serves the first visitor's
+  session to everyone landing on the same warm serverless instance. That is why
+  `admin.ts` and `public.ts` may be singletons and this one may not.
+
+  🔴 **It takes a cookie adapter rather than calling `cookies()` itself.**
+  `@supabase/ssr` needs `next/headers`, which `server/` may not import, so the
+  dependency is inverted: this module declares the cookie access it needs and
+  `app/admin/_lib/supabase.ts` supplies the Next implementation. That is also
+  why `app/admin/_lib/**` is now a sanctioned boundary crossing (see below).
 
 **`import "server-only"` guards every secret-bearing module.** It throws outside a
 React Server Component, which would break Vitest, so `vitest.config.ts` aliases it
@@ -161,6 +210,31 @@ Both live in the database rather than in process memory, because this runs on
 serverless: each concurrent instance has its own heap, so an in-memory counter
 limits each instance separately and the real ceiling becomes limit × instance
 count, which is no ceiling at all.
+
+🔴 **Every limit has TWO dimensions, and IP is the weaker one.** `checkRateLimits`
+records several buckets concurrently and returns the strictest verdict. Booking
+limits per-IP (8/hr) AND per-mobile (5/hr); the magic link limits per-IP (5/hr)
+AND per-submitted-address (3/hr). One dimension is not enough in either
+direction: Saudi carriers CGNAT many subscribers behind few addresses, so an IP
+ceiling tight enough to stop an attacker also blocks a real office, while a
+residential proxy pool rents a genuine un-forged address per request for pennies.
+🔴 **An EMPTY bucket list is REFUSED, not allowed**: reaching that state means
+every identity was absent, which is not a browser.
+
+🔴 **`clientIp` returns `{ip, attested}`, never a string, and NEVER the literal
+`"unknown"`.** That old sentinel hashed to a CONSTANT, so every header-less
+request on the site shared one bucket: eight bookings an hour for everybody, with
+nothing anywhere to notice. Absent is now `null` and the caller decides.
+
+🔴 **Which header to trust is CONFIGURATION (`IP_TRUST_PROXY`), not detection.**
+A request cannot report its own topology: every header that would reveal it is
+set by the same client being judged. **Vercel OVERWRITES `x-forwarded-for`** to
+prevent spoofing (so the header-rotation attack does not work there, and
+`x-real-ip` carries the same attested value, which is what Vercel's own
+`ipAddress()` reads); **Cloudflare APPENDS**, so its leftmost entry is the
+client's own claim and only `cf-connecting-ip` means anything. Unset means
+`none`, the least trusting reading, and `npm run check:env` warns about it. 🔴 Set
+it to `vercel` at launch or both limits run permanently in their weakest mode.
 
 **`rate_limit_hit`** is one `INSERT ... ON CONFLICT DO UPDATE`. A
 read-then-write limiter loses races under exactly the concurrent load it is
@@ -213,10 +287,144 @@ control byte in a `.ts` file is a hard ESLint parse error (`Unexpected keyword o
 identifier`), and the Bash tool refuses a command containing one, so build such
 test inputs with `chr(0)` in Python.
 
+🔴 **A log field whose KEY contains `email`, `phone`, `mobile`, `name`, `ip`,
+`key`, `auth`, `token`, `secret`, `session`, `address` or `message` is written as
+`[redacted]`.** `core/logger.ts` matches on SUBSTRING, case-insensitively, at
+every depth. The denylist is correct and stays, but it silently swallows fields
+whose contents are already safe, and it did: `booking.attempt` shipped carrying
+`submittedName` and `mobileSuffix`, both matched, so the line the code comment
+called the answer to "who actually booked this?" recorded nothing, on every
+booking, from the day it was written. Six more fields on that path and three in
+`services/admin-auth.ts` were dead the same way. 🔴 **`receipt` contains `ip`**,
+so the entire Rekaz response was redacted on the one path where a customer may
+have been charged and we could not say what for.
+
+Use `hashIdentifier(value, salt, domain)` from `core/hash.ts` for anything
+personal, and name the field so it does not collide: `originHash`,
+`submitterHash`, `idemPrefix`, `rekazResponse`, `submittedDomain`.
+`test/booking-audit-log.test.ts` pins that they survive, because "the name
+happens not to match the denylist" is luck, not a design.
+
+⚠️ **An HMAC of the submitted mobile is CORRELATION, not attribution.** In an
+impersonation the submitted number is the victim's, so its hash names the victim.
+`originHash` is what separates the two. It is evidence and never proof (it
+descends from a forwarded header, and CGNAT collapses many unrelated people onto
+one value), so nothing automated may act on it.
+
 **Never store a raw IP.** It is personal data under PDPL. `core/hash.ts` HMACs it
 with `IP_HASH_SALT` (HMAC, not a plain hash: the IPv4 space is small enough to
 brute-force an unsalted SHA-256 in minutes). Rotating the salt deliberately severs
 the link to every previously stored hash.
+
+## The Rekaz client (`rekaz/`)
+
+🔴 **Read [`../docs/rekaz-api-findings.md`](../docs/rekaz-api-findings.md)
+before touching anything here.** It records what the live API actually does,
+probed with real credentials, and it contradicts Rekaz's own documentation in
+several places that will otherwise cost you an afternoon. The short version:
+
+- 🔴 **Always send an explicit `User-Agent`.** The API returns **403** to
+  clients it does not recognise (`Python-urllib` is refused, `curl` is not).
+  Node's `fetch` default passes today; a runtime upgrade changing it would read
+  exactly like an expired credential.
+- 🔴 **The credential is ADMIN-SCOPE.** `GET /customers` returns MAZJ's entire
+  customer list. Same blast radius as `SUPABASE_SECRET_KEY`, same handling.
+- `__tenant` has **two** underscores. The Quick Start page says one; it is wrong.
+- `MinQuantity` is **required** on `/reservations/slots` despite being
+  documented as optional. `getSlotsRaw` defaults it to 1.
+- **Slot date ranges are padded, not honoured.** Always re-filter to the day you
+  asked for, and always drop `isOutDated`. `filterSlotsToRange` does both.
+- **`nameEn` is byte-identical to `nameAr`.** Rekaz holds no English content, so
+  `messages/en.json` remains the only source of English product names. An
+  integration test fails the day that stops being true.
+- **Price ids rotate when a price is edited in the Rekaz dashboard.** Never
+  hardcode one; resolve from `GET /products` at request time.
+- Three different collection shapes: `/branches` returns a bare array,
+  `/providers` returns `{items}` with no `totalCount`, everything else returns
+  the full envelope. Assuming the envelope yields `undefined`, not an error.
+- Errors arrive as RFC 9110 ProblemDetails **in Arabic** regardless of
+  `Accept-Language`. Never surface one to a user; map to an `AppError` code. The
+  `traceId` is logged because it is what Rekaz support asks for.
+
+⚠️ **There is no sandbox.** `test/rekaz.integration.test.ts` hits the production
+tenant. It is read-only for that reason, and skips without credentials. Never
+add a write to it.
+
+⚠️ **Those tests FLAKE, and it is upstream, not us.** Rekaz answers between 1.2s
+and 10.8s for the same endpoint and degrades sharply under concurrent load, so a
+full `npm run verify` occasionally trips the client's 10s timeout and reports one
+or two `upstream_unavailable` failures. **Re-run before investigating**; a clean
+second run is the expected outcome, not a fluke. If it fails twice in a row,
+that is a real signal. The one live booking test that exists was run by hand and
+then deleted, precisely so nothing that writes can flake.
+
+## 🔴 Booking identity: Rekaz forces the binding
+
+**A customer Rekaz already knows MUST be sent as `customerId`. Sending
+`customerDetails` with their mobile number returns HTTP 403,
+`رقم الجوال مسجل مسبقاً لعميل آخر`.** An unknown mobile is accepted; `customerId`
+is accepted. Rekaz neither deduplicates nor creates a second record: it refuses.
+
+⚠️ **Do not "fix" the impersonation risk by removing the lookup in
+`services/booking.ts`.** That was tried on 2026-07-28 and took booking down for
+every returning customer on both flows, with the failure surfacing as the generic
+`internal` copy. `server/services/booking.customer.test.ts` pins the real
+contract and explains it.
+
+The risk is real and is NOT closed: the form is public, the number is unverified,
+so anyone who knows a member's mobile can book against their account. It cannot
+be closed here. It needs proof of possession, and Rekaz exposes no OTP primitive
+(REK-029 in `docs/MAZJ-Rekaz-API-Report.pdf`). What mitigates it instead: the
+per-mobile rate limit, the audit trail (`originHash` + `submitterHash`), and the
+fact that a matched account never receives the submitter's name or email.
+
+## The admin's three access gates
+
+`/admin` is `@mazj.org` only. The rule lives in **one** place,
+`domain/admin-access.ts`, because three gates that each ask the question
+differently would eventually disagree and the gap would be invisible in all
+three files.
+
+| Gate | Where | Stops |
+|---|---|---|
+| 1 | `services/admin-auth.ts` | An outsider ever RECEIVING a magic link |
+| 2 | Supabase `before user created` hook | The account EXISTING at all |
+| 3 | `app/admin/(protected)/layout.tsx` **and every page under it** | A session reaching a page, and an anonymous request reaching the DATA |
+
+🔴 **Gate 2 is the load-bearing one, and it is SQL, not TypeScript.** A request
+straight to Supabase's own `/auth/v1/otp` with the publishable key, which is
+public by design, bypasses gates 1 and 3 completely. Without the hook that
+request creates a real `auth.users` row for any address on earth and mails them
+a working link. The function is
+`public.enforce_admin_email_domain`, registered as
+`pg-functions://postgres/public/enforce_admin_email_domain`. **A migration alone
+does not activate it**; the project's auth config must point at it too.
+
+🔴 **The SQL and the TypeScript must stay behaviourally identical.** Both were
+run against the same 19 adversarial cases and agree. If you change one, change
+the other and re-run both.
+
+🔴 **The rule is NOT `endsWith("@mazj.org")`.** RFC 5321 puts the domain after
+the LAST `@` and allows a quoted local part containing one, so
+`"anything@mazj.org"@evil.com` is delivered to `evil.com` and passes a suffix
+test. Split on the last `@`, require exactly one, compare the domain to an ASCII
+literal (which also rejects Cyrillic homographs).
+
+🔴 **Gate 3 uses `getUser()`, never `getSession()`.** `getSession()` decodes the
+cookie and believes it. On a page whose entire job is deciding who gets in, that
+is not authorisation.
+
+🔴 **The login endpoint must not become an enumeration oracle.** An allowed and a
+refused address get the identical response. That is deliberate and it has a real
+cost, named in the code: a genuine mail failure is also invisible to whoever is
+waiting. The outcome is always in the log.
+
+⚠️ **Supabase email is the built-in sender, capped at a few per hour and not
+production-grade.** Custom email TEMPLATES are refused on the free tier with the
+default provider (`400: Email template modification is not available for free
+tier projects`), so the magic link uses Supabase's default template and the PKCE
+`?code=` path. `completeAdminSignIn` also handles `token_hash`, so switching to
+real SMTP and a custom template later needs no code change.
 
 ## Errors and HTTP
 
@@ -235,13 +443,48 @@ names and occasionally row data, and an error response is the single easiest pla
 in a web application to leak all of it. The detail goes to the log; the client
 gets a code.
 
+🔴 **`route()` and `toPublicError` do NOT protect a Server Action.** They are
+wired into `app/api/**` handlers only, and Next redacts *thrown* errors, not
+*returned* action values, so a returned `AppError.message` serialises to the
+browser verbatim. An action must return the `code` and let the page render its
+own copy from `messages/*.json`. This shipped a real leak: a Rekaz 400 printed
+300 characters of upstream ProblemDetails, its `traceId` and our internal API
+path onto the public booking form, in Arabic, on the English page.
+
 **`instrumentation.ts` throws in production but only WARNS in development**,
 deliberately: most work in this repo is frontend, and refusing to start
 `npm run dev` because nobody has pasted a Supabase key yet would block all of it.
 Same asymmetry as `lib/site.ts`, keyed on `NODE_ENV` so it holds on any host.
 
 ## Tooling
+- **Next 16: `revalidateTag(tag, profile)` takes TWO arguments.** For a Server
+  Action that must see its own write (a Refresh button), use `updateTag(tag)`:
+  `revalidateTag` purges for FUTURE requests, so a redirect after it still
+  renders the cached copy the user just rejected.
+- **`vi.fn(async () => X)` narrows its return type to `X`.** `tsc` then rejects
+  every other outcome the real function can return, while vitest itself runs
+  fine, so `npm run test` passes and `npm run typecheck` fails. Annotate the mock
+  against the real union: `vi.fn(async (): Promise<T> => ...)`.
+- **Mutation-test a money-path fix.** Reintroduce the bug and confirm the test
+  goes red; a test that passes on both the broken and the fixed code proves
+  nothing. Back the file up to an explicit path inside the repo, NOT `$TMPDIR`,
+  which differs between sandboxed and unsandboxed shells (a backup written in one
+  mode is invisible in the other, and the restore silently fails).
 
+- 🔴 **The command sandbox breaks Node's outbound TLS, but not curl's.** Any
+  test or script that `fetch`es an external host fails under the sandbox with a
+  bare `TypeError`, which `client.ts` correctly maps to `upstream_unavailable`,
+  so it reads as "Rekaz is down" rather than "your shell is wrong". Meanwhile
+  `curl` to the same URL returns 200, because curl trusts the system keychain
+  and Node ships its own CA store. **Run `npm run test`, `npm run verify` and
+  anything else that talks to Rekaz or Supabase with the sandbox OFF.** Cost a
+  full debugging detour on 2026-07-27: 10 of 12 integration tests "failed", and
+  the 2 that "passed" were the ones asserting failure.
+- ⚠️ **`Python-urllib` gets 403 from BOTH `platform.rekaz.io` and
+  `api.supabase.com`.** Not a sandbox issue, an origin filter. Pass
+  `User-Agent: curl/8.7.1` on any `urllib` probe.
+- **`npm install` needs the sandbox off**: the npm cache under `~/.npm` is
+  root-owned and outside the writable allowlist.
 - **`npm run db:*` goes through `scripts/db.mjs`, not the CLI directly**, because
   npm scripts run in a shell that never read `.env.local`, so
   `--db-url "$SUPABASE_DB_URL"` would silently pass an empty string.
@@ -301,9 +544,11 @@ Run all of this after any schema or security change. All passing as of
 
 1. Connect with `pg` over IPv6 and assert `relrowsecurity` is true, `pg_policies`
    is empty, and `role_table_grants` has zero rows for `anon` / `authenticated`.
-2. `npm run test`: 102 tests, 11 of them RLS integration tests that attack every
-   table with the publishable key and must all be refused. They **skip** rather
-   than fail without credentials, so a fresh clone stays green.
+2. `npm run test`: 187 tests. 11 RLS integration tests attack every table with
+   the publishable key and must all be refused; 12 Rekaz integration tests read
+   the live production tenant and pin its response shapes. Both suites **skip**
+   rather than fail without credentials, so a fresh clone stays green. 🔴 Run
+   with the sandbox OFF or every network test fails misleadingly (see Tooling).
 3. `npm run db:types:check`: generated types match the live schema.
 4. `curl https://api.supabase.com/v1/projects/<ref>/advisors/{security,performance}`
    expects only INFO `rls_enabled_no_policy` (the design) and INFO
@@ -327,6 +572,11 @@ paragraph.
 
 ## Out of scope, deliberately
 
-Auth, Rekaz API calls, payments, webhook receivers, email, storage, realtime.
-Each gets its own spec when the owner's ideas are on the table. **Do not build
-them speculatively.**
+Payments (Rekaz exposes no API), webhook receivers, customer-facing accounts,
+storage, realtime, refunds and coupon validation. Each gets its own spec. **Do
+not build them speculatively.**
+
+Auth, Rekaz reads and Rekaz WRITES all left this list on 2026-07-27, as the admin
+dashboard and then on-site booking shipped. `idempotency_keys` finally has its
+caller: `services/booking.ts`, verified on a real booking to return the original
+payment link rather than creating a twin.

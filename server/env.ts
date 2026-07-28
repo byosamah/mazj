@@ -63,6 +63,76 @@ const schema = z.object({
    * link to all previously stored hashes, which is a feature.
    */
   IP_HASH_SALT: z.string().min(16, "use at least 16 characters of randomness"),
+
+  /**
+   * Which proxy sits in front of this deployment, and may therefore be trusted
+   * to have overwritten the client's forwarded headers.
+   *
+   * 🔴 Whether an IP header is trustworthy is a property of the TOPOLOGY, and a
+   * request cannot report its own topology: every header that would reveal it is
+   * set by the same client being evaluated. So it is configured, not detected.
+   *
+   * Optional, and absent means `none`, the least trusting reading. That default
+   * can only ever make us treat a real address as untrustworthy, which costs a
+   * little strictness; the opposite default would make a forgeable header look
+   * attested, which is the mistake that matters. `checkEnv` warns when this is
+   * unset so a Vercel deploy cannot quietly run unattested forever.
+   */
+  IP_TRUST_PROXY: z
+    .enum(["vercel", "cloudflare", "none"])
+    .optional()
+    .describe("vercel | cloudflare | none"),
+
+  /**
+   * Rekaz Merchant Public API origin, including `/api/public`.
+   *
+   * No trailing slash, for the same reason as `SUPABASE_URL`: paths are
+   * concatenated onto it.
+   */
+  REKAZ_API_BASE: z
+    .url("must be a full URL including https://")
+    .refine((v) => !v.endsWith("/"), "must not end with a trailing slash"),
+
+  /**
+   * The base64 `key:secret` pair Rekaz issues, sent as `Authorization: Basic`.
+   *
+   * 🔴 This is an ADMIN-SCOPE credential, not a storefront key. `GET /customers`
+   * with it returns MAZJ's entire customer list, which is personal data under
+   * PDPL. Treat it exactly like `SUPABASE_SECRET_KEY`: server-only, never
+   * `NEXT_PUBLIC_`, never logged, never in an error response.
+   *
+   * Rekaz displays a generated key once and cannot re-show it, only regenerate.
+   */
+  REKAZ_AUTH_BASIC: z.string().min(20, "looks too short to be a base64 key pair"),
+
+  /**
+   * Sent as the `__tenant` header. 🔴 TWO underscores: the Quick Start page
+   * documents `_tenant`, which the live API does not accept.
+   */
+  REKAZ_TENANT_ID: z.string().min(8, "looks too short to be a tenant id"),
+}).superRefine((value, ctx) => {
+  // 🔴 REQUIRED IN PRODUCTION. Advisory configuration is not a security control.
+  //
+  // Left optional, a deploy that forgets this runs forever in `none`, where the
+  // client IP is read verbatim out of a header the client wrote, the `attested`
+  // flag is false for every request, and both rate limits fall back to their
+  // resource dimension alone. Nothing anywhere would report it.
+  //
+  // Same idiom as `lib/site.ts`, which refuses a production build while the
+  // origin is still the placeholder: a launch gate that fails loudly on the
+  // ground beats one that fails silently in the air. `none` remains a legal
+  // VALUE, so a self-hosted deployment behind nothing can still say so on
+  // purpose; what is refused is leaving it unsaid.
+  if (process.env.NODE_ENV === "production" && value.IP_TRUST_PROXY === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["IP_TRUST_PROXY"],
+      message:
+        "required in production. Set `vercel` on Vercel, `cloudflare` behind " +
+        "Cloudflare, or `none` to state deliberately that nothing trusted sits " +
+        "in front. Unset means both rate limits run on client-supplied values.",
+    });
+  }
 });
 
 export type BackendEnv = z.infer<typeof schema>;
@@ -73,6 +143,10 @@ function readEnv(): BackendEnv {
     SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     IP_HASH_SALT: process.env.IP_HASH_SALT,
+    IP_TRUST_PROXY: process.env.IP_TRUST_PROXY?.trim().toLowerCase() || undefined,
+    REKAZ_API_BASE: process.env.REKAZ_API_BASE,
+    REKAZ_AUTH_BASIC: process.env.REKAZ_AUTH_BASIC,
+    REKAZ_TENANT_ID: process.env.REKAZ_TENANT_ID,
   });
 
   if (parsed.success) return parsed.data;
@@ -98,6 +172,10 @@ const ENV_VAR_NAMES: Record<string, string> = {
   SUPABASE_PUBLISHABLE_KEY: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   SUPABASE_SECRET_KEY: "SUPABASE_SECRET_KEY",
   IP_HASH_SALT: "IP_HASH_SALT",
+  IP_TRUST_PROXY: "IP_TRUST_PROXY",
+  REKAZ_API_BASE: "REKAZ_API_BASE",
+  REKAZ_AUTH_BASIC: "REKAZ_AUTH_BASIC",
+  REKAZ_TENANT_ID: "REKAZ_TENANT_ID",
 };
 
 let cached: BackendEnv | null = null;

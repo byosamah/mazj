@@ -25,3 +25,16 @@ export const hasSupabaseCredentials = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY &&
     process.env.SUPABASE_SECRET_KEY
 );
+
+/**
+ * True when real Rekaz credentials are present.
+ *
+ * ⚠️ Rekaz publishes no sandbox, so the tests these gate hit the PRODUCTION
+ * tenant holding real customer data. They are strictly read-only for exactly
+ * that reason. Never add a write to a suite that runs unattended.
+ */
+export const hasRekazCredentials = Boolean(
+  process.env.REKAZ_API_BASE &&
+    process.env.REKAZ_AUTH_BASIC &&
+    process.env.REKAZ_TENANT_ID
+);

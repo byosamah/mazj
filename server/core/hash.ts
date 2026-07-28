@@ -26,7 +26,52 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * for this data set, and half the storage.
  */
 export function hashIp(ip: string, salt: string): string {
-  return createHmac("sha256", salt).update(ip).digest("hex").slice(0, 32);
+  // 🔴 Namespaced, like every other pseudonym. Without the `ip:` prefix this was
+  // a bare HMAC of attacker-controlled text while `hashIdentifier` prefixed its
+  // input, so a caller sending `X-Forwarded-For: mobile:+966500000000` produced
+  // an `originHash` byte-identical to that number's `submitterHash`. The audit
+  // trail exists to separate an impersonator from an account holder, and that
+  // let an attacker forge a collision between exactly those two values.
+  return hashIdentifier(ip, salt, "ip");
+}
+
+/**
+ * Pseudonymises any identifier for an audit trail.
+ *
+ * Same construction and same reasoning as `hashIp`, generalised: a Saudi mobile
+ * number has an even smaller input space than an IPv4 address (roughly 10^8
+ * live `05XXXXXXXX` values), so a plain SHA-256 of one is a lookup table, not a
+ * pseudonym. The secret key is what makes it a pseudonym.
+ *
+ * `domain` separates namespaces, so the hash of a mobile can never equal the
+ * hash of an IP that happens to share its digits, and so a leaked table from one
+ * use is not a rainbow table for another. Pass a short constant, not user input.
+ *
+ * What this buys an investigator: "these 40 bookings came from the same place"
+ * and "confirm or deny that it was THIS number", without the log ever holding a
+ * phone book. What it deliberately does not buy: reading an identifier back out.
+ *
+ * ⚠️ Two things to know before relying on it.
+ *
+ * It shares `IP_HASH_SALT` with `hashIp`, which couples two rotation decisions:
+ * rotating that salt to sever the link to stored IP hashes ALSO severs every
+ * historical booking-submitter correlation. That is a reasonable trade and it is
+ * written here so nobody rotates the salt in the middle of an investigation and
+ * destroys the trail they were following.
+ *
+ * And pseudonymous is not anonymous. A hash whose key the controller holds is
+ * still personal data under PDPL. This makes a log line defensible to keep; it
+ * does not put the data outside the regime.
+ */
+export function hashIdentifier(
+  value: string,
+  salt: string,
+  domain: string
+): string {
+  return createHmac("sha256", salt)
+    .update(`${domain}:${value}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 /**

@@ -1,0 +1,133 @@
+"use server";
+
+import { updateTag } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { clientIp } from "@/server/core/request";
+import { requestAdminMagicLink } from "@/server/services/admin-auth";
+
+import { requireAdmin } from "./auth";
+import { DASHBOARD_CACHE_TAG } from "./dashboard";
+import { adminSupabase } from "./supabase";
+
+/**
+ * The admin's write endpoints, as Server Actions.
+ *
+ * These are Server Actions rather than route handlers under `app/api/**` for
+ * one concrete reason: `@supabase/ssr` uses the PKCE flow, so requesting a
+ * magic link writes a code-verifier cookie that the callback later needs to
+ * complete the exchange. Both halves therefore need a cookie store they can
+ * WRITE to, which a Server Component cannot provide but an action can.
+ *
+ * They are still public POST endpoints, with all that implies. The rate limit
+ * lives in the service, not here, so it cannot be skipped by a second caller.
+ */
+
+export type LoginState = { message: string | null; sent: boolean };
+
+/**
+ * Requests a magic link.
+ *
+ * 🔴 Reports the SAME outcome for an address that is allowed and one that is
+ * not. The service explains why at length; the short version is that any
+ * difference here is a way to enumerate who works at MAZJ.
+ */
+export async function requestLoginLink(
+  _previous: LoginState,
+  formData: FormData
+): Promise<LoginState> {
+  const requestHeaders = await headers();
+  const supabase = await adminSupabase();
+
+  // Built from the incoming request rather than from a configured site URL, so
+  // a link requested on localhost returns to localhost and one requested on the
+  // production domain returns there. A hardcoded origin here is how the magic
+  // link ends up sending a developer to production.
+  const origin = requestOrigin(requestHeaders);
+
+  const result = await requestAdminMagicLink(supabase, {
+    email: formData.get("email"),
+    ip: clientIp(requestHeaders),
+    redirectTo: `${origin}/admin/auth/callback`,
+  });
+
+  if (!result.ok) {
+    // Fixed strings chosen by CODE, never `result.error.message`: that message
+    // is written for logs and can carry upstream detail.
+    return {
+      sent: false,
+      message:
+        result.error.code === "rate_limited"
+          ? "Too many attempts. Please wait a while before trying again."
+          : result.error.code === "upstream_unavailable"
+            ? // The project-wide email quota is exhausted. Saying so is honest and
+              // reveals nothing about the address, and the alternative (reporting
+              // success) left an admin waiting for a link that was never sent.
+              "Email is temporarily unavailable. Please try again shortly."
+            : "Something went wrong. Please try again.",
+    };
+  }
+
+  return {
+    sent: true,
+    message: null,
+  };
+}
+
+/** Ends the session and returns to the login page. */
+export async function signOut(): Promise<void> {
+  // No guard: signing out an already-anonymous caller is a no-op, and requiring
+  // a session to END a session would strand anyone whose token had just expired
+  // on a page with a button that could not work.
+  const supabase = await adminSupabase();
+  await supabase.auth.signOut();
+  redirect("/admin/login");
+}
+
+/**
+ * Forces a fresh pull from Rekaz.
+ *
+ * 🔴 Must invalidate the tag, not merely redirect. The dashboard's data is
+ * cached for 60 seconds, so a bare redirect would re-render the identical
+ * cached figures and the button would appear broken in the one situation
+ * somebody presses it: when they believe what they are looking at is stale.
+ */
+export async function refreshDashboard(): Promise<void> {
+  // 🔴 AUTHORISED HERE, not by the layout.
+  //
+  // A Server Action is a public POST endpoint. The `(protected)` layout guards
+  // PAGE RENDERS, and an action is not a page render, so this was callable by
+  // anyone who could read its id out of the client bundle. Busting the cache
+  // forces a full uncached refetch of every reservation and subscription, which
+  // means an anonymous caller could drive load straight at the Rekaz API that
+  // also serves mazj.sa's live checkout.
+  //
+  // The narrow fix matters less than the pattern: every admin action added from
+  // here on must guard itself. Sitting under `(protected)/` protects nothing.
+  await requireAdmin();
+
+  // `updateTag`, not `revalidateTag`. Next 16 draws the distinction precisely:
+  // revalidateTag purges for FUTURE requests, while updateTag gives
+  // read-your-own-writes within this action, so the redirect below lands on
+  // genuinely refetched data instead of the cached copy the user just rejected.
+  updateTag(DASHBOARD_CACHE_TAG);
+  redirect("/admin");
+}
+
+/**
+ * The origin this request arrived on.
+ *
+ * ⚠️ `host` is client-controlled and must never be used for a security
+ * decision. It is safe HERE only because Supabase independently validates the
+ * redirect against its own allow-list: a forged host produces a link Supabase
+ * refuses to issue, not a link that sends a visitor somewhere hostile. Keep
+ * that allow-list tight, and never reuse this value for anything else.
+ */
+function requestOrigin(requestHeaders: Headers): string {
+  const host = requestHeaders.get("host") ?? "localhost:3000";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
+}

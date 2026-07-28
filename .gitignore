@@ -53,3 +53,17 @@ yarn-error.log*
 # DESIGN.md extraction artifacts (Playwright captures + computed-token JSON).
 # Re-generate with the designmd-ripper skill; DESIGN.md itself IS source.
 /.designmd/
+
+# Ad-hoc security probes and their captured responses.
+#
+# 🔴 Never commit these. The captures taken while verifying the 2026-07-28 admin
+# leak were rendered dashboards carrying real customer names, live Rekaz room
+# occupancy and subscription totals, and the scripts here read `.env.local` and
+# write to the live Rekaz tenant.
+.probe/
+
+# Intermediate for the Rekaz report. Regenerate with:
+#   python3 scripts/build-rekaz-report.py
+# It is ~500KB of base64 font and logo data, and the committed PDF is the
+# deliverable. The generator script is the source of truth.
+docs/rekaz-api-defect-report.html

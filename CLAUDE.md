@@ -17,7 +17,8 @@ source of truth for its layer; copy a rationale into ONE of them, never several.
 | **`CLAUDE.md`** (this file) | Project identity, commands, the i18n rule, cross-cutting gotchas | Always. It is loaded automatically. |
 | [**`app/CLAUDE.md`**](./app/CLAUDE.md) | Locale routing, layout, metadata, JSON-LD, sitemap, share cards, the `lib/` SEO files, `globals.css` ownership | Any route, layout, metadata, SEO or redirect work |
 | [**`components/CLAUDE.md`**](./components/CLAUDE.md) | Component form, RTL, Arabic typography, motion, media, brand assets, and every visual verification recipe | Any UI, styling, animation, image or video work |
-| [**`server/CLAUDE.md`**](./server/CLAUDE.md) | The backend: Supabase, migrations, RLS, API routes, the frontend/backend boundary | Any backend, database or API work |
+| [**`server/CLAUDE.md`**](./server/CLAUDE.md) | The backend: Supabase, migrations, RLS, API routes, the Rekaz client, the admin's access gates, the frontend/backend boundary | Any backend, database, API, Rekaz or auth work |
+| [**`docs/rekaz-api-findings.md`**](./docs/rekaz-api-findings.md) | What the Rekaz API actually **does**, probed live against the production tenant | 🔴 Anything touching Rekaz, before you trust their docs |
 | [**`DESIGN.md`**](./DESIGN.md) | How it **looks**: colour, type, space, shape, motion, component form | Any visual change |
 | [**`TONE.md`**](./TONE.md) | How it **sounds**: voice, register, settled vocabulary, what copy may and may not say | Any user-facing string |
 | [`server/README.md`](./server/README.md) | The backend's layer contract, for humans | Adding anything to `server/` |
@@ -42,10 +43,19 @@ It is a pixel-faithful animated multi-page site: home plus `/about` `/contact`
 `/events` `/faq` `/privacy` `/spaces` `/terms`, plus the four space-detail routes
 `/spaces/{coworking,private-office,meeting-room,event-hall}`, all under
 `app/[locale]/`. That is 12 route groups x 2 locales = 24 prerendered pages, with
-`app/[locale]/[...rest]` catching everything else and rendering on demand.
+`app/[locale]/[...rest]` catching everything else and rendering on demand. Since
+2026-07-27 each space also has a `/book` child (4 routes x 2 locales, rendered on
+demand) where booking happens against the Rekaz API.
 `/pricing`→`/spaces` and `/community`→`/about` are redirects in
 `next.config.mjs`. Routes are locale-prefixed: `/en` (LTR) and `/ar` (RTL).
 English is the default; `/` redirects to `/en`.
+
+Since 2026-07-27 there is also **`/admin`**, an English-only internal tool with
+its own root layout, deliberately **outside** the locale system: no locale
+prefix, no hreflang, no sitemap entry, `Disallow` in robots.txt. Sign-in is a
+Supabase magic link restricted to `@mazj.org` by three independent gates. It
+shows live Rekaz operations. See [`app/CLAUDE.md`](./app/CLAUDE.md) for the
+routing and [`server/CLAUDE.md`](./server/CLAUDE.md) for the gates.
 
 **Brand facts (not derivable from the code):**
 
@@ -56,10 +66,11 @@ English is the default; `/` redirects to `/en`.
 - "الملقى / Al-Malqa" and "المعارج / Al-Ma'arij" are **room names** (the meeting
   room and the events hall), NOT city districts. Don't "correct" them against the
   Al-Khobar eyebrow.
-- mazj.sa sells **4** products (was 6): duration is now a variant picker inside
-  each, not a product of its own. `BOOKING` =
-  `sharedSeat`/`privateOffice`/`meeting`/`event`. Re-verify those URLs before
-  trusting them; `mktb-khas-hyz` already 404s.
+- MAZJ sells **4** products (was 6): duration is now a variant picker inside
+  each, not a product of its own. `BOOKING` in `lib/links.ts` =
+  `sharedSeat`/`privateOffice`/`meeting`/`event`, and since 2026-07-27 those are
+  **internal** `/spaces/<space>/book` paths, not mazj.sa URLs. The old store
+  paths live in `LEGACY_STORE_PATHS` and are redirected.
 - The Google rating is **4.7** with few reviews, **not 5.0**. A hardcoded `5.0`
   in the hero trustLine and in Proof was a real shipped bug. Don't put a rating
   claim in the hero or Proof at all; lead with legitimacy signals (address,
@@ -84,28 +95,52 @@ report it as "AI-blocked".
 ### Launch plan (owner decision, 2026-07-27)
 
 **Both `www.mazj.sa` and `www.mazj.org` will serve THIS site, deployed on
-Vercel.** Timing is "later"; nothing here is built yet.
+Vercel.** Timing is "later". No Vercel project exists yet.
 
-🔴 **Three things that decision breaks or forces. Resolve them BEFORE pointing
-either domain at Vercel.**
+🔴 **Three things that decision breaks or forces. Item 1 is now BUILT; items 2
+and 3 are still open and must be resolved BEFORE pointing either domain at
+Vercel.**
 
-1. **The booking links die.** `lib/links.ts` `BOOKING` sends every buyer to
+1. **The booking links used to die.** `BOOKING` sent every buyer to
    `https://mazj.sa/subscription/*` and `https://mazj.sa/reservation/*`, which
-   are **Rekaz store paths**. If `www.mazj.sa` serves this Next.js app those
-   paths hit next-intl's locale redirect, then the `[...rest]` catch-all, and
-   **404**. Verified locally on all four: `/subscription/adwyh-almsahh-almshtrkh`,
-   `/subscription/private-office`, `/reservation/ghrfh-alajtmaaat-almlqa`,
-   `/reservation/qaah-alfaalyat-almaarj` all returned 404. This is the revenue
-   path, so it fails loudly and completely. Options, none chosen yet: move the
-   Rekaz store to a subdomain (`book.mazj.sa`) and repoint `BOOKING`; add Vercel
-   rewrites proxying those two path prefixes to Rekaz; or keep the marketing site
-   off the apex of mazj.sa.
-2. **Two domains serving identical content is duplicate content.** `lib/site.ts`
+   are **Rekaz store paths**. With `www.mazj.sa` serving this app those hit
+   next-intl's locale redirect, then the `[...rest]` catch-all, and **404**.
+   Verified locally on all four.
+
+   ✅ **RESOLVED AND BUILT, 2026-07-27.** Booking now happens on this site at
+   `/spaces/<space>/book` for all four products, and the legacy store paths 308
+   to their replacements (each in a bare AND a locale-prefixed shape, since
+   `mazj.sa/subscription/<slug>` 308s to `/ar/subscription/<slug>` and that form
+   collides with our own `/ar` prefix). `lib/links.ts` `BOOKING` is now internal
+   paths; `LEGACY_STORE_PATHS` holds the old ones and a test asserts both shapes
+   are redirected.
+
+   🔴 **The one thing on-site booking cannot absorb is payment.** Rekaz has no
+   payments API, so the card step still leaves our domain, to
+   `platform.rekaz.io`. That host is NOT `mazj.sa`, so it survives the domain
+   move intact. ⚠️ The link arrives RELATIVE, not absolute as documented, and
+   must be resolved against the Rekaz origin or the last click of every purchase
+   lands on our own 404. Confirmed against the live API, see
+   [`docs/rekaz-api-findings.md`](./docs/rekaz-api-findings.md).
+
+   ⚠️ **The "no prices on the site" guardrail was relaxed for this**, owner
+   decision 2026-07-27: live prices pulled from the Rekaz API may appear INSIDE
+   the booking flow. Marketing pages stay price-free. See `TONE.md`.
+2. 🔴 **`IP_TRUST_PROXY` must be set on the Vercel project, or both rate limits
+   run on values the caller writes.** Whether a forwarded IP header can be
+   trusted is a property of the topology, and a request cannot report its own
+   topology. Vercel OVERWRITES `x-forwarded-for` to prevent spoofing, so on
+   Vercel the address is attested and the header-rotation attack does not work;
+   with nothing configured the app assumes the weakest reading. `server/env.ts`
+   now REFUSES to start in production without it, so this fails on the ground
+   rather than silently in the air. Set it to `vercel`. See
+   [`server/CLAUDE.md`](./server/CLAUDE.md).
+3. **Two domains serving identical content is duplicate content.** `lib/site.ts`
    holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
    `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
    secondary 301 to it, or serve cross-domain canonicals pointing at the primary.
    Do NOT let both resolve 200 with self-canonicals.
-3. **Which domain is primary is an SEO decision, not a preference.** mazj.org
+4. **Which domain is primary is an SEO decision, not a preference.** mazj.org
    holds the Arabic ranking equity (#1-3 on head terms); mazj.sa is the
    commercial domain and matches the brand's country. Whichever is secondary must
    301, not merely redirect in the browser, or that equity is lost. The existing
@@ -121,7 +156,7 @@ either domain at Vercel.**
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 102 tests, 11 of them RLS integration tests that skip without Supabase credentials. |
+| `npm run test` / `test:watch` | Vitest. 187 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |
@@ -131,6 +166,14 @@ any `NODE_ENV=production` build while the origin is still the `mazj.example`
 placeholder, so a bare `npm run build` fails BY DESIGN. Use
 `NEXT_PUBLIC_SITE_URL=https://<domain> npm run build` until the real domain is in
 the environment.
+
+🔴 **The command sandbox also breaks Node's outbound TLS.** Any test or script
+that `fetch`es an external host fails with a bare `TypeError` while `curl` to the
+same URL returns 200, because curl trusts the system keychain and Node ships its
+own CA store. So `npm run test` and `npm run verify` need the sandbox OFF too,
+not just `build`. The failure is deeply misleading: it surfaces as
+`upstream_unavailable`, i.e. "Rekaz is down", rather than anything about your
+shell. `npm install` needs it off as well (root-owned `~/.npm`).
 
 🔴 **`npm run build` also needs the command sandbox OFF.** Turbopack spawns a
 subprocess that binds a port on the PostCSS step, so a sandboxed build panics
@@ -291,6 +334,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   after removing one, `npm run typecheck` fails with
   `Cannot find module '../../app/<route>/route.js'`. It names a file you
   deliberately deleted and reads like a real error. `rm -rf .next` clears it.
+- ⚠️ **A `*/` inside a block comment ENDS it.** Writing a glob or a path like
+  `/ar/spaces/*/book` in a JSDoc terminates the comment early and everything
+  after it parses as code (`TS1443`, `Unterminated template literal`). Use prose
+  or a single-line `//` comment instead. Scan with a regex for `*/` occurring
+  inside a `/* ... */` block, not by reading.
 - **A JSX comment cannot sit inside an attribute list**, nor as an element's
   *sibling inside a ternary consequent* (`{x ? (<comment/><ul/>) : …}` is two
   adjacent expressions with no wrapper). `{/* … */}` (and `//`) between props is a
