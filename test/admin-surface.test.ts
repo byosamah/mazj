@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
@@ -16,6 +16,20 @@ import { INDEXABLE_ROUTES, NOINDEX_ROUTES } from "@/lib/routes";
  * a route added to the table, a `Disallow` dropped while editing robots, a page
  * moved under `app/[locale]/`. This test notices.
  */
+function disallowedIn(result: ReturnType<typeof robots>): string[] {
+  const rules = Array.isArray(result.rules) ? result.rules : [result.rules];
+  return rules.flatMap((rule) => {
+    const disallow = rule?.disallow;
+    if (disallow === undefined) return [];
+    return Array.isArray(disallow) ? disallow : [disallow];
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
 describe("the admin is absent from the public surface", () => {
   it("does not appear in the sitemap", () => {
     const urls = sitemap().map((entry) => entry.url);
@@ -41,14 +55,22 @@ describe("the admin is absent from the public surface", () => {
     ).toEqual([]);
   });
 
-  it("is disallowed in robots.txt", () => {
-    const rules = robots().rules;
-    const rule = Array.isArray(rules) ? rules[0] : rules;
+  it("is disallowed in robots.txt, in both origin states", async () => {
+    // 🔴 robots.txt has two shapes, and `/admin` has to be refused in both.
+    //
+    // Before launch the origin is a `*.vercel.app` deployment host (here, the
+    // placeholder, which counts the same way) and the file refuses everything,
+    // so `/admin` passes for free. Asserting only that would mean this test
+    // goes green on the pre-launch file forever and stops watching the one that
+    // actually ships. So check the launch rules explicitly as well. See
+    // `test/prelaunch-indexing.test.ts` for the origin logic itself.
+    expect(disallowedIn(robots())).toEqual(["/"]);
 
-    const disallow = rule?.disallow;
-    const list = Array.isArray(disallow) ? disallow : [disallow];
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.mazj.sa");
+    vi.resetModules();
+    const { default: launchRobots } = await import("@/app/robots");
 
-    expect(list).toContain("/admin");
+    expect(disallowedIn(launchRobots())).toContain("/admin");
   });
 
   it("🔴 does not rely on robots.txt alone", () => {
