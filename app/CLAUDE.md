@@ -85,7 +85,14 @@ only URLs in that file not already wrapped in `absoluteUrl()`, which is why it
 went unnoticed. **Any change to `BOOKING`'s shape must be checked against
 `schema.ts`**, and JSON-LD URLs must be absolute AND locale-prefixed.
 
-`app/robots.ts` disallows **only** `/admin`. It stays empty for everything else:
+`app/robots.ts` has **two shapes**, picked by `IS_PRELAUNCH_ORIGIN` in
+`lib/site.ts`. On any `*.vercel.app` host (or the placeholder) it serves
+`Disallow: /` with NO `Sitemap:` line, so a pre-launch deploy cannot become a
+duplicate of the pages mazj.org ranks with. It lifts itself when
+`NEXT_PUBLIC_SITE_URL` names a real domain. 🔴 Do NOT "fix" a blocked robots.txt
+by editing this file: set the domain.
+
+The launch shape disallows **only** `/admin`. It stays empty for everything else:
 a `Disallow` would stop Google reading the `noindex` meta on `/privacy` and
 `/terms`, which are also deliberately absent from the sitemap. That trap does
 not apply to `/admin` because nothing anywhere links to it, so there is no
@@ -153,6 +160,15 @@ string.
   screen. Strip `<script>` blocks first. Full note in [`../CLAUDE.md`](../CLAUDE.md).
 - JSON-LD must be verified by **parsing the `ld+json` block**, not by reading the
   rendered page.
+- **Testing anything derived from `NEXT_PUBLIC_SITE_URL`:** `lib/site.ts` reads
+  `process.env` at MODULE scope, so setting env inside a test changes nothing.
+  Re-read it with `vi.stubEnv(…)`, then `vi.resetModules()`, then
+  `await import("@/app/robots")`. Worked example in `test/prelaunch-indexing.test.ts`.
+- ⚠️ **`.env.local` ships `NEXT_PUBLIC_SITE_URL=` EMPTY**, so every statically
+  importing test sees the `mazj.example` placeholder. Adding an origin-derived
+  branch therefore changes what unrelated tests observe:
+  `test/admin-surface.test.ts` went red when robots gained its pre-launch shape.
+  The fix was to assert BOTH shapes, never to relax the assertion.
 
 ## `app/admin/`: the internal tool
 
