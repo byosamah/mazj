@@ -95,11 +95,30 @@ report it as "AI-blocked".
 ### Launch plan (owner decision, 2026-07-27)
 
 **Both `www.mazj.sa` and `www.mazj.org` will serve THIS site, deployed on
-Vercel.** Timing is "later". No Vercel project exists yet.
+Vercel.** Timing is "later".
 
-🔴 **Three things that decision breaks or forces. Item 1 is now BUILT; items 2
-and 3 are still open and must be resolved BEFORE pointing either domain at
-Vercel.**
+**The Vercel project now EXISTS and `main` is live on it, since 2026-07-28.**
+Project `mazj` under team `byosama`, connected to `github.com/byosamah/mazj`,
+auto-deploying production from `main`. Production alias
+**`https://mazj-tau.vercel.app`** (`mazj.vercel.app` was already taken by an
+unrelated site). Neither real domain points at it yet, so this is a staging
+deployment in every sense except the word.
+
+🔴 **`NEXT_PUBLIC_SITE_URL` is currently the `.vercel.app` alias, and that is
+TEMPORARY by owner instruction (2026-07-28).** It could not be either real
+domain because both currently serve DIFFERENT live sites, so every canonical
+would have pointed Google at content we do not control. Change it (Production
+AND Preview) the moment a real domain is connected, and redeploy.
+
+**That one variable also controls whether the site is indexable at all.**
+`IS_PRELAUNCH_ORIGIN` in `lib/site.ts` is true for any `*.vercel.app` host, and
+`app/robots.ts` then serves `Disallow: /` with no sitemap line. It lifts itself
+when the origin becomes real, so there is nothing to remember to switch off. Do
+not "fix" the blocked robots.txt by editing that file: set the domain.
+
+🔴 **Four things that decision breaks or forces. Items 1 and 2 are now DONE;
+items 3 and 4 are still open and must be resolved BEFORE pointing either domain
+at Vercel.**
 
 1. **The booking links used to die.** `BOOKING` sent every buyer to
    `https://mazj.sa/subscription/*` and `https://mazj.sa/reservation/*`, which
@@ -133,8 +152,29 @@ Vercel.**
    Vercel the address is attested and the header-rotation attack does not work;
    with nothing configured the app assumes the weakest reading. `server/env.ts`
    now REFUSES to start in production without it, so this fails on the ground
-   rather than silently in the air. Set it to `vercel`. See
-   [`server/CLAUDE.md`](./server/CLAUDE.md).
+   rather than silently in the air. See [`server/CLAUDE.md`](./server/CLAUDE.md).
+
+   ✅ **DONE 2026-07-28.** Set to `vercel` on Production and Preview, along with
+   the seven Supabase and Rekaz variables. ⚠️ `SUPABASE_DB_URL` and
+   `SUPABASE_ACCESS_TOKEN` were deliberately NOT uploaded: they are local
+   tooling credentials (migrations, the Management API PAT) that the running app
+   never reads, and a database superuser password plus an account-wide PAT do
+   not belong in a serverless runtime.
+
+   ⚠️ **`vercel.json` pins `regions: ["fra1"]` and must stay pinned.** Vercel
+   defaults to `iad1` (Washington DC) while Supabase is in Frankfurt, which
+   measured 303-416ms per query on the first deploy and **39ms** after the pin.
+   Reasoning in [`server/CLAUDE.md`](./server/CLAUDE.md), because JSON takes no
+   comments.
+
+   ⚠️ **Supabase's auth redirect allow list still has no `.vercel.app` entry**,
+   so the admin magic link on the deployed site emails a `localhost:3000` link.
+   Marketing, booking and the admin's auth GATE all work; only completing a
+   sign-in on the deployed URL does not. Add
+   `https://mazj-tau.vercel.app/admin/auth/callback` and
+   `https://mazj-tau.vercel.app/admin/**` to Authentication > URL Configuration,
+   and set Site URL to the same origin. The `mazj.sa` / `mazj.org` entries are
+   already there for launch.
 3. **Two domains serving identical content is duplicate content.** `lib/site.ts`
    holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
    `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
@@ -156,7 +196,7 @@ Vercel.**
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 187 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
+| `npm run test` / `test:watch` | Vitest. 294 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |

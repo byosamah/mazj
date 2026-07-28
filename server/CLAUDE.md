@@ -560,7 +560,7 @@ Run all of this after any schema or security change. All passing as of
 
 1. Connect with `pg` over IPv6 and assert `relrowsecurity` is true, `pg_policies`
    is empty, and `role_table_grants` has zero rows for `anon` / `authenticated`.
-2. `npm run test`: 187 tests. 11 RLS integration tests attack every table with
+2. `npm run test`: 294 tests. 11 RLS integration tests attack every table with
    the publishable key and must all be refused; 12 Rekaz integration tests read
    the live production tenant and pin its response shapes. Both suites **skip**
    rather than fail without credentials, so a fresh clone stays green. 🔴 Run
