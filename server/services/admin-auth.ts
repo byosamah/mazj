@@ -3,9 +3,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { errors, type AppError } from "../core/errors";
-import { hashIp } from "../core/hash";
+import { hashIdentifier, hashIp } from "../core/hash";
 import { log } from "../core/logger";
-import { checkRateLimit, rateLimitedError } from "../core/rate-limit";
+import { checkRateLimits, rateLimitedError } from "../core/rate-limit";
+import type { ClientIdentity } from "../core/request";
 import { err, ok, type Result } from "../core/result";
 import { normaliseAdminEmail } from "../domain/admin-access";
 import { env } from "../env";
@@ -26,16 +27,38 @@ import { env } from "../env";
  * `app/` where it belongs.
  */
 
-/** Magic-link requests permitted per window, per client. */
+/** Magic-link requests permitted per window, per client address. */
 const LIMIT = 5;
+
+/**
+ * Magic-link requests permitted per EMAIL ADDRESS per window.
+ *
+ * Two, matching Supabase's project-wide mailer budget rather than exceeding it.
+ *
+ * 🔴 Read this before believing the ceiling protects anyone. It CANNOT stop one
+ * address locking the others out, and an earlier version of this comment claimed
+ * it could. The built-in sender is capped at roughly 2 messages an hour for the
+ * WHOLE PROJECT, so any single address that spends its own allowance has already
+ * spent everybody's. No per-address number can fix that; arithmetic forbids it.
+ *
+ * What it does buy, which is smaller and real: a flood cannot consume the budget
+ * many times over before anyone notices, every refusal is now logged with the
+ * address pseudonym, and the limit sits at the budget rather than above it, so
+ * "allowed by us" and "actually sendable" stop disagreeing.
+ *
+ * 🔴 The durable fix is custom SMTP, which removes the shared budget entirely.
+ * Until then the magic-link path has a project-wide single point of failure that
+ * no code in this file can close.
+ */
+const PER_ADDRESS_LIMIT = 2;
 /** One hour, matching Supabase's own `mailer_otp_exp`. */
 const WINDOW_SECONDS = 3600;
 
 export type MagicLinkInput = {
   /** Raw, untrusted. Validated here, never before. */
   email: unknown;
-  /** Client IP, already extracted from headers. Hashed before storage. */
-  ip: string;
+  /** Client address plus whether the platform vouches for it. See `clientIp`. */
+  ip: ClientIdentity;
   /** Absolute URL Supabase sends the visitor back to. */
   redirectTo: string;
 };
@@ -55,9 +78,11 @@ export type MagicLinkInput = {
  * That has a real cost, and it is worth naming rather than hiding: a genuine
  * mail failure is also invisible to the person waiting for the email. Nobody
  * gets an error, they just get nothing. The compensations are that the outcome
- * is always in the log with the address attached, and that the rate limiter
- * caps this at five attempts an hour per client, which is also what makes the
- * remaining timing difference impractical to measure.
+ * is always in the log (as a domain plus a salted pseudonym, never the address
+ * itself: a key called `email` is redacted on the way out, which is what made
+ * every one of these lines blank before 2026-07-28), and that the rate limiter
+ * caps this per client AND per address, which is also what makes the remaining
+ * timing difference impractical to measure.
  */
 export async function requestAdminMagicLink(
   supabase: SupabaseClient,
@@ -66,12 +91,47 @@ export async function requestAdminMagicLink(
   // Rate limited BEFORE the address is even parsed. Limiting after validation
   // would leave the cheap path (send garbage, get refused) unlimited, and that
   // is precisely the path an enumeration script walks.
-  const limit = await checkRateLimit({
-    scope: "admin:magic-link",
-    identity: hashIp(input.ip, env().IP_HASH_SALT),
-    limit: LIMIT,
-    windowSeconds: WINDOW_SECONDS,
-  });
+  //
+  // 🔴 TWO dimensions. Neither one closes the project-wide mail budget, and
+  // saying otherwise would be the comfortable lie: see `PER_ADDRESS_LIMIT`.
+  //
+  // The address bucket bounds how often one inbox can be targeted and makes the
+  // attempt visible in the log. ⚠️ It cuts both ways, and that is accepted: an
+  // attacker who knows a real admin address can exhaust that address's allowance
+  // for an hour. That is the same targeted-lockout shape as the booking path's
+  // mobile bucket, and it is tolerated here for the same reason: the alternative
+  // is a single forgeable IP being the only thing between an anonymous caller
+  // and the whole team's ability to sign in.
+  //
+  // The address is bucketed BEFORE validation, deliberately, so the ordering
+  // above survives: whatever arrived is lowercased and trimmed and hashed as-is.
+  // It is a bucket key, not an identity, so it does not need to be a real
+  // address to be useful.
+  const submitted =
+    typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+
+  const limit = await checkRateLimits([
+    ...(input.ip.ip
+      ? [
+          {
+            scope: "admin:magic-link",
+            identity: hashIp(input.ip.ip, env().IP_HASH_SALT),
+            limit: LIMIT,
+            windowSeconds: WINDOW_SECONDS,
+          },
+        ]
+      : []),
+    ...(submitted
+      ? [
+          {
+            scope: "admin:magic-link:address",
+            identity: hashIdentifier(submitted, env().IP_HASH_SALT, "email"),
+            limit: PER_ADDRESS_LIMIT,
+            windowSeconds: WINDOW_SECONDS,
+          },
+        ]
+      : []),
+  ]);
 
   if (!limit.ok) return err(limit.error);
   if (!limit.value.allowed) return err(rateLimitedError(limit.value));
@@ -84,9 +144,18 @@ export async function requestAdminMagicLink(
     // that is not one of ours is either a typo or somebody probing.
     log.warn("admin.magic_link.refused", {
       reason: "email outside the permitted domain",
-      // `redact` in the logger handles anything that looks like a secret; an
-      // address is not one, and without it this log line cannot be acted on.
-      email: typeof input.email === "string" ? input.email.slice(0, 120) : null,
+      // 🔴 NOT a key containing "email". `core/logger.ts` redacts on a substring
+      // match, so the previous `email:` field here was written as "[redacted]"
+      // on every refusal, and the comment claiming the line could not be acted
+      // on without it was describing a line that had never carried it. Same bug
+      // as `booking.attempt` had, in a second place.
+      //
+      // The DOMAIN is the actionable half and is not personal data, so it is
+      // kept in the clear: "someone tried a gmail address" is the signal, and
+      // which gmail address is not worth putting in a log store. The pseudonym
+      // is what links repeated attempts from the same address together.
+      submittedDomain: domainOf(input.email),
+      submitterHash: hashIdentifier(submitted, env().IP_HASH_SALT, "email"),
     });
     return ok();
   }
@@ -104,7 +173,10 @@ export async function requestAdminMagicLink(
 
   if (error) {
     log.error("admin.magic_link.send_failed", {
-      email,
+      // Redacted-key trap again: an `email:` field here logs "[redacted]". The
+      // domain plus the pseudonym is what an operator can actually act on.
+      submittedDomain: domainOf(email),
+      submitterHash: hashIdentifier(email, env().IP_HASH_SALT, "email"),
       reason: error.message,
       status: error.status,
     });
@@ -139,7 +211,15 @@ export async function requestAdminMagicLink(
     return ok();
   }
 
-  log.info("admin.magic_link.sent", { email });
+  // 🔴 NOT `{ email }`. This is the record that a WORKING admin credential was
+  // issued, and `email` is the first entry in the logger's denylist, so the line
+  // carried literally nothing identifying. It matters more than the two refusal
+  // paths above, which were fixed first: after a phishing report this is the only
+  // evidence of who was sent a link and when.
+  log.info("admin.magic_link.sent", {
+    submittedDomain: domainOf(email),
+    submitterHash: hashIdentifier(email, env().IP_HASH_SALT, "email"),
+  });
   return ok();
 }
 
@@ -217,4 +297,20 @@ export async function completeAdminSignIn(
     reason: "callback reached with neither token_hash nor code",
   });
   return err(invalid);
+}
+
+/**
+ * The domain half of whatever was submitted, or null.
+ *
+ * Deliberately NOT parsing: this is for a log line, so it must never throw and
+ * must never care whether the input is a valid address. RFC 5321 puts the domain
+ * after the LAST `@`, which is the same rule `isAllowedAdminEmail` applies and
+ * the reason `"x@mazj.org"@evil.com` is not a MAZJ address.
+ */
+function domainOf(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const at = value.lastIndexOf("@");
+  if (at < 0) return null;
+  const domain = value.slice(at + 1).trim().toLowerCase();
+  return domain ? domain.slice(0, 100) : null;
 }

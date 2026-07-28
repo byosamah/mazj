@@ -87,6 +87,59 @@ export async function checkRateLimit(
   }
 }
 
+/**
+ * Records a request against SEVERAL buckets and reports the strictest verdict.
+ *
+ * 🔴 One dimension is never enough, and IP is the weakest one available.
+ *
+ * Even a platform-attested address is a poor identity here. Saudi mobile
+ * carriers put many subscribers behind few addresses, so a per-IP ceiling that
+ * is tight enough to stop an attacker is also tight enough to block a real
+ * office; meanwhile a residential proxy pool rents a genuine, un-forged address
+ * per request for pennies, so the attacker is the one who escapes it. Limiting
+ * on the RESOURCE as well (the number being booked, the address being mailed)
+ * bounds the harm in the units the harm is actually measured in.
+ *
+ * Every bucket is recorded even when an earlier one has already refused, on
+ * purpose: they are counters describing one actor, and skipping the rest would
+ * let a caller who is over the IP limit quietly consume the mobile allowance for
+ * free. They run concurrently so this costs one round trip, not several.
+ *
+ * 🔴 An EMPTY list is refused rather than allowed. Reaching here with nothing to
+ * limit on means every identity was absent, which is not a normal browser and is
+ * exactly when opening the gate is worst.
+ */
+export async function checkRateLimits(
+  buckets: RateLimitOptions[]
+): Promise<Result<RateLimitState, AppError>> {
+  if (buckets.length === 0) {
+    return err(
+      errors.rateLimited(
+        "Too many requests. Please wait a moment and try again.",
+        60
+      )
+    );
+  }
+
+  const results = await Promise.all(buckets.map(checkRateLimit));
+
+  // A single failure fails the whole check: the limiter fails closed, and a
+  // half-applied limit is not a limit.
+  for (const result of results) {
+    if (!result.ok) return result;
+  }
+
+  const states = results.map((r) => (r as { ok: true; value: RateLimitState }).value);
+  const refused = states.find((s) => !s.allowed);
+  if (refused) return ok(refused);
+
+  // Allowed. Report the bucket closest to its ceiling, so a caller surfacing
+  // "requests remaining" tells the truth rather than quoting the roomiest one.
+  return ok(
+    states.reduce((tightest, s) => (s.remaining < tightest.remaining ? s : tightest))
+  );
+}
+
 /** Convenience: the `AppError` to return when a limit has been exceeded. */
 export function rateLimitedError(state: RateLimitState): AppError {
   return errors.rateLimited(

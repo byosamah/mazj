@@ -2,6 +2,8 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
+import type { AdminUser } from "./auth";
+
 import { bookableRooms, listProducts } from "@/server/rekaz/catalog";
 import {
   fetchAllReservations,
@@ -124,11 +126,30 @@ const CACHE_SECONDS = 60;
  * and no headers. If a future tile needs per-user data, it must NOT go through
  * this function: one admin's view would be served to the next.
  */
-export const loadDashboardCached = unstable_cache(
+const loadDashboardCachedInternal = unstable_cache(
   async (): Promise<DashboardData> => loadDashboard(),
   ["admin-dashboard-v1"],
   { revalidate: CACHE_SECONDS, tags: [DASHBOARD_CACHE_TAG] }
 );
+
+/**
+ * 🔴 THE ARGUMENT IS THE POINT. It is unused at runtime and load-bearing at
+ * compile time.
+ *
+ * An `AdminUser` can only be obtained from `requireAdmin()` or `getAdminUser()`,
+ * both of which verify the session against Supabase and re-check the email
+ * domain. So a page that forgets to authorise cannot call this: it has nothing
+ * to pass, and `tsc` refuses it. That turns "somebody remembered a line" into a
+ * property the compiler enforces, which is what the layout guard was originally
+ * trying to give us before it turned out layouts do not stop a page rendering.
+ *
+ * `test/admin-page-guards.test.ts` is still worth having, but it is a regex over
+ * source and this is not. Prefer this shape for anything else added here that
+ * reads MAZJ's operational data.
+ */
+export function loadDashboardCached(_admin: AdminUser): Promise<DashboardData> {
+  return loadDashboardCachedInternal();
+}
 
 export async function loadDashboard(now: Date = new Date()): Promise<DashboardData> {
   const today = riyadhToday(now);

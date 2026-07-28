@@ -176,9 +176,31 @@ twice (`/en/admin` and `/ar/admin`) as duplicate content, acquire an hreflang
 pair and a sitemap entry, and inherit the marketing site's scroll and motion
 providers. None of that belongs on a tool three people use.
 
-🔴 **The guard is in `(protected)/layout.tsx`, not in each page.** A new admin
-page is protected because of where it sits, not because someone remembered a
-call. `login/` sits OUTSIDE that group deliberately: inside it, the guard would
+🔴 **The guard is in `(protected)/layout.tsx` AND in every page. Both.** The
+layout alone is NOT the security boundary, and believing it was cost a real data
+leak (fixed 2026-07-28).
+
+Two independent reasons the layout cannot hold the line on its own:
+
+1. **`redirect()` does not stop the page.** React renders a route's components
+   concurrently rather than parent-then-child, so the layout's throw does not
+   cancel the page. Measured on an anonymous `curl /admin`: a correct
+   `307 -> /admin/login` whose body still carried 28KB of rendered dashboard,
+   including live Rekaz room names, occupancy and subscription totals.
+2. **The layout can be skipped entirely.** `Rsc: 1` plus a crafted
+   `Next-Router-State-Tree` makes Next's `walkTreeWithFlightRouterState` treat
+   the `(protected)` segment as already-rendered and never call
+   `createComponentTree` for it. The header is unauthenticated, unsigned, and
+   validated for SHAPE only. Next's own auth guidance says layouts must not be
+   the authorization boundary for exactly this reason.
+
+So every page under `(protected)/` calls `await requireAdmin()` above its first
+data read, and `test/admin-page-guards.test.ts` fails if one does not (it also
+pins the layout check, and rejects a guard that is merely mentioned in a
+comment, unawaited, or below the load). The layout check REMAINS: it is what
+gives a human a redirect to the login screen rather than a bare refusal.
+
+`login/` sits OUTSIDE that group deliberately: inside it, the guard would
 redirect an anonymous visitor to the login page, whose render would redirect
 them again, forever.
 

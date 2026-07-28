@@ -1,7 +1,7 @@
 import "server-only";
 
 import { errors, fromUnknown, type AppError } from "../core/errors";
-import { log } from "../core/logger";
+import { log, redact } from "../core/logger";
 import { err, ok, type Result } from "../core/result";
 import { env } from "../env";
 
@@ -87,6 +87,10 @@ export async function rekazRequest<T>(
         "Content-Type": "application/json",
         Accept: "application/json",
         "User-Agent": USER_AGENT,
+        // Rekaz honours this for most error strings (not all: see
+        // `mapErrorResponse`). English keeps the server log readable by whoever
+        // is on call. It never reaches a user either way.
+        "Accept-Language": "en",
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -143,13 +147,41 @@ export async function rekazRequest<T>(
 /**
  * Turns a Rekaz failure into one of our error codes.
  *
- * 🔴 The Rekaz message never reaches the caller. Two reasons. It arrives in
- * **Arabic** regardless of `Accept-Language`, so surfacing it would print Arabic
- * on an English page. And it names internal field names (`PriceId`,
- * `MinQuantity`), which is upstream implementation detail we should not be
- * teaching the public. The detail goes to the log; the caller gets a code and
- * renders its own copy from `messages/*.json`.
+ * 🔴 The Rekaz message never reaches the caller, and the reason is NOT the one
+ * previously written here.
+ *
+ * This comment used to claim the message arrives in Arabic regardless of
+ * `Accept-Language`. Measured 2026-07-28: that is false. The header IS honoured
+ * for most strings; we had simply never sent it. It is sent now, so the log
+ * carries English.
+ *
+ * The message still must not reach a user, for the reason that does hold: it
+ * names internal field names (`PriceId`, `MinQuantity`) and internal entity
+ * names ("There is no entity Price with id ..."), which is upstream
+ * implementation detail we should not be teaching the public. Localisation is
+ * also only PARTLY honoured, so "it will be in the user's language" is not a
+ * property we can rely on either. The detail goes to the log; the caller gets a
+ * code and renders its own copy from `messages/*.json`.
  */
+/**
+ * Parses an upstream body far enough for `redact` to work on its KEYS.
+ *
+ * A ProblemDetails body is an object, and redaction operates on object keys, so
+ * a raw string would sail straight through the denylist. Anything that is not
+ * JSON is reported as a type rather than as content: an unparseable body from a
+ * failing upstream is exactly the case where the content is least trustworthy
+ * and least useful.
+ */
+function safeParse(text: string): unknown {
+  if (!text) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null ? parsed : "[non-object body]";
+  } catch {
+    return "[unparseable body]";
+  }
+}
+
 function mapErrorResponse(
   status: number,
   text: string,
@@ -163,7 +195,20 @@ function mapErrorResponse(
     status,
     method,
     path,
-    detail,
+    // 🔴 `detail` is up to 300 characters of RAW upstream body, and it is the one
+    // field in this codebase's whole logging surface whose content is neither
+    // ours nor bounded by a schema. Rekaz runs ASP.NET Core, whose model-binding
+    // errors echo the submitted value verbatim: `docs/rekaz-api-findings.md`
+    // holds a real captured 400 reading
+    // `"errors": {"PriceId": ["The value 'BAD' is not valid for PriceId."]}`.
+    //
+    // Since every booking POST now carries `customerDetails` inline (the name,
+    // mobile and email the visitor typed), a validation failure on any of those
+    // fields would echo them straight into the log, defeating the denylist by
+    // smuggling personal data through a key that does not match it. Redacting
+    // the parsed shape keeps the field NAMES, which are the useful half, and
+    // drops the values.
+    detail: redact(safeParse(detail)),
     traceId: extractTraceId(text),
   });
 

@@ -126,12 +126,21 @@ Vercel.**
    ⚠️ **The "no prices on the site" guardrail was relaxed for this**, owner
    decision 2026-07-27: live prices pulled from the Rekaz API may appear INSIDE
    the booking flow. Marketing pages stay price-free. See `TONE.md`.
-2. **Two domains serving identical content is duplicate content.** `lib/site.ts`
+2. 🔴 **`IP_TRUST_PROXY` must be set on the Vercel project, or both rate limits
+   run on values the caller writes.** Whether a forwarded IP header can be
+   trusted is a property of the topology, and a request cannot report its own
+   topology. Vercel OVERWRITES `x-forwarded-for` to prevent spoofing, so on
+   Vercel the address is attested and the header-rotation attack does not work;
+   with nothing configured the app assumes the weakest reading. `server/env.ts`
+   now REFUSES to start in production without it, so this fails on the ground
+   rather than silently in the air. Set it to `vercel`. See
+   [`server/CLAUDE.md`](./server/CLAUDE.md).
+3. **Two domains serving identical content is duplicate content.** `lib/site.ts`
    holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
    `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
    secondary 301 to it, or serve cross-domain canonicals pointing at the primary.
    Do NOT let both resolve 200 with self-canonicals.
-3. **Which domain is primary is an SEO decision, not a preference.** mazj.org
+4. **Which domain is primary is an SEO decision, not a preference.** mazj.org
    holds the Arabic ranking equity (#1-3 on head terms); mazj.sa is the
    commercial domain and matches the brand's country. Whichever is secondary must
    301, not merely redirect in the browser, or that equity is lost. The existing

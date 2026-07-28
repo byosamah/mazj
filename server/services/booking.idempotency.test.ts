@@ -37,6 +37,10 @@ vi.mock("@/server/core/rate-limit", () => ({
     ok: true,
     value: { allowed: true, remaining: 7, resetAt: new Date(), retryAfterSeconds: 0 },
   }),
+  checkRateLimits: async () => ({
+    ok: true,
+    value: { allowed: true, remaining: 7, resetAt: new Date(), retryAfterSeconds: 0 },
+  }),
   rateLimitedError: () => ({ code: "rate_limited", message: "x" }),
 }));
 
@@ -139,7 +143,7 @@ const REQUEST = {
   slotTo: "2026-08-10T18:00:00Z",
   customer: { name: "Test Person", mobile: "0534600488" },
   idempotencyKey: "key-abc-123",
-  ip: "203.0.113.9",
+  ip: { ip: "203.0.113.9", attested: true },
 };
 
 beforeEach(() => {

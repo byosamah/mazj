@@ -1,4 +1,5 @@
 import { refreshDashboard } from "../_lib/actions";
+import { requireAdmin } from "../_lib/auth";
 import {
   loadDashboardCached,
   type ReservationView,
@@ -22,7 +23,33 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const data = await loadDashboardCached();
+  // 🔴 AUTHORISED HERE TOO, not only by the layout. This is the same lesson as
+  // `refreshDashboard`, one level up: the layout guards the RENDER, and a
+  // render is not the only thing that happens on a request.
+  //
+  // `redirect()` in the layout throws, but React renders the page concurrently
+  // with its ancestors rather than after them, so the throw does not stop this
+  // component. Measured on an anonymous `curl /admin` before this line existed:
+  // the response was a correct 307 to `/admin/login` AND carried 28KB of
+  // rendered dashboard, including live Rekaz room names, occupancy and the
+  // subscription totals. The guard was working and the data escaped anyway.
+  //
+  // The check belongs where the data is READ, so it must sit above the load and
+  // be awaited. It cannot move down into `loadDashboardCached`: that is wrapped
+  // in `unstable_cache`, which forbids reading cookies and whose whole safety
+  // argument is that it holds nothing per-user. A per-session auth check inside
+  // a shared cache is the opposite of a fix.
+  //
+  // `test/admin-page-guards.test.ts` fails if any page under `(protected)/`
+  // omits this, so the layout's "you cannot forget it" property survives.
+  //
+  // Belt and braces: `loadDashboardCached` also REQUIRES the `AdminUser` this
+  // returns, so forgetting the guard is a compile error rather than a leak that
+  // a regex has to notice. The test remains as the check for pages that do not
+  // happen to read the dashboard.
+  const admin = await requireAdmin();
+
+  const data = await loadDashboardCached(admin);
 
   return (
     // A <div>, not a <main>: the layout already provides the landmark, and two

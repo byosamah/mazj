@@ -211,6 +211,31 @@ serverless: each concurrent instance has its own heap, so an in-memory counter
 limits each instance separately and the real ceiling becomes limit × instance
 count, which is no ceiling at all.
 
+🔴 **Every limit has TWO dimensions, and IP is the weaker one.** `checkRateLimits`
+records several buckets concurrently and returns the strictest verdict. Booking
+limits per-IP (8/hr) AND per-mobile (5/hr); the magic link limits per-IP (5/hr)
+AND per-submitted-address (3/hr). One dimension is not enough in either
+direction: Saudi carriers CGNAT many subscribers behind few addresses, so an IP
+ceiling tight enough to stop an attacker also blocks a real office, while a
+residential proxy pool rents a genuine un-forged address per request for pennies.
+🔴 **An EMPTY bucket list is REFUSED, not allowed**: reaching that state means
+every identity was absent, which is not a browser.
+
+🔴 **`clientIp` returns `{ip, attested}`, never a string, and NEVER the literal
+`"unknown"`.** That old sentinel hashed to a CONSTANT, so every header-less
+request on the site shared one bucket: eight bookings an hour for everybody, with
+nothing anywhere to notice. Absent is now `null` and the caller decides.
+
+🔴 **Which header to trust is CONFIGURATION (`IP_TRUST_PROXY`), not detection.**
+A request cannot report its own topology: every header that would reveal it is
+set by the same client being judged. **Vercel OVERWRITES `x-forwarded-for`** to
+prevent spoofing (so the header-rotation attack does not work there, and
+`x-real-ip` carries the same attested value, which is what Vercel's own
+`ipAddress()` reads); **Cloudflare APPENDS**, so its leftmost entry is the
+client's own claim and only `cf-connecting-ip` means anything. Unset means
+`none`, the least trusting reading, and `npm run check:env` warns about it. 🔴 Set
+it to `vercel` at launch or both limits run permanently in their weakest mode.
+
 **`rate_limit_hit`** is one `INSERT ... ON CONFLICT DO UPDATE`. A
 read-then-write limiter loses races under exactly the concurrent load it is
 supposed to defend against. It fails **closed**: if the database is unreachable
@@ -262,6 +287,30 @@ control byte in a `.ts` file is a hard ESLint parse error (`Unexpected keyword o
 identifier`), and the Bash tool refuses a command containing one, so build such
 test inputs with `chr(0)` in Python.
 
+🔴 **A log field whose KEY contains `email`, `phone`, `mobile`, `name`, `ip`,
+`key`, `auth`, `token`, `secret`, `session`, `address` or `message` is written as
+`[redacted]`.** `core/logger.ts` matches on SUBSTRING, case-insensitively, at
+every depth. The denylist is correct and stays, but it silently swallows fields
+whose contents are already safe, and it did: `booking.attempt` shipped carrying
+`submittedName` and `mobileSuffix`, both matched, so the line the code comment
+called the answer to "who actually booked this?" recorded nothing, on every
+booking, from the day it was written. Six more fields on that path and three in
+`services/admin-auth.ts` were dead the same way. 🔴 **`receipt` contains `ip`**,
+so the entire Rekaz response was redacted on the one path where a customer may
+have been charged and we could not say what for.
+
+Use `hashIdentifier(value, salt, domain)` from `core/hash.ts` for anything
+personal, and name the field so it does not collide: `originHash`,
+`submitterHash`, `idemPrefix`, `rekazResponse`, `submittedDomain`.
+`test/booking-audit-log.test.ts` pins that they survive, because "the name
+happens not to match the denylist" is luck, not a design.
+
+⚠️ **An HMAC of the submitted mobile is CORRELATION, not attribution.** In an
+impersonation the submitted number is the victim's, so its hash names the victim.
+`originHash` is what separates the two. It is evidence and never proof (it
+descends from a forwarded header, and CGNAT collapses many unrelated people onto
+one value), so nothing automated may act on it.
+
 **Never store a raw IP.** It is personal data under PDPL. `core/hash.ts` HMACs it
 with `IP_HASH_SALT` (HMAC, not a plain hash: the IPv4 space is small enough to
 brute-force an unsalted SHA-256 in minutes). Rotating the salt deliberately severs
@@ -309,6 +358,26 @@ second run is the expected outcome, not a fluke. If it fails twice in a row,
 that is a real signal. The one live booking test that exists was run by hand and
 then deleted, precisely so nothing that writes can flake.
 
+## 🔴 Booking identity: Rekaz forces the binding
+
+**A customer Rekaz already knows MUST be sent as `customerId`. Sending
+`customerDetails` with their mobile number returns HTTP 403,
+`رقم الجوال مسجل مسبقاً لعميل آخر`.** An unknown mobile is accepted; `customerId`
+is accepted. Rekaz neither deduplicates nor creates a second record: it refuses.
+
+⚠️ **Do not "fix" the impersonation risk by removing the lookup in
+`services/booking.ts`.** That was tried on 2026-07-28 and took booking down for
+every returning customer on both flows, with the failure surfacing as the generic
+`internal` copy. `server/services/booking.customer.test.ts` pins the real
+contract and explains it.
+
+The risk is real and is NOT closed: the form is public, the number is unverified,
+so anyone who knows a member's mobile can book against their account. It cannot
+be closed here. It needs proof of possession, and Rekaz exposes no OTP primitive
+(REK-029 in `docs/MAZJ-Rekaz-API-Report.pdf`). What mitigates it instead: the
+per-mobile rate limit, the audit trail (`originHash` + `submitterHash`), and the
+fact that a matched account never receives the submitter's name or email.
+
 ## The admin's three access gates
 
 `/admin` is `@mazj.org` only. The rule lives in **one** place,
@@ -320,7 +389,7 @@ three files.
 |---|---|---|
 | 1 | `services/admin-auth.ts` | An outsider ever RECEIVING a magic link |
 | 2 | Supabase `before user created` hook | The account EXISTING at all |
-| 3 | `app/admin/(protected)/layout.tsx` | A session reaching a page |
+| 3 | `app/admin/(protected)/layout.tsx` **and every page under it** | A session reaching a page, and an anonymous request reaching the DATA |
 
 🔴 **Gate 2 is the load-bearing one, and it is SQL, not TypeScript.** A request
 straight to Supabase's own `/auth/v1/otp` with the publishable key, which is

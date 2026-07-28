@@ -6,13 +6,15 @@ import {
   beginIdempotent,
   completeIdempotent,
 } from "../core/idempotency";
-import { hashIp } from "../core/hash";
+import { hashIdentifier, hashIp } from "../core/hash";
 import { log } from "../core/logger";
-import { checkRateLimit, rateLimitedError } from "../core/rate-limit";
+import { checkRateLimits, rateLimitedError } from "../core/rate-limit";
 import { err, ok, type Result } from "../core/result";
+import type { ClientIdentity } from "../core/request";
 import { normalizePhone } from "../domain/phone";
 import { riyadhDate, riyadhToday } from "../domain/riyadh-time";
 import { spaceBySlug, type SpaceMapping } from "../domain/spaces";
+import { cleanFreeText, looksLikeEmail } from "../domain/text";
 import { env } from "../env";
 import {
   absolutePaymentLink,
@@ -45,6 +47,32 @@ import type { RekazPrice, RekazProduct } from "../rekaz/types";
 const LIMIT = 8;
 const WINDOW_SECONDS = 3600;
 
+/**
+ * Bookings permitted per MOBILE NUMBER per window.
+ *
+ * Deliberately looser than it could be. A real person books once, occasionally
+ * twice after a mistake; five is far above that and far below the hundreds
+ * needed to squat a calendar. Set it tighter and the first person to book a
+ * meeting room, cancel and rebook twice is refused by their own venue.
+ *
+ * ⚠️ It does mean a determined attacker can burn a specific number's allowance
+ * and stop that person booking for an hour. That is a real cost and it is the
+ * better half of the trade: the alternative is no ceiling on how many slots one
+ * number can hold.
+ */
+const PER_MOBILE_LIMIT = 5;
+
+/**
+ * Longest customer name forwarded to Rekaz.
+ *
+ * Generous for a real name in either script, and far below "a stranger pasted a
+ * novel into your operations dashboard".
+ */
+const MAX_NAME_LENGTH = 120;
+
+/** RFC 5321's maximum path length. */
+const MAX_EMAIL_LENGTH = 254;
+
 /** How far ahead a subscription may be scheduled to start. */
 const MAX_START_DAYS_AHEAD = 365;
 
@@ -75,7 +103,8 @@ export type BookingRequest = {
   customer: BookingCustomer;
   /** Client-generated, stable across retries of the same booking. */
   idempotencyKey: string;
-  ip: string;
+  /** Client address plus whether the platform vouches for it. See `clientIp`. */
+  ip: ClientIdentity;
 };
 
 export type BookingResult = {
@@ -153,7 +182,9 @@ async function markIndeterminate(
     // reclaim applies again and the duplicate this function exists to prevent
     // becomes possible after all.
     log.error("booking.indeterminate_mark_failed", {
-      key: key.slice(0, 12),
+      // NOT `key` or `keyPrefix`: both match the logger's denylist and would be
+      // written as "[redacted]", leaving this alarm with nothing to act on.
+      idemPrefix: key.slice(0, 12),
       reason: stored.error.message,
     });
   }
@@ -174,7 +205,15 @@ export async function createBooking(
     );
   }
 
-  const name = request.customer.name.trim();
+  // 🔴 Cleaned and BOUNDED, not merely trimmed.
+  //
+  // Since bookings stopped adopting an existing Rekaz customer id, this value is
+  // written to MAZJ's operations records on every booking and rendered in the
+  // admin dashboard's Customer column. The form is public and unauthenticated,
+  // so an unbounded string here is a stranger writing arbitrary length into an
+  // internal screen, and a control character is a 503 blaming our database for
+  // their input. See `domain/text.ts`.
+  const name = cleanFreeText(request.customer.name, MAX_NAME_LENGTH);
   if (name.length < 2) {
     return err(
       errors.validation("Please enter your name.", { name: "required" })
@@ -184,14 +223,59 @@ export async function createBooking(
   // Rate limited before anything expensive. Booking creates real records in
   // MAZJ's operations system and real invoices, so an unbounded endpoint here
   // is an unbounded way to fill their dashboard with rubbish.
-  const limit = await checkRateLimit({
-    scope: "booking:create",
-    identity: hashIp(request.ip, env().IP_HASH_SALT),
-    limit: LIMIT,
-    windowSeconds: WINDOW_SECONDS,
-  });
-  if (!limit.ok) return err(limit.error);
-  if (!limit.value.allowed) return err(rateLimitedError(limit.value));
+  // Computed once and reused by the audit log below, so the bucket a request
+  // was counted against and the line recording what it did carry the SAME
+  // pseudonym. Two independent hashes of the same address would be two numbers
+  // nobody could join. Null when no address reached us at all, which is now
+  // distinguishable from "we saw one": the old code hashed the literal string
+  // "unknown" into a single bucket shared by every such request on the site.
+  const originHash = request.ip.ip
+    ? hashIp(request.ip.ip, env().IP_HASH_SALT)
+    : null;
+
+  // 🔴 TWO dimensions, checked at TWO DIFFERENT POINTS. The split is the whole
+  // point and the ordering is load-bearing.
+  //
+  // The address bounds how much one network peer can do. The mobile number
+  // bounds how much can be done TO one number, which is what actually stops the
+  // calendar being walked: an attacker with a pool of genuine residential IPs
+  // defeats the first ceiling entirely and still cannot squat every slot under
+  // one number.
+  //
+  // 🔴 The mobile bucket is keyed on a VICTIM, not on the caller, and that makes
+  // it a weapon if it is charged too early. Checked here, alongside the address,
+  // it would let five throwaway requests carrying a stranger's number (and
+  // nothing else valid) exhaust that number's allowance and lock the real owner
+  // out of booking for an hour. The counter increments before it decides, so a
+  // request that was always going to be rejected still spends the allowance.
+  //
+  // So: the SELF-keyed bucket is charged here and short-circuits, and the
+  // RESOURCE-keyed bucket is charged further down, after the price, the branch
+  // and the idempotency replay have all been resolved. A request that cannot
+  // book anything now cannot spend anybody else's allowance. The cost is that a
+  // caller already over their address limit never touches the mobile counter,
+  // which is the correct trade: a small free allowance beats an unbounded
+  // targeted lockout.
+  if (originHash) {
+    const byOrigin = await checkRateLimits([
+      {
+        scope: "booking:create",
+        identity: originHash,
+        limit: LIMIT,
+        windowSeconds: WINDOW_SECONDS,
+      },
+    ]);
+    if (!byOrigin.ok) return err(byOrigin.error);
+    if (!byOrigin.value.allowed) {
+      log.warn("booking.rate_limited", {
+        space: space.slug,
+        scope: "booking:create",
+        originHash,
+        originAttested: request.ip.attested,
+      });
+      return err(rateLimitedError(byOrigin.value));
+    }
+  }
 
   // 🔴 Resolve the product and the CURRENT price from the live catalog. The
   // browser named a price; it did not get to say what that price costs, which
@@ -265,45 +349,136 @@ export async function createBooking(
     return ok(replayed);
   }
 
-  // Silent customer matching. The result is used and never mentioned: this form
-  // is public, so echoing "welcome back" would turn it into a phone-number
-  // lookup tool. See findCustomerByMobile.
+  // The RESOURCE-keyed ceiling, charged here rather than beside the address one.
+  //
+  // Everything above this line can reject a request without it ever having been
+  // a real booking attempt: an unknown space, an invalid number, a price that no
+  // longer exists, an unreachable branch, or a replayed idempotency key. None of
+  // those may spend the allowance of whoever owns the submitted number, because
+  // the submitter does not have to be that person. By the time control reaches
+  // here the request is well-formed, priced, and not a replay, so charging the
+  // number it names is charging a genuine attempt to book against it.
+  //
+  // 🔴 If you move this call upward, read the comment beside the address bucket
+  // first. Its position IS the mitigation.
+  const byMobile = await checkRateLimits([
+    {
+      scope: "booking:mobile",
+      identity: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+      limit: PER_MOBILE_LIMIT,
+      windowSeconds: WINDOW_SECONDS,
+    },
+  ]);
+  if (!byMobile.ok) {
+    await abandonIdempotent({ scope, key: request.idempotencyKey });
+    return err(byMobile.error);
+  }
+  if (!byMobile.value.allowed) {
+    // Released, not held: the caller never dispatched anything, so a retry after
+    // the window must be able to reuse the same key rather than meeting a
+    // permanently claimed one.
+    await abandonIdempotent({ scope, key: request.idempotencyKey });
+    log.warn("booking.rate_limited", {
+      space: space.slug,
+      scope: "booking:mobile",
+      originHash,
+      originAttested: request.ip.attested,
+      submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+    });
+    return err(rateLimitedError(byMobile.value));
+  }
+
+  const submittedEmail = cleanFreeText(
+    request.customer.email ?? "",
+    MAX_EMAIL_LENGTH
+  ).toLowerCase();
+  const email = looksLikeEmail(submittedEmail) ? submittedEmail : null;
+
+  // 🔴 A RETURNING CUSTOMER MUST BE SENT AS `customerId`. REKAZ ENFORCES IT.
+  //
+  // ⚠️ Read this before "fixing" the impersonation risk described below by
+  // removing the lookup. That was tried on 2026-07-28 and it took booking down
+  // for every returning customer on both flows.
+  //
+  // MEASURED against the live API on 2026-07-28, same credential, same headers:
+  //
+  //   customerDetails whose mobileNumber already belongs to a customer
+  //     -> HTTP 403, "رقم الجوال مسجل مسبقاً لعميل آخر"
+  //        ("the mobile number is already registered to another customer")
+  //   customerDetails with a mobile Rekaz has never seen  -> accepted
+  //   customerId                                          -> accepted
+  //
+  // So Rekaz neither deduplicates nor creates a second record: it REFUSES. There
+  // is exactly one way to book for somebody already in the tenant, and this is
+  // it. 284 of our customers are already in there.
+  //
+  // 🔴 WHAT THIS COSTS, STATED PLAINLY. The form is public and unauthenticated
+  // and the number is not verified, because Rekaz exposes no way to verify one.
+  // So a single match silently binds the booking to that customer's account, and
+  // anyone who knows a member's mobile number can file a real booking against it.
+  // We cannot close that here. It is closed by proving possession of the number,
+  // which needs an OTP primitive the API does not have (see REK-029 in
+  // `docs/MAZJ-Rekaz-API-Report.pdf`).
+  //
+  // WHAT IS MITIGATED INSTEAD, none of which existed before 2026-07-28:
+  //   - a per-mobile rate limit, so one number cannot be used to walk the
+  //     calendar (see PER_MOBILE_LIMIT and the two-stage check above);
+  //   - an audit trail that actually records something, so an impersonated
+  //     booking is attributable afterwards rather than invisible (the log below
+  //     used to write "[redacted]" into every field that mattered);
+  //   - the submitted name and email are NEVER written onto a matched account,
+  //     so a stranger cannot repoint an existing customer's contact details.
   const existing = await findCustomerByMobile(mobile);
   const customerId = existing.ok ? (existing.value?.id ?? undefined) : undefined;
 
+  // Exclusive by construction: Rekaz rejects a payload carrying both, and
+  // `customerDetails` is what creates a genuinely new customer record.
   const customerDetails = customerId
     ? undefined
     : {
         name,
         mobileNumber: mobile,
-        ...(request.customer.email?.trim()
-          ? { email: request.customer.email.trim().toLowerCase() }
-          : {}),
+        // Optional, and DROPPED rather than forwarded when it is not shaped like
+        // an address. It is written onto a customer record that a human will
+        // later try to contact, so rubbish here is worse than an absent field.
+        ...(email ? { email } : {}),
       };
-
-  // 🔴 The submitter is recorded even when the booking is attached to someone
-  // else's Rekaz record.
   //
-  // The mobile number is NOT verified (owner decision: no OTP, since Rekaz
-  // exposes no way to do it). So a single match silently switches the payload
-  // from `customerDetails` to `customerId`, and the name and email typed into
-  // the form are discarded and never transmitted. Rekaz then shows a booking
-  // indistinguishable from one the account holder made themselves.
+  // 🔴 This log used to be unable to answer that question, in two separate ways.
   //
-  // That is mostly benign (no money moves until the payer follows their own
-  // payment link, and it dedupes MAZJ's 284-customer list, which is the point),
-  // but a shared office number, a family number or one mistyped digit makes it
-  // wrong, and without this log there is no way to answer "who actually booked
-  // this?". Only the last three digits of the number are kept, consistent with
-  // this codebase never storing a raw identifier.
+  // First it did not survive: it carried `submittedName` and `mobileSuffix`, and
+  // `core/logger.ts` redacts every key whose name CONTAINS "name" or "mobile",
+  // so both were written as "[redacted]" on every line. The compensating control
+  // this comment relies on had never once recorded anything.
+  //
+  // Second, and less obvious, hashing the submitted MOBILE cannot by itself
+  // distinguish an impersonator from the account holder: both typed the same
+  // number, so both produce the same value. `originHash` is what separates them,
+  // and it is the field that was missing. `submitterHash` answers "the same
+  // number was used across these bookings"; `originHash` answers "and they came
+  // from somewhere the real owner never books from".
+  //
+  // Neither is reversible without `IP_HASH_SALT`, so the trail is a set of
+  // pseudonyms rather than a customer list sitting in a third-party log store.
+  // `test/booking-audit-log.test.ts` asserts both survive redaction, because
+  // "the field name happens not to match the denylist" is not a guarantee.
+  //
+  // ⚠️ `originHash` is EVIDENCE, never proof, and nothing automated may act on
+  // it. It descends from `x-forwarded-for`, which this codebase already records
+  // as client-forgeable, and CGNAT plus shared office wifi collapse many
+  // unrelated people onto one value. It is for a human reading a trail after a
+  // complaint, not for a rule that blocks somebody.
   log.info("booking.attempt", {
     space: space.slug,
     flow: space.flow,
     priceImmutableId: price.immutableId,
-    submittedName: name,
-    mobileSuffix: mobile.slice(-3),
-    matchedCustomerId: customerId ?? null,
-    attachedToExistingCustomer: Boolean(customerId),
+    originHash,
+    // Whether the PLATFORM vouched for that address, or we merely read it out of
+    // a header the caller wrote. Without this the trail cannot tell an address
+    // worth following from one the attacker chose, and `originHash` is the field
+    // that is supposed to separate an impersonator from an account holder.
+    originAttested: request.ip.attested,
+    submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
   });
 
   // 🔴 PREPARE, then DISPATCH. The split is the whole point.
@@ -367,7 +542,11 @@ export async function createBooking(
     if (outcome === "absent") {
       // Confidently not created, so the customer may simply try again. This is
       // the common case: a timeout usually means the request never completed.
-      log.warn("booking.timeout_not_created", { space: space.slug, mobileSuffix: mobile.slice(-3) });
+      log.warn("booking.timeout_not_created", {
+        space: space.slug,
+        originHash,
+        submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+      });
       await abandonIdempotent({ scope, key: request.idempotencyKey });
       return receipt;
     }
@@ -381,8 +560,8 @@ export async function createBooking(
       space: space.slug,
       outcome,
       reference,
-      mobileSuffix: mobile.slice(-3),
-      submittedName: name,
+      originHash,
+      submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
       reason: receipt.error.message,
     });
 
@@ -418,11 +597,16 @@ export async function createBooking(
       space: space.slug,
       // ⚠️ `invoiceId` is documented but came back UNDEFINED on a real
       // reservation, so it cannot be the operator's only pointer. The whole
-      // receipt and the customer's number go in the log, or the booking is
+      // response and a pointer to the customer go in the log, or the booking is
       // unfindable when someone calls to ask what happened.
-      receipt: receipt.value,
-      mobile,
-      matchedCustomerId: customerId ?? null,
+      //
+      // 🔴 This field CANNOT be called `receipt`. The word contains "ip", which
+      // the logger's substring denylist matches, so the entire Rekaz response
+      // was written as "[redacted]" on the exact path where somebody may have
+      // been charged and we cannot tell them what for.
+      rekazResponse: receipt.value,
+      originHash,
+      submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
     });
     await markIndeterminate(scope, request.idempotencyKey, {
       space: space.slug,
@@ -483,6 +667,7 @@ async function prepareReservation(
   request: BookingRequest,
   price: RekazPrice,
   branchId: string,
+  /** Set for a customer Rekaz already knows. Mutually exclusive with details. */
   customerId: string | undefined,
   customerDetails: RekazCustomerDetails | undefined
 ): Promise<Result<Dispatch, AppError>> {
@@ -534,6 +719,7 @@ async function prepareSubscription(
   request: BookingRequest,
   price: RekazPrice,
   branchId: string,
+  /** Set for a customer Rekaz already knows. Mutually exclusive with details. */
   customerId: string | undefined,
   customerDetails: RekazCustomerDetails | undefined
 ): Promise<Result<Dispatch, AppError>> {
@@ -594,7 +780,30 @@ async function prepareSubscription(
  */
 async function lookupCustomerId(mobile: string): Promise<string | null> {
   const found = await findCustomerByMobile(mobile);
-  return found.ok ? (found.value?.id ?? null) : null;
+
+  if (found.ok) return found.value?.id ?? null;
+
+  // 🔴 A FAILED lookup is not the same as "no such customer", and collapsing the
+  // two silently is how a recoverable timeout becomes a support call.
+  //
+  // This runs only after a booking write already returned `upstream_unavailable`,
+  // so Rekaz has just proven it is unwell, and this is a second call to the same
+  // upstream under the same ceiling. It is the MOST likely moment for the lookup
+  // itself to fail. Returning null there tells `reconcileSubscription` there is
+  // nothing to search by, it answers `unknown`, and the key is closed
+  // permanently: the customer is told to contact MAZJ before trying again, for a
+  // booking that very likely never existed.
+  //
+  // Still null, because the caller has no better move than to reconcile without
+  // an id. What changes is that it is no longer SILENT: this line is the only
+  // evidence distinguishing "we asked and there is no such customer" from "we
+  // could not ask", and those lead to opposite conclusions when a human reads the
+  // trail after a customer complains.
+  log.warn("booking.customer_lookup_failed", {
+    reason: found.error.code,
+    submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+  });
+  return null;
 }
 
 /**

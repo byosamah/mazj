@@ -20,6 +20,10 @@ vi.mock("@/server/core/rate-limit", () => ({
     ok: true,
     value: { allowed: true, remaining: 7, resetAt: new Date(), retryAfterSeconds: 0 },
   }),
+  checkRateLimits: async () => ({
+    ok: true,
+    value: { allowed: true, remaining: 7, resetAt: new Date(), retryAfterSeconds: 0 },
+  }),
   rateLimitedError: () => ({ code: "rate_limited", message: "x" }),
 }));
 vi.mock("@/server/env", () => ({
@@ -104,7 +108,7 @@ const BASE = {
   space: "coworking",
   priceImmutableId: "stable",
   customer: { name: "Test Person", mobile: "0534600488" },
-  ip: "203.0.113.9",
+  ip: { ip: "203.0.113.9", attested: true },
 };
 
 describe("subscription start date", () => {

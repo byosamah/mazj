@@ -178,15 +178,63 @@ products on the store where verification already exists.
 accepted was that payment still happens on Rekaz, so an unverified booking that
 is never paid stays `Pending` and costs nothing but a held slot.
 
-✅ **Owner decision: match returning customers silently** by mobile number, so
-Rekaz's 284-customer list does not accumulate duplicates of regulars.
+⚠️ **REINSTATED 2026-07-28, by the API rather than by choice.** The decision below
+was reversed on security grounds that morning and the reversal was withdrawn the
+same day, because Rekaz does not permit it.
 
-🔴 **Silently means silently.** The matched customer's name, email or history is
-NEVER rendered back to the page. This form is public and unauthenticated, so
-echoing anything found by phone number turns it into a lookup tool: type a
-number, learn who it belongs to. The match exists to attach the booking to the
-right Rekaz record on the SERVER, and the response says nothing about whether a
-match happened.
+MEASURED on the live API: `customerDetails` whose `mobileNumber` already belongs
+to a customer returns **HTTP 403, "رقم الجوال مسجل مسبقاً لعميل آخر"**. An unknown
+mobile is accepted; `customerId` is accepted. Rekaz neither deduplicates nor
+creates a second record. It refuses. So for the 284 customers already in the
+tenant there is exactly one representable payload, and the original decision is
+the only implementable one.
+
+🔴 **The impersonation risk is therefore OPEN and cannot be closed in this
+codebase.** Closing it requires proving the submitter holds the number, and Rekaz
+exposes no way to verify one (REK-029 in `docs/MAZJ-Rekaz-API-Report.pdf`). What
+was kept from the attempted fix: a per-mobile rate limit, an audit trail that
+actually records something, and the guarantee that a matched account never has
+the submitter's name or email written onto it.
+
+The struck-through text below is retained for the record.
+
+~~SUPERSEDED 2026-07-28. Owner decision reversed: bookings are NEVER attached
+to a matched customer.~~ The original decision below was to match returning
+customers silently by mobile number so Rekaz's 284-customer list would not
+accumulate duplicates of regulars. A security review found what that costs.
+
+The form is public, unauthenticated, and the number is not verified, so "typed a
+number" was the entire proof of identity: anyone who knew a member's mobile could
+file a real booking and a real invoice against that member's Rekaz account, with
+the submitted name and email discarded. The inverse was worse. For a number NOT
+yet in Rekaz the created record carried the SUBMITTER's name and email, so
+booking once against a stranger's number left every later booking that number
+made attached to a record addressed to the attacker.
+
+The one argument with real weight for adopting an id, a member's prepaid package
+applying, is empty: the tenant holds zero packages and packages are out of scope.
+So `createBooking` now always sends `customerDetails` built from what was typed,
+and the `customerId` parameter was deleted from `prepareReservation` and
+`prepareSubscription` outright so it cannot return by accident.
+`server/services/booking.customer.test.ts` pins it, with the customer lookup
+mocked to RETURN a match.
+
+🔴 **Do not reintroduce the lookup to ship packages or day-pass credit.** Those
+need real verification of the number (OTP), not a lookup. The cost accepted here
+is that Rekaz may hold a duplicate row for a regular who books on the website,
+which no customer ever sees.
+
+The original text follows, for the record.
+
+> ✅ **Owner decision: match returning customers silently** by mobile number, so
+> Rekaz's 284-customer list does not accumulate duplicates of regulars.
+>
+> 🔴 **Silently means silently.** The matched customer's name, email or history is
+> NEVER rendered back to the page. This form is public and unauthenticated, so
+> echoing anything found by phone number turns it into a lookup tool: type a
+> number, learn who it belongs to. The match exists to attach the booking to the
+> right Rekaz record on the SERVER, and the response says nothing about whether a
+> match happened.
 
 ✅ **Owner decision: fully bilingual**, with English written by us.
 
