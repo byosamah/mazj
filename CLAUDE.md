@@ -167,14 +167,19 @@ at Vercel.**
    Reasoning in [`server/CLAUDE.md`](./server/CLAUDE.md), because JSON takes no
    comments.
 
-   ⚠️ **Supabase's auth redirect allow list still has no `.vercel.app` entry**,
-   so the admin magic link on the deployed site emails a `localhost:3000` link.
-   Marketing, booking and the admin's auth GATE all work; only completing a
-   sign-in on the deployed URL does not. Add
-   `https://mazj-tau.vercel.app/admin/auth/callback` and
-   `https://mazj-tau.vercel.app/admin/**` to Authentication > URL Configuration,
-   and set Site URL to the same origin. The `mazj.sa` / `mazj.org` entries are
-   already there for launch.
+   ✅ **Supabase's auth URL configuration was updated the same day.** Site URL
+   is `https://mazj-tau.vercel.app`, and the redirect allow list gained
+   `…/admin/auth/callback` and `…/admin/**` for that origin. The `localhost:3000`
+   entries were KEPT so local development still signs in, and the `mazj.sa` /
+   `mazj.org` entries were already there for launch.
+
+   🔴 **That list is not cosmetic, and its failure mode is silent.**
+   `app/admin/_lib/actions.ts` derives the origin from the request and passes an
+   explicit `redirectTo`. Supabase validates that against the allow list and,
+   when it does not match, does not error: it quietly substitutes Site URL. So
+   before this change the deployed admin sent a real, valid magic link that
+   landed on `localhost:3000`. Whenever a new origin starts serving `/admin`,
+   add it here or sign-in breaks in a way that looks like a mail problem.
 3. **Two domains serving identical content is duplicate content.** `lib/site.ts`
    holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
    `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
