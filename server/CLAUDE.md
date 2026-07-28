@@ -537,6 +537,22 @@ the Tokyo-versus-Europe gap was confirmed by real query round-trips.)
 works from the owner's machine because STC provides IPv6 egress. On an IPv4-only
 network use the Supavisor pooler host instead.
 
+🔴 **The same rule binds the COMPUTE, and `vercel.json` is where it is stated.**
+Picking the right database region buys nothing if the code querying it runs on
+another continent. Vercel's default function region is `iad1` (Washington DC),
+and the first production deploy on 2026-07-28 ran there: `x-vercel-id` read
+`bom1::iad1`, and `/api/health` reported **303-416ms** to a database sitting in
+Frankfurt, i.e. an Atlantic crossing on every single query. `vercel.json` pins
+`regions: ["fra1"]` to put the functions in the same city as Postgres. JSON
+takes no comments, which is the only reason this paragraph is here and not in
+that file.
+
+⚠️ **A region is not a free choice on every plan.** Hobby permits exactly one,
+so `regions` must stay a single-element array; adding a second fails the
+deployment rather than degrading. If MAZJ ever moves to a plan with multiple
+regions, Frankfurt stays primary: it is both nearest to Riyadh/Dammam of the
+European options and colocated with Supabase, and those two pull the same way.
+
 ## Verification recipe
 
 Run all of this after any schema or security change. All passing as of
