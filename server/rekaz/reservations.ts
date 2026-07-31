@@ -10,7 +10,60 @@ import type { RekazPage, RekazReservation, RekazSlot } from "./types";
 /** Rekaz caps every collection at 100 records per request. */
 export const REKAZ_PAGE_MAX = 100;
 
+/**
+ * 🔴 **`customerMobile` is the ONE filter this endpoint honours.**
+ *
+ * Measured against the live tenant on 2026-07-28. The unfiltered list reports
+ * `totalCount` 562; `customerMobile=<a real number>` returns 7, every one of
+ * them carrying that number, spanning January 2025 to July 2026. So it is a
+ * genuine query over the whole table rather than a filter applied to page one,
+ * and a number nobody has ever used returns 0. The leading plus is tolerated:
+ * `+966...` and `966...` behave identically.
+ *
+ * ⚠️ It is a SUBSTRING match, not equality. A four-digit fragment matched too,
+ * so a caller must still compare each returned row's own mobile against its own
+ * before treating that row as its own. `server/rekaz/reconcile.ts` does exactly
+ * that, and its test pins the near-miss.
+ *
+ * ⚠️ And it is an OPTIMISATION, never sole evidence. Rekaz publishes no
+ * versioning and no changelog, so an empty filtered response cannot be told
+ * apart from the filter having quietly changed. `reconcileReservation` treats
+ * it accordingly.
+ */
 export type ListReservationsOptions = {
+  /** Substring match over the customer's mobile. The one working filter. */
+  customerMobile?: string;
+  skipCount?: number;
+  maxResultCount?: number;
+  /**
+   * 🔴 Filters Rekaz ACCEPTS AND SILENTLY IGNORES. Passing any of these changes
+   * nothing whatsoever about the response.
+   *
+   * Measured 2026-07-27 and re-measured 2026-07-28: `dateMin`, `dateMax`,
+   * `upcoming`, `statuses` and `customerId` each return the identical full 562
+   * rows, including for values that match nothing at all. (`keyword` and
+   * `branchId`, which this client does not expose, were measured the same way
+   * and behave the same.) Not an error, not a warning, just the unfiltered list
+   * wearing the shape of a filtered one.
+   *
+   * They are nested behind this name rather than sitting beside `customerMobile`
+   * for one reason: as ordinary optional parameters they READ as working
+   * filters, and a future session skimming the signature would believe them.
+   * They are still sent, because they cost nothing and the day Rekaz implements
+   * them this starts working. `test/rekaz.integration.test.ts` watches the live
+   * API for exactly that day.
+   */
+  ignoredByRekaz?: IgnoredReservationFilters;
+};
+
+/**
+ * Parameters that go on the wire and do nothing.
+ *
+ * @see ListReservationsOptions.ignoredByRekaz. No caller may rely on any of
+ * these. If one is ever measured to work, move it up into
+ * `ListReservationsOptions` in the same edit that records the measurement.
+ */
+export type IgnoredReservationFilters = {
   /** ISO 8601. Inclusive lower bound on reservation start. */
   dateMin?: string;
   /** ISO 8601. Inclusive upper bound. */
@@ -19,116 +72,151 @@ export type ListReservationsOptions = {
   customerId?: string;
   /** Rekaz's own "future only" filter. */
   upcoming?: boolean;
-  skipCount?: number;
-  maxResultCount?: number;
 };
 
 /**
  * One page of reservations.
  *
- * 🔴 **Every filter this endpoint documents is silently IGNORED.** Measured
- * against the live tenant on 2026-07-27: `dateMin`, `dateMax`, `upcoming` and
- * `statuses` all return the identical first 100 rows of 555, spanning February
- * to October. Not an error, not a warning, just the unfiltered list wearing the
- * shape of a filtered one.
- *
- * The options are still accepted and still sent, because they cost nothing and
- * the day Rekaz implements them this starts working. **But no caller may rely
- * on them.** Use `fetchAllReservations` and filter in code.
+ * Use `customerMobile` when you already know whose booking you are looking for,
+ * and `fetchAllReservations` for anything that needs a date range, because a
+ * date range cannot be asked for at all.
  */
 export function listReservations(
   options: ListReservationsOptions = {}
 ): Promise<Result<RekazPage<RekazReservation>, AppError>> {
-  const { statuses, ...rest } = options;
+  const { ignoredByRekaz = {}, ...rest } = options;
+  const { statuses, ...alsoIgnored } = ignoredByRekaz;
   return rekazRequest<RekazPage<RekazReservation>>({
     path: "/reservations",
     query: {
       maxResultCount: REKAZ_PAGE_MAX,
       ...rest,
+      ...alsoIgnored,
       ...(statuses?.length ? { statuses: statuses.join(",") } : {}),
     },
   });
 }
 
 /**
- * Hard ceiling on pages fetched, so a growing tenant can never turn one
+ * Sanity ceiling on pages fetched, so a growing tenant can never turn one
  * dashboard render into an unbounded crawl of Rekaz.
+ *
+ * 🔴 An order of magnitude ABOVE today's volume, never below it. This was 4,
+ * i.e. 400 rows, against a tenant already holding 562: the function dropped 162
+ * real reservations on every single call, and the occupancy board rendered the
+ * gap as free rooms. A ceiling below the live row count is not a safety limit,
+ * it is silent data loss wearing one. 20 pages is 2,000 rows.
+ *
+ * ⚠️ It is a real cost, not a free number. Each page is its own sequential
+ * request with the client's 10s ceiling on it, so at the ceiling this function
+ * alone can hold a serverless invocation for a long time. That is why it exists
+ * at all, why reaching it is REPORTED rather than logged, and why the honest
+ * answer to a tenant that genuinely outgrows it is a stored read model, not a
+ * bigger number here.
  */
-const MAX_PAGES = 4;
+const MAX_PAGES = 20;
 
 /**
- * How far back in CREATION time to page before stopping.
+ * Everything Rekaz will give us, plus whether that was actually everything.
  *
- * The stop condition has to be expressed in creation time because that is the
- * only thing the ordering guarantees. The reasoning: a reservation for a future
- * date was necessarily created before that date, so paging back six months of
- * creations catches every upcoming booking with a lead time under six months.
- * For a coworking space that is every real booking; a year-ahead events-hall
- * reservation would be missed, which is why `MAX_PAGES` is a backstop rather
- * than the primary limit and why the truncation is logged.
+ * 🔴 `truncated` exists because the previous return type reported a short list
+ * and a complete one identically. A `log.warn` is not a report: nobody staring
+ * at an occupancy board is also reading the server log, which is precisely how
+ * a third of the table went missing for as long as it did. A caller that reads
+ * `items` and ignores `truncated` has kept the bug and added a field.
  */
-const CREATION_LOOKBACK_DAYS = 180;
+export type AllReservations = {
+  items: RekazReservation[];
+  /** Rekaz's own count of the whole table, taken from page one. */
+  totalCount: number;
+  /** True when `items` fell short of `totalCount`, for any reason. */
+  truncated: boolean;
+};
 
 /**
  * Every reservation Rekaz will give us, across pages.
  *
- * 🔴 This exists because filtering server-side is impossible (see above) AND
- * because the sort order is not what you would guess. Rows come back ordered by
- * **`creationTime` descending, NOT `startAt`**. Verified over all 555 rows:
- * `creationTime` is monotonically descending, `startAt` is not.
+ * 🔴 This exists because a date range cannot be asked for server-side (see
+ * `ListReservationsOptions`) AND because the sort order is not what you would
+ * guess. Rows come back ordered by **`creationTime` descending, NOT `startAt`**.
+ * Verified over the whole table: `creationTime` is monotonically descending,
+ * `startAt` is not.
  *
  * The consequence is the trap. "Recent pages hold the upcoming bookings" is
  * true only while people book close to the date. A booking made three months
- * ago for next Tuesday sits on page 4, so any code that reads page 1 and calls
- * it "upcoming" silently loses exactly the long-lead bookings, which for an
- * events hall are the large ones. Reading one page looks correct for months and
- * then quietly drops the most valuable reservation of the year.
+ * ago for next Tuesday sits several pages down, so any code that reads page 1
+ * and calls it "upcoming" silently loses exactly the long-lead bookings, which
+ * for an events hall are the large ones.
  *
- * 555 rows is six requests. Page 1 is fetched first for `totalCount`, then the
- * rest go out together, so the wall clock is two round trips rather than six.
+ * 🔴 **There is no creation-time cutoff any more, and there must not be one.**
+ * This used to stop paging once a page's oldest `creationTime` passed 180 days,
+ * on the reasoning that a future booking was necessarily created before it
+ * happens. That reasoning cannot bound the question every consumer actually
+ * asks, which is about `startAt`: an events hall booked in March for a wedding
+ * in September is BOTH old enough to be cut and still in the future. The
+ * dashboard then shows the hall as free while the customer is standing in it.
+ * A creation-time cutoff can never answer a start-time question. Worse, when
+ * that cut fired it skipped the truncation warning entirely, so the worst case
+ * logged nothing at all.
+ *
+ * **Paged SEQUENTIALLY, and it must stay that way.** This docblock used to
+ * claim page one was fetched for `totalCount` and "the rest go out together, so
+ * the wall clock is two round trips". That was false on both halves: the loop
+ * was strictly sequential and capped at 4 pages. It is worth saying plainly,
+ * because somebody tidying the code to match that sentence would introduce
+ * exactly the parallelism that flattens Rekaz. Six concurrent calls made an
+ * endpoint hang past two minutes that answers in 1.5s on its own, and that same
+ * API serves mazj.sa's live checkout.
  */
-export async function fetchAllReservations(
-  now: Date = new Date()
-): Promise<Result<RekazReservation[], AppError>> {
-  const cutoff = now.getTime() - CREATION_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-  const all: RekazReservation[] = [];
+export async function fetchAllReservations(): Promise<
+  Result<AllReservations, AppError>
+> {
+  const first = await listReservations({ skipCount: 0 });
+  if (!first.ok) return first;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await listReservations({ skipCount: page * REKAZ_PAGE_MAX });
+  const { totalCount } = first.value;
+  const items = [...first.value.items];
+
+  // How many pages the tenant actually holds, from Rekaz's own count, capped.
+  // Deriving it here is the fix: the page count now follows the data instead of
+  // the data being trimmed to fit the page count.
+  const pages = Math.min(Math.ceil(totalCount / REKAZ_PAGE_MAX), MAX_PAGES);
+
+  for (let page = 1; page < pages; page++) {
+    if (items.length >= totalCount) break;
+
+    const next = await listReservations({ skipCount: page * REKAZ_PAGE_MAX });
 
     // A failed page is not a reason to show nothing. Page 1 holds the most
     // recently created rows, which is where every imminent booking lives, so a
-    // partial list beats an error the reader cannot act on.
-    if (!result.ok) {
-      if (page === 0) return result;
+    // partial list beats an error the reader cannot act on. But it comes back
+    // FLAGGED, not quietly.
+    if (!next.ok) {
       log.warn("rekaz.reservations.partial", {
         page,
-        collected: all.length,
-        reason: result.error.code,
+        collected: items.length,
+        totalCount,
+        reason: next.error.code,
       });
       break;
     }
 
-    const { items, totalCount } = result.value;
-    all.push(...items);
-
-    if (all.length >= totalCount || items.length < REKAZ_PAGE_MAX) break;
-
-    // Stop as soon as this page's oldest creation predates the lookback. Every
-    // later page is older still, so nothing relevant can be down there.
-    const oldest = items[items.length - 1]?.creationTime;
-    if (oldest && Date.parse(oldest) < cutoff) break;
-
-    if (page === MAX_PAGES - 1) {
-      log.warn("rekaz.reservations.truncated", {
-        totalCount,
-        fetched: all.length,
-        reason: `hit the ${MAX_PAGES}-page cap before reaching the ${CREATION_LOOKBACK_DAYS}-day lookback`,
-      });
-    }
+    if (next.value.items.length === 0) break;
+    items.push(...next.value.items);
   }
 
-  return ok(all);
+  const truncated = items.length < totalCount;
+  if (truncated) {
+    // Logged AND returned, deliberately. The log is for whoever is on call; the
+    // flag is for the person actually looking at the screen.
+    log.warn("rekaz.reservations.truncated", {
+      collected: items.length,
+      totalCount,
+      ceiling: MAX_PAGES,
+    });
+  }
+
+  return ok({ items, totalCount, truncated });
 }
 
 /**

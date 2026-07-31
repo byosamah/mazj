@@ -14,6 +14,8 @@ import {
   REKAZ_PAGE_MAX,
 } from "@/server/rekaz/reservations";
 import { listSubscriptions } from "@/server/rekaz/subscriptions";
+import { REKAZ_PRODUCT_TYPE } from "@/server/rekaz/types";
+import { listTicketPriceOptions } from "@/server/services/event-tickets";
 import { unwrap } from "@/server/core/result";
 
 import { hasRekazCredentials } from "./setup";
@@ -71,25 +73,82 @@ describe.skipIf(!hasRekazCredentials)("rekaz live API", () => {
       const page = unwrap(await listProducts());
 
       expect(page.items.length).toBeGreaterThan(0);
+
+      // Asserted against the enum rather than a literal list, because a literal
+      // is what went red here on 2026-07-30: this read `[0, 1]` and the owner
+      // added a `2` (Merchandise) product in the Rekaz dashboard, which is not a
+      // commit and produces no diff. The alarm worked; pin it to the one place
+      // the values are declared so the next new type lands in `types.ts` first.
+      const knownTypes = Object.values(REKAZ_PRODUCT_TYPE) as number[];
+
       for (const product of page.items) {
         expect(typeof product.id).toBe("string");
         expect(typeof product.slug).toBe("string");
-        expect([0, 1]).toContain(product.type);
+        expect(
+          knownTypes,
+          `${product.slug}: unknown product type ${product.type}, add it to REKAZ_PRODUCT_TYPE and to rekaz/store.ts`
+        ).toContain(product.type);
         expect(Array.isArray(product.pricing)).toBe(true);
 
         for (const price of product.pricing) {
           expect(typeof price.id).toBe("string");
           expect(typeof price.immutableId).toBe("string");
           expect(typeof price.amount).toBe("number");
-          // Reservation prices carry `duration` (minutes), subscription prices
-          // carry `billingPeriod` (days). Exactly one must be usable, or the
-          // booking flow cannot tell the customer what they are buying.
+
+          // 🔴 SCOPED TO THE TWO BOOKING FLOWS, and that scoping is the finding
+          // rather than a way to make the test pass. Reservation prices carry
+          // `duration` (minutes) and subscription prices carry `billingPeriod`
+          // (days), and the booking flow cannot describe what somebody is buying
+          // without one of them. A one-time (Merchandise) price carries NEITHER,
+          // correctly: it is a purchase, not a term. Nothing in the booking flow
+          // ever reads one, and the event ticket that does only needs its amount.
+          if (product.type === REKAZ_PRODUCT_TYPE.merchandise) continue;
+
           const hasDuration = typeof price.duration === "number";
           const hasBillingPeriod = typeof price.billingPeriod === "number";
           expect(
             hasDuration || hasBillingPeriod,
             `price ${price.name} on ${product.slug} has neither duration nor billingPeriod`
           ).toBe(true);
+        }
+      }
+    });
+
+    it("offers the one-time ticket products, and no room, to the admin", async () => {
+      const options = unwrap(await listTicketPriceOptions());
+
+      // A room reaching this list is the expensive failure: the dropdown would
+      // put "private office, one year, 34,000 SAR" one mis-click from a 50 SAR
+      // ticket, on the form that decides what a stranger is charged.
+      const rooms = options.filter((o) =>
+        [
+          "adwyh-almsahh-almshtrkh",
+          "private-office",
+          "ghrfh-alajtmaaat-almlqa",
+          "qaah-alfaalyat-almaarj",
+        ].includes(o.productSlug)
+      );
+      expect(rooms, "a ROOM product reached the ticket dropdown").toEqual([]);
+
+      // The merchandise tickets must be reachable. This is what went wrong
+      // before 2026-07-30: the products existed, the filter admitted only
+      // subscriptions, and the dropdown read "Free" with no explanation.
+      expect(
+        options.some((o) => o.productSlug.startsWith("faalyh-tjrybyh")),
+        "no one-time ticket product is offered; check TICKETABLE_TYPES"
+      ).toBe(true);
+
+      for (const option of options) {
+        expect(typeof option.amount).toBe("number");
+
+        // 🔴 Rekaz stores a description as HTML and the admin PREFILLS a plain
+        // text box from it. Markup arriving here means angle brackets in front
+        // of the operator, and on MAZJ's own event page once saved.
+        if (option.productDescription !== null) {
+          expect(
+            option.productDescription,
+            `${option.productSlug}: markup survived htmlToPlainText`
+          ).not.toMatch(/[<>]/);
         }
       }
     });
@@ -196,22 +255,30 @@ describe.skipIf(!hasRekazCredentials)("rekaz live API", () => {
       }
     });
 
-    it("🔴 IGNORES every documented filter on /reservations", async () => {
+    it("🔴 IGNORES every DATE filter on /reservations", async () => {
       // The finding this whole pagination strategy exists for. dateMin, dateMax,
       // upcoming and statuses are all accepted and all silently ignored: each
       // returns the identical unfiltered first page. If this ever goes red,
       // Rekaz have implemented filtering and `fetchAllReservations` can stop
       // pulling the entire table on every dashboard render.
-      const [unfiltered, filtered] = await Promise.all([
-        listReservations({ maxResultCount: 100 }),
-        listReservations({
-          maxResultCount: 100,
+      //
+      // ⚠️ `customerMobile` is the ONE exception and lives outside this bag; see
+      // `ListReservationsOptions`. Nesting the dead ones under `ignoredByRekaz`
+      // is what stops the next reader believing the signature.
+      //
+      // 🔴 SEQUENTIAL, never `Promise.all`. Rekaz degrades catastrophically
+      // under concurrency and this is the same API serving mazj.sa's live
+      // checkout: load from a test run is load on somebody's purchase.
+      const unfiltered = await listReservations({ maxResultCount: 100 });
+      const filtered = await listReservations({
+        maxResultCount: 100,
+        ignoredByRekaz: {
           dateMin: "2026-07-28T00:00:00Z",
           dateMax: "2026-07-30T00:00:00Z",
           upcoming: true,
           statuses: ["Confirmed"],
-        }),
-      ]);
+        },
+      });
 
       const a = unwrap(unfiltered).items.map((r) => r.id);
       const b = unwrap(filtered).items.map((r) => r.id);
@@ -235,12 +302,20 @@ describe.skipIf(!hasRekazCredentials)("rekaz live API", () => {
 
     it("pages through the whole reservation list without duplicates", async () => {
       const all = unwrap(await fetchAllReservations());
-      const ids = all.map((r) => r.id);
+      const ids = all.items.map((r) => r.id);
 
-      expect(all.length).toBeGreaterThan(REKAZ_PAGE_MAX);
+      expect(all.items.length).toBeGreaterThan(REKAZ_PAGE_MAX);
       expect(new Set(ids).size, "pagination returned duplicate rows").toBe(
         ids.length
       );
+
+      // 🔴 The two assertions that would have caught the original loss. The
+      // page cap sat at 4, i.e. 400 rows, against a tenant already holding 562,
+      // so a third of the table was dropped on every dashboard render while
+      // this suite stayed green: "more than one page" was true of both the
+      // complete list and the broken one.
+      expect(all.items.length, "the crawl came back short").toBe(all.totalCount);
+      expect(all.truncated, "the tenant outgrew MAX_PAGES").toBe(false);
     });
 
     it("returns subscriptions in the paginated envelope", async () => {

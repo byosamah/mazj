@@ -44,7 +44,18 @@ export function errorResponse(error: AppError): Response {
   // Unexpected failures are logged in full server-side; the client gets a code.
   // This is the only place that detail is allowed to diverge, and it is the
   // reason `toPublicError` discards the message for `internal`.
-  if (error.code === "internal" || error.code === "upstream_unavailable") {
+  //
+  // 🔴 `forbidden` is on this list, and it was added the day something started
+  // returning it. `server/rekaz/client.ts` now answers a Rekaz business refusal
+  // with `forbidden` rather than `internal`, and its client-facing message is
+  // deliberately bare, so if this line did not fire the single most diagnostic
+  // failure on the booking path would produce no `request.failed` entry at all.
+  // A code that carries no detail to the caller MUST carry it to the log.
+  if (
+    error.code === "internal" ||
+    error.code === "upstream_unavailable" ||
+    error.code === "forbidden"
+  ) {
     log.error("request.failed", {
       code: error.code,
       reason: error.message,

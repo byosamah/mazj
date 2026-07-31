@@ -104,6 +104,49 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir}>
+      {/*
+        🔴 THE FONTS ARE DELIBERATELY **NOT** PRELOADED, AND THIS IS THE ONE
+        OPTIMISATION IN THIS LAYOUT THAT WAS BUILT, MEASURED, AND THEN TAKEN
+        BACK OUT. Do not "fix" the missing preload from an audit.
+
+        The observation that motivated it is real: on a throttled mobile load
+        the four woff2 files were requested at **169ms**, dead last, because a
+        @font-face URL cannot be discovered until globals.css has been fetched,
+        parsed and matched against laid-out text. Preloading them in the head
+        does move that request to the front.
+
+        It also makes the page slower, because `font-display: swap` means the
+        fonts were never blocking paint in the first place. Text renders
+        immediately in the fallback face and swaps when the real one lands, so
+        the ONLY thing preloading changes on the paint timeline is that 152 KB
+        of font bytes now compete with the render-blocking stylesheet — and win,
+        because a preload sits above it in the head.
+
+        Measured, same build, one variable, mobile Lighthouse:
+
+          route        FCP with preload    FCP without
+          /en/about          2.0s              0.9s
+          /en/spaces         2.0s              0.9s
+          /en                4.3s LCP          3.3s LCP
+
+        Mean performance across six routes was 84 with and 85 without, and the
+        two routes that had been the FASTEST on the site (`/about` and
+        `/contact`, both 95+) were the ones it hurt most. So it is not a wash
+        that happens to land badly; it is a systematic ~1s tax on first paint
+        that buys a slightly earlier swap.
+
+        ⚠️ If a preload is ever wanted here (to kill the swap flash rather than
+        to chase a metric), subset the fonts FIRST. Each file carries Latin AND
+        Arabic AND the 690 kashida swashes. Split by `unicode-range` they are
+        11.4 KB Latin + 43.2 KB Arabic against 75.7 KB combined, which was built
+        and verified during this pass: zero codepoints lost and all 690 kashida
+        glyphs retained (the naive subset silently drops 140 of them — see the
+        note in components/CLAUDE.md). At 11.4 KB a Latin preload would be
+        genuinely free. It was not shipped because English pages render Arabic
+        too, so both subsets load and the real saving is ~63 KB rather than the
+        ~190 KB it first appears to be, which did not justify touching a brand
+        asset unattended.
+      */}
       <body className="bg-beige font-sans text-black antialiased">
         {/*
           WCAG 2.4.1 Bypass Blocks (Level A). Every page already renders

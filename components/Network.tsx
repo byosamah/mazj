@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
@@ -20,8 +21,13 @@ export default function Network() {
               maskImage: "radial-gradient(75% 70% at 50% 50%, #000 40%, transparent 100%)",
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/network-bg.jpg" alt="" className="h-full w-full object-cover" />
+            <Image
+              src="/images/network-bg.jpg"
+              alt=""
+              fill
+              sizes="380px"
+              className="object-cover"
+            />
           </div>
         </div>
       </div>

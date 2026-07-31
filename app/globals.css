@@ -183,6 +183,57 @@ h3 { letter-spacing: -0.02em; }
   transform: none;
 }
 
+/* ------------------------------------------------------------------
+   OPENERS: reveal on LOAD, not on scroll.
+
+   🔴 This exists because the scroll-reveal system was the site's Largest
+   Contentful Paint bottleneck, which is not obvious and was measured rather
+   than guessed. `.reveal` and `.word-reveal .wr-word` both rest at `opacity:0`
+   and are restored ONLY by the `.is-visible` class that Reveal.tsx and
+   WordReveal.tsx add from an IntersectionObserver. An observer cannot run until
+   React has hydrated, so the h1 and the intro paragraph of every sub-page —
+   content that is already in the opening viewport and needs no scrolling to
+   reach — could not paint until ~250 KB of JavaScript had downloaded, parsed
+   and hydrated. Lighthouse put the element render delay on `/en/faq` at
+   **1291ms**, and that page carries no photography at all: its LCP was 8.2s
+   because of this alone.
+
+   An opener does not need an observer, because there is nothing to observe: it
+   is on screen at t=0. So it animates from a plain CSS animation instead, which
+   starts as soon as the stylesheet is parsed and depends on no JavaScript. The
+   scroll behaviour below the fold is untouched.
+
+   `both` holds the from-state before the delay and the to-state after, so a
+   word that has not started yet stays hidden and one that has finished stays
+   put — the same shape the transition had.
+
+   This also happens to fix the no-JS case for these two blocks, which used to
+   render permanently blank. That is a side effect, not the reason. */
+.reveal.reveal--immediate {
+  animation: revealIn 0.9s var(--ease-expo) both;
+  animation-delay: var(--rv-delay, 0ms);
+}
+@keyframes revealIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.word-reveal--immediate .wr-word {
+  /* The transition is neutralised rather than left in place: it and the
+     animation would otherwise both drive opacity, and the transition would win
+     the moment anything toggled `.is-visible` on this element later. */
+  transition: none;
+  animation: wordRevealIn 0.55s var(--ease-expo) both;
+  animation-delay: calc(var(--wi, 0) * var(--wr-step, 45ms) + var(--wr-base, 0ms));
+}
+@keyframes wordRevealIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Card variant: grows up from its own footing instead of sliding as a flat
    plane. transform-origin sits at the bottom edge so a grid of cards reads as
    rising off the surface rather than drifting down the page.
@@ -264,6 +315,15 @@ h3 { letter-spacing: -0.02em; }
   cursor: pointer;
   padding-block: 24px;
   -webkit-tap-highlight-color: transparent;
+  /* 🔴 Cancels the display type ramp's `h3 { letter-spacing: -0.02em }`.
+     The FAQ question sits in an `<h3>` (it was a `<dt>`, which made the `<dl>`
+     invalid HTML — see FaqSection.tsx), and changing the tag silently pulled in
+     that ramp: measured -0.32px of tracking on the question text where the
+     `<dt>` rendered at `normal`. The ramp is for DISPLAY headings; an FAQ
+     question is body-register text that happens to be marked up as a heading
+     so screen-reader users can jump between questions. English only, because
+     `html[lang="ar"] *` already forces `letter-spacing: normal`. */
+  letter-spacing: normal;
 }
 /* sr-only inputs stay focusable, so surface the focus ring on the label.
    🔴 The combinator must reach THROUGH the <dt>. FaqSection renders
@@ -482,7 +542,13 @@ html[lang="ar"] h1 .intro-mask {
   position: absolute;
   inset: 0;
   z-index: 1;
-  border-radius: 4px;
+  /* 🔴 NO border-radius, and removing it is a BUG FIX rather than a tidy-up.
+     `.cta` above already has `overflow: clip` with a 4px radius, so it clips
+     this to the right shape on its own. Giving the sweep its OWN matching 4px
+     radius put two antialiased curves on the same pixels, and `--cta-bg` (ink)
+     is painted underneath: the result was a faint dark tick at each of the four
+     corners of every hovered button, which the owner photographed on
+     2026-07-31. A radius here is not merely redundant, it is the artifact. */
   transform-origin: center;
   transform: translateY(101%);
   background: var(--cta-sweep, #111111);
@@ -709,7 +775,23 @@ html[lang="ar"] .hero-scrim {
   border-radius: 8px;
   overflow: clip;
   isolation: isolate;
-  background: #111111;
+  /* 🔴 CREAM, NOT INK, AND THE REASON IS THE SAME SILHOUETTE RULE `.cta` OBEYS.
+     This is the hero's primary conversion control and it sits INSIDE the dark
+     glass pill, so the ink fill it used to carry measured **1.08:1** against
+     that pill: the most important button on the site had no visible edge at
+     rest and read as a gap in the glass rather than as a control. Cream gives
+     **16.35:1** with a 17.74:1 ink label.
+
+     ⚠️ It was briefly CORAL (owner ruling 2026-07-31), which also fixed the
+     silhouette at 5.64:1, and the owner then moved it to cream the same day
+     because the hero already carried coral in three other places (the header
+     CTA, the accented headline word, and the logo card) and a fourth was too
+     much in one view. Recorded so nobody "restores" the coral as an
+     improvement. Either value clears the rule; this one is the aesthetic call.
+
+     The hover still sweeps coral, so this button obeys the SAME "solid buttons
+     fill coral on hover" rule as every `.cta` on the site. */
+  background: #fff7e9;
   cursor: pointer;
   flex-shrink: 0;
   transition: scale 0.12s var(--ease-default);
@@ -733,7 +815,11 @@ html[lang="ar"] .hero-scrim {
   position: relative;
   z-index: 2;
   font-size: 14px;
-  color: #fff7e9;
+  /* Ink, and it stays ink through the hover: 17.74:1 on the cream rest fill and
+     6.12:1 on the coral sweep, so both states clear AA on one value. The fill
+     alone carries the state change. ⚠️ NOT brown: brown on coral is 4.22:1 and
+     fails, which is what the old cream-sweep hover used. */
+  color: #111111;
   white-space: nowrap;
   transition: color 0.12s var(--ease-default);
 }
@@ -741,14 +827,25 @@ html[lang="ar"] .hero-scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
-  border-radius: 8px;
+  /* No radius, for the reason `.cta__sweep` gives at length: the parent already
+     clips at 8px, and a second matching curve over the parent's own fill is
+     what produced the corner ticks. */
   transform-origin: center;
   transform: translateY(101%);
-  background: #fff7e9;
+  /* Coral, the same sweep every solid `.cta` on the site uses, so one rule now
+     covers every solid button: **hover fills coral**. 5.64:1 against the glass
+     pill, 6.12:1 for the ink label. The coral stays full `#FF5A48`, never
+     darkened. */
+  background: #FF5A48;
   transition: transform 0.12s var(--ease-default);
 }
 @media (hover: hover) {
-  .qualify-pill-btn:hover .qualify-pill-btn-label { color: #4c2806; }
+  /* ⚠️ NO label colour change on hover any more, deliberately. It was
+     `color: #4c2806`, which was correct against the old cream sweep (12.23:1)
+     and FAILS against the coral one at **4.22:1**. Ink holds both states on a
+     single value (17.74:1 on cream, 6.12:1 on coral), so the fill alone carries
+     the change. The label keeps its `transition: color` so a future state can
+     use it without re-deriving this. */
   .qualify-pill-btn:hover .qualify-pill-btn-overlay {
     transform: translateY(0);
   }
@@ -856,12 +953,18 @@ html[lang="ar"] .hero-scrim {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: none; }
 }
+/* Two lines: the visitor's own sentence, then a quiet spec line under it.
+   `align-items: flex-start` (was `center`) so the coral mark sits on the FIRST
+   line rather than floating between the two. Vertical padding drops 12 -> 10
+   because each row is now ~2x taller: at 12 the four rows measured past the
+   panel's old six-row height, which is the one thing that would push the panel
+   below the fold on a phone again. */
 .sf-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: none;
   border-radius: 2px;
   background: transparent;
@@ -886,7 +989,30 @@ html[lang="ar"] .hero-scrim {
   outline-offset: -2px;
 }
 .sf-option[data-active="true"] { background: rgba(255, 90, 72, 0.16); }
-.sf-option-mark { color: #ff5a48; font-weight: 600; }
+/* line-height matches .sf-option-text's first line so the mark sits ON it. */
+.sf-option-mark { color: #ff5a48; font-weight: 600; line-height: 1.35; }
+/* 1.35 leading is not decoration: `html[lang="ar"] h1,h2,h3` cannot reach a
+   <span>, so Arabic in a non-heading tag needs it stated at the call site or
+   tall glyphs collide with the line beneath (components/CLAUDE.md). Two lines
+   in one box is exactly that case. `min-width: 0` lets the column shrink inside
+   the flex row instead of forcing the panel wider than the pill. */
+.sf-option-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.35;
+}
+/* The spec line: room name plus capacity, deliberately quieter than the label.
+   Measured against the panel's ~217px text column at the 320px viewport, where
+   the longest of the eight strings is `المكتب الخاص · يومي أو شهري` at 157px,
+   so nothing here wraps to a third line. It is NOT aria-hidden: it belongs in
+   the option's accessible name ("I have a meeting, Al-Malqa up to 6"), which is
+   the one place a screen-reader user is told the capacity at all. */
+.sf-option-sub {
+  font-size: 12px;
+  color: rgba(255, 247, 233, 0.62);
+}
 
 /* hero media window — a SQUARE (.sf-stage sets aspect-ratio + size) anchored
    center-end via logical props, so it mirrors for RTL. .sf-frame is the clipped

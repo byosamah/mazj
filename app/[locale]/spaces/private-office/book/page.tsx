@@ -19,6 +19,25 @@ import BookingScreen from "../../_lib/BookingScreen";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * ⚠️ Raised from the platform default (10s Hobby, 15s Pro). Route segment config
+ * governs the Server ACTIONS dispatched from the route, not only the render, and
+ * the render here is the quick part: the booking action chains several sequential
+ * Rekaz calls against a tenant measured answering between 1.2 and 10.8 seconds.
+ * Sixty buys that chain, it does not buy comfort: the per-call ceilings still sum
+ * past it, so a run where every call goes to its limit is killed anyway, and 60
+ * is the maximum on the Hobby plan so there is nothing above it to reach for.
+ *
+ * 🔴 It must stay UNDER the 90-second `STALE_AFTER_SECONDS` in
+ * `server/core/idempotency.ts`. A request allowed to outlive its own claim can
+ * still be running while a second request is told the key is free, which is two
+ * concurrent writes under one key: the precise thing the key exists to prevent.
+ * The full reasoning, including what a kill mid-write costs a customer, is on
+ * the event-hall route, which is the slowest of the four and the one this number
+ * was chosen for.
+ */
+export const maxDuration = 60;
+
 export async function generateMetadata({
   params,
 }: {

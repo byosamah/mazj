@@ -18,13 +18,63 @@ export type AdminNavItem = {
   label: string;
   /** One line under the label in the sidebar. Keep it concrete. */
   hint: string;
+  /**
+   * The word after this section's number, e.g. "3 coming up".
+   *
+   * 🔴 IT LIVES HERE BECAUSE TWO SURFACES RENDER IT. `Sidebar` announces it to a
+   * screen reader after the badge (a bare "Startups 3 2" is noise in sequence),
+   * and `/admin`'s index card prints it visibly as the figure's label. It was a
+   * `COUNT_LABEL` map inside `Sidebar.tsx` while that was the only surface, on
+   * the deliberate ground that the word should sit beside where it renders. It
+   * now renders in two places, so the choice is no longer proximity versus
+   * plain data, it is one definition versus two copies of the same word.
+   *
+   * Absent where a section publishes no count. Each of these is quoted in the
+   * comment above its own query in `_lib/nav-counts.ts`, so a query that changes
+   * meaning meets its word.
+   */
+  countLabel?: string;
+  /** Rail grouping. Plain string, mapped to a heading in Sidebar. */
+  group: "Overview" | "Programme";
+  /**
+   * lucide glyph key. 🔴 A STRING, mapped to a component in `Sidebar.tsx`, and
+   * that indirection is the whole reason this field is not the icon itself.
+   * Importing `LayoutDashboard` here would make this file depend on
+   * `lucide-react`, and every module that reads the nav (including the server
+   * layout) would pull the icon library with it. A string keeps the promise at
+   * the top of this file intact: plain data, no imports, nothing to ship.
+   */
+  icon: "dashboard" | "events" | "startups";
 };
 
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   {
     segment: "",
+    // ⚠️ The hint read "Today, occupancy, renewals" until 2026-07-30, when the
+    // Rekaz-fed dashboard was deleted (owner ruling: bookings and memberships
+    // are managed in Rekaz's own platform, so a second copy of them here is
+    // worth less than nothing). Not one of those three words survives on the
+    // page, and the group above it was "Today" for the same reason.
     label: "Dashboard",
-    hint: "Today, occupancy, renewals",
+    hint: "Open work, and where bookings live",
+    group: "Overview",
+    icon: "dashboard",
+  },
+  {
+    segment: "events",
+    label: "Events",
+    hint: "Publish events, see who signed up",
+    countLabel: "Coming up",
+    group: "Programme",
+    icon: "events",
+  },
+  {
+    segment: "startups",
+    label: "Startups",
+    hint: "Applications, offer codes, redemptions",
+    countLabel: "Waiting on you",
+    group: "Programme",
+    icon: "startups",
   },
 ] as const;
 

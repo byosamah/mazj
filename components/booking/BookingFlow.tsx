@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState, useEffect, useMemo, useState} from "react";
+import {useActionState, useEffect, useMemo, useRef, useState} from "react";
 import {useFormStatus} from "react-dom";
 import {useLocale, useTranslations} from "next-intl";
 
@@ -31,6 +31,17 @@ import type {
  */
 
 const INITIAL: BookingFormState = {status: "idle"};
+
+/**
+ * How long a fetched calendar may be replayed before it is asked for again.
+ *
+ * Slots are perishable: somebody else can take the 2pm while this visitor is
+ * still deciding. A minute keeps the cost off a duration comparison (the case
+ * the memo exists for) without ever showing a picker that is meaningfully older
+ * than the page around it. Deliberately the same minute the server's catalog
+ * memo uses, so there is ONE number to keep true across the two layers.
+ */
+const AVAILABILITY_TTL_MS = 60_000;
 
 /**
  * Rekaz's custom-field `type` enum, as observed on the live events hall.
@@ -88,9 +99,23 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
   const loadingSlots = isReservation && Boolean(priceId) && loaded?.priceId !== priceId;
   const result = loaded?.priceId === priceId ? loaded.result : null;
   const availability = result?.ok ? result.days : null;
-  // Distinguished from "no slots", because they mean opposite things: one is a
-  // fully booked fortnight, the other is our booking system being unreachable.
+  // Distinguished from "nothing to offer", because they mean opposite things:
+  // one is a fortnight with no windows in it, the other is our booking system
+  // being unreachable.
   const slotsFailed = result != null && !result.ok;
+
+  /**
+   * 🔴 REK-054. "Is there anything at all in this window", NOT "did Rekaz hand
+   * back any days". Every day in the window now exists whether or not it has
+   * windows on it, so `availability.length` is a constant and can no longer
+   * answer the question it used to be asked.
+   *
+   * ⚠️ It must NOT be read as "fully booked". Rekaz reports a closed day, a
+   * sold-out day and a withdrawn product identically, as an absence, and does
+   * not say which. The copy this gates may say only that we have nothing to
+   * show.
+   */
+  const hasOpenDays = availability?.some((d) => d.slots.length > 0) ?? false;
 
   const [state, formAction] = useActionState(submitBooking, INITIAL);
 
@@ -100,22 +125,97 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
   // idempotency of its own; this is the whole defence.
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
+  /**
+   * Availability already fetched during this page load, keyed by price.
+   *
+   * REK-042. Switching back to a duration already looked at cost a full round
+   * trip to a tenant measured answering between 1.2 and 10.8 seconds, for an
+   * answer this page was holding a moment ago. A ref rather than state, because
+   * writing it must not itself render and because it is read inside the effect
+   * that fills it.
+   *
+   * 🔴 Only SUCCESSES are kept, which is also what keeps the retry button
+   * honest: the button renders only after a failure, a failure is never stored,
+   * so a retry always issues a real request and can never be handed back the
+   * dead end it is trying to escape.
+   *
+   * ⚠️ Entries EXPIRE. Slots are perishable, and replaying a picker built ten
+   * minutes ago would offer times that have since gone, with the failure
+   * surfacing only at the end as a conflict on the last click before payment.
+   * A minute is long enough to cover somebody comparing two durations and short
+   * enough that nothing on screen is meaningfully older than the page around it.
+   */
+  const seen = useRef(new Map<string, {at: number; result: Availability}>());
+
   const selectedPrice = space.prices.find((p) => p.immutableId === priceId);
 
   useEffect(() => {
     if (!isReservation || !priceId) return;
     let cancelled = false;
 
-    fetchAvailability(space.slug, priceId).then((res) => {
-      // `cancelled` guards the out-of-order case: switch duration twice quickly
-      // and the first response can land after the second, painting slots for a
-      // price the visitor is no longer looking at.
-      if (cancelled) return;
-      setLoaded({priceId, result: res});
-      // Land on the first day that actually has capacity rather than on today,
-      // which is frequently closed (Fri/Sat) or already past its last slot.
-      setDay(res.ok ? (res.days.find((d) => d.slots.length > 0)?.day ?? "") : "");
-    });
+    // Already fetched during this page load and still fresh: replay it rather
+    // than asking again. An expired entry is dropped on the way past, so the
+    // map cannot quietly accumulate answers nobody may act on.
+    //
+    // 🔴 Wrapped in a resolved promise rather than written straight into state.
+    // A synchronous `setState` in an effect BODY is a cascading render and a
+    // lint error in this repo (`react-hooks/set-state-in-effect`), which is the
+    // same rule the note on `loaded` above is about. One microtask is not a
+    // round trip, and it keeps both outcomes on a single settle path.
+    const remembered = seen.current.get(priceId);
+    const fresh =
+      remembered && Date.now() - remembered.at < AVAILABILITY_TTL_MS
+        ? remembered.result
+        : null;
+    if (remembered && !fresh) seen.current.delete(priceId);
+
+    const pending = fresh
+      ? Promise.resolve(fresh)
+      : fetchAvailability(space.slug, priceId);
+
+    pending.then(
+      (res) => {
+        // Remembered BEFORE the cancel check, on purpose. A response that
+        // arrives after the visitor has moved on is still a true answer for the
+        // price it was asked about, so it is worth keeping even though it must
+        // not be painted.
+        if (res.ok) seen.current.set(priceId, {at: Date.now(), result: res});
+        // `cancelled` guards the out-of-order case: switch duration twice quickly
+        // and the first response can land after the second, painting slots for a
+        // price the visitor is no longer looking at.
+        if (cancelled) return;
+        setLoaded({priceId, result: res});
+        // Land on the first day that actually has capacity rather than on today,
+        // which frequently has none (the weekend, or a day already past its last
+        // slot).
+        setDay(firstOpenDay(res));
+      },
+      () => {
+        // 🔴 REK-052, and the cheapest customer-facing fix in the whole pass.
+        //
+        // This promise used to be able to settle only one way. When the action
+        // REJECTED (the visitor drops off the network, a 500, or Next's
+        // deployment-skew error after a redeploy) nothing ever wrote `loaded`,
+        // so `loadingSlots` stayed true and "Checking what is free..." was the
+        // last thing the page ever said. No error, no retry, no way out but a
+        // full reload, at the step where the money is. The error-and-retry box
+        // was already built and simply could not be reached from here, because
+        // reaching it requires a stored result.
+        //
+        // Reported as the same shape `loadAvailability` uses for an upstream
+        // failure, because from the visitor's side it IS the same event: we
+        // asked, and no answer came back. The retry button then genuinely
+        // refetches, because nothing about a failure is ever remembered.
+        //
+        // ⚠️ The two-argument `then`, not a trailing `.catch`. A `.catch` would
+        // also swallow anything thrown by the success handler above and report
+        // it to the visitor as "our booking system is not responding", which
+        // would be untrue and would hide a real bug.
+        if (cancelled) return;
+        setLoaded({priceId, result: {ok: false, reason: "upstream"}});
+        setDay("");
+      }
+    );
 
     return () => {
       cancelled = true;
@@ -189,11 +289,11 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
             </div>
           )}
 
-          {!loadingSlots && availability && availability.length === 0 && (
+          {!loadingSlots && availability && !hasOpenDays && (
             <p className="text-sm text-black/45">{t("noAvailability")}</p>
           )}
 
-          {!loadingSlots && availability && availability.length > 0 && (
+          {!loadingSlots && availability && hasOpenDays && (
             <>
               <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
                 {availability.map((d) => (
@@ -238,9 +338,16 @@ export default function BookingFlow({space}: {space: BookableSpace}) {
                     {s.startTime} - {s.endTime}
                   </button>
                 ))}
-                {daySlots && daySlots.slots.length === 0 && (
-                  <p className="text-sm text-black/45">{t("dayClosed")}</p>
-                )}
+                {/* 🔴 No "we are closed on this day" line, and no branch for an
+                    empty day at all. `day` can only ever hold a day the strip
+                    above let somebody choose, and every choosable day has slots,
+                    so the branch that used to sit here was unreachable from the
+                    moment it was written: the one honest closed-day string on
+                    the site was the one string no visitor could ever see. It was
+                    also a claim the data cannot support, since an absence means
+                    closed, sold out OR withdrawn and never says which. The
+                    disabled day in the strip carries that honestly, by asserting
+                    nothing. */}
               </div>
             </>
           )}
@@ -453,6 +560,13 @@ function Field({
       />
     </label>
   );
+}
+
+/** The first day in the window with capacity, or none when there is none. */
+function firstOpenDay(result: Availability): string {
+  return result.ok
+    ? (result.days.find((d) => d.slots.length > 0)?.day ?? "")
+    : "";
 }
 
 /** SAR, in the reader's numerals. */

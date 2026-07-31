@@ -33,7 +33,14 @@ const VICTIM = {
   name: "A Real Member",
   mobileNumber: "+966534357169",
   email: "member@example.com",
+  // 🔴 Stated rather than omitted. This field is now READ on the booking path,
+  // and a fixture that simply left it off would exercise the ordinary branch by
+  // accident while looking like it had made a choice.
+  isBlocked: false,
 };
+
+/** The same account after MAZJ blocked it in the Rekaz dashboard. */
+const BLOCKED = { ...VICTIM, id: "blocked-customer-id", isBlocked: true };
 
 const createReservation = vi.fn(async (_input: Record<string, unknown>) => ({
   ok: true as const,
@@ -44,11 +51,25 @@ const createSubscription = vi.fn(async (_input: Record<string, unknown>) => ({
   value: { invoiceId: "inv-2", reservationIds: ["r-2"], paymentLink: "/orders/pay/Y" },
 }));
 // Annotated against the real union, not inferred: `vi.fn(async () => X)` narrows
-// its return type to X, so `mockResolvedValueOnce({value: null})` would fail tsc
-// while vitest itself passed. Documented trap in server/CLAUDE.md.
-type CustomerLookup = { ok: true; value: typeof VICTIM | null };
+// its return type to X, so `mockResolvedValueOnce(...)` for any other outcome
+// would fail tsc while vitest itself passed. Documented trap in server/CLAUDE.md.
+//
+// 🔴 FOUR OUTCOMES, and the shape mirrors `CustomerMatch` in `rekaz/booking.ts`
+// deliberately. A mock that still answered "a customer or null" would be
+// asserting against an interface that no longer exists: `null` now reaches
+// `lookup.kind` and throws, rather than reading as "no such customer".
+type Match =
+  | { kind: "found"; customer: typeof VICTIM }
+  | { kind: "none" }
+  | { kind: "ambiguous"; count: number };
+type CustomerLookup =
+  | { ok: true; value: Match }
+  | { ok: false; error: { code: string; message: string } };
 const findCustomerByMobile = vi.fn(
-  async (): Promise<CustomerLookup> => ({ ok: true, value: VICTIM })
+  async (): Promise<CustomerLookup> => ({
+    ok: true,
+    value: { kind: "found", customer: VICTIM },
+  })
 );
 
 vi.mock("@/server/core/idempotency", () => ({
@@ -74,6 +95,12 @@ vi.mock("@/server/env", () => ({
     IP_HASH_SALT: "0123456789abcdef0123456789abcdef",
     REKAZ_API_BASE: "https://platform.rekaz.io/api/public",
   }),
+}));
+
+// The booking record is bookkeeping AFTER the sale, deliberately best effort in
+// the service. Stubbed to a success so nothing here depends on a database.
+vi.mock("@/server/db/bookings", () => ({
+  recordBooking: async () => ({ ok: true, value: undefined }),
 }));
 
 const PRICE = {
@@ -121,6 +148,14 @@ vi.mock("@/server/rekaz/catalog", () => ({
     },
   }),
   listBranches: async () => ({ ok: true, value: [{ id: "branch-1" }] }),
+  // `resolveBranchId` moved into `catalog.ts` on 2026-07-28 when event tickets
+  // became a second caller, so it is now a cross-module dependency of
+  // `booking.ts` and has to be declared here. Mirrors the real function: the
+  // product's own branch, falling back to the tenant's only one.
+  resolveBranchId: async (product: { branchIds?: string[] }) => ({
+    ok: true,
+    value: product.branchIds?.[0] ?? "branch-1",
+  }),
 }));
 
 vi.mock("@/server/rekaz/reservations", () => ({
@@ -224,7 +259,9 @@ describe("a returning customer is bound by customerId, because Rekaz requires it
 });
 
 describe("an unknown number creates a customer from what was typed", () => {
-  beforeEach(() => findCustomerByMobile.mockResolvedValueOnce({ ok: true, value: null }));
+  beforeEach(() =>
+    findCustomerByMobile.mockResolvedValueOnce({ ok: true, value: { kind: "none" } })
+  );
 
   it("sends customerDetails carrying the submitted values", async () => {
     await createBooking({ ...RESERVATION_REQUEST, idempotencyKey: "key-new-12345" });
@@ -262,5 +299,117 @@ describe("an unknown number creates a customer from what was typed", () => {
       unknown
     >;
     expect(Object.keys(details)).not.toContain("email");
+  });
+});
+
+describe("an account MAZJ has blocked cannot buy", () => {
+  /**
+   * 🔴 `isBlocked` was typed on the Rekaz customer and read nowhere, so a
+   * booking against a blocked account adopted that account's id and billed it
+   * exactly like any other. Blocking somebody in the Rekaz dashboard has to mean
+   * something on the site that sells to them.
+   */
+  it("refuses before anything is dispatched", async () => {
+    findCustomerByMobile.mockResolvedValueOnce({
+      ok: true,
+      value: { kind: "found", customer: BLOCKED },
+    });
+
+    const result = await createBooking({
+      ...RESERVATION_REQUEST,
+      idempotencyKey: "key-blocked-123",
+    });
+
+    expect(result.ok, "a blocked account was sold a room").toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("forbidden");
+    expect(createReservation).not.toHaveBeenCalled();
+  });
+
+  /**
+   * ⚠️ The COPY behind `forbidden` must not confirm the block. The form is
+   * public and the number is unverified, so "your account is blocked" would tell
+   * anyone who knows a member's number that the member is blocked. The action
+   * returns a code and the page renders its own sentence, which is what makes
+   * that a copy decision rather than a code one. Asserted here because the code
+   * is the only part of it this layer controls.
+   */
+  it("says so with a CODE and never with a message the browser could read", async () => {
+    findCustomerByMobile.mockResolvedValueOnce({
+      ok: true,
+      value: { kind: "found", customer: BLOCKED },
+    });
+
+    const result = await createBooking({
+      ...RESERVATION_REQUEST,
+      idempotencyKey: "key-blocked-456",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      // No field-level detail, so the form cannot highlight the mobile input and
+      // turn the refusal into a hint about whose number this is.
+      expect(result.error.fields).toBeUndefined();
+    }
+  });
+});
+
+describe("two accounts sharing one number cannot be billed", () => {
+  /**
+   * 🔴 There is no representable payload. `customerDetails` is refused because
+   * Rekaz already owns the number; choosing one of the two ids bills somebody
+   * who may not be the buyer, which is a support problem that looks like fraud.
+   * Only a human merging the duplicate upstream can unblock it, which is exactly
+   * what `forbidden`'s "message us" copy asks for.
+   */
+  it("refuses rather than guessing which customer to charge", async () => {
+    findCustomerByMobile.mockResolvedValueOnce({
+      ok: true,
+      value: { kind: "ambiguous", count: 2 },
+    });
+
+    const result = await createBooking({
+      ...RESERVATION_REQUEST,
+      idempotencyKey: "key-ambiguous-1",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("forbidden");
+    expect(createReservation).not.toHaveBeenCalled();
+  });
+});
+
+describe("a lookup we could not make is not the same as no such customer", () => {
+  /**
+   * 🔴 The two used to collapse into the same `undefined`, and they lead to
+   * OPPOSITE payloads. On a failed lookup the booking went out carrying
+   * `customerDetails` for a number Rekaz may already own, which is the one
+   * payload Rekaz refuses: 403, mapped to `internal`, rendered to the buyer as
+   * "Something went wrong on our side". 284 customers are already in that
+   * tenant, so that is the common case failing.
+   *
+   * ⚠️ THE COST OF THIS FIX, stated plainly because it is a trade and not a free
+   * win: a genuinely NEW customer, whose number Rekaz has never seen, would
+   * previously have booked successfully straight through a lookup blip and is
+   * now told to try again in a moment. That is the deliberate half. The error is
+   * retryable, the idempotency key is released, and the same key works on the
+   * retry, which is not true of the 403 it replaces.
+   */
+  it("refuses retryably rather than sending a payload Rekaz would reject", async () => {
+    findCustomerByMobile.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "upstream_unavailable", message: "Rekaz did not respond" },
+    });
+
+    const result = await createBooking({
+      ...RESERVATION_REQUEST,
+      idempotencyKey: "key-lookupdown-1",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("upstream_unavailable");
+    expect(
+      createReservation,
+      "dispatched a booking on a payload we could already predict Rekaz refuses"
+    ).not.toHaveBeenCalled();
   });
 });

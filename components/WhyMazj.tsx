@@ -1,6 +1,7 @@
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
+import AmbientVideo from "./motion/AmbientVideo";
 
 export default function WhyMazj() {
   const t = useTranslations("Why");
@@ -68,21 +69,16 @@ function VideoCard({
         align === "top" ? "items-start" : "items-center"
       }`}
     >
-      {/* Background footage: purely decorative (aria-hidden), and all three cards sit
-          below the fold. preload="none" keeps 2.4 MB of clips (why-onehouse 1.45 MB,
-          why-mazj 722 KB, why-risks 224 KB) off the critical path. The poster carries
-          the frame until the clip is fetched. */}
-      <video
-        className="absolute inset-0 z-0 h-full w-full object-cover"
-        aria-hidden="true"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="none"
-        poster={poster}
-        src={video}
-      />
+      {/* Background footage, purely decorative and well below the fold.
+          ⚠️ This used to say `preload="none"` kept the clips off the critical
+          path. It did not: `autoPlay` overrides the hint, and all three were
+          measured downloading inside the first 80ms of a cold load
+          (why-onehouse 437 KB, why-mazj 182 KB, why-risks 68 KB), competing
+          with the fonts the opening headline was blocked on. AmbientVideo
+          withholds the `src` until the card is actually approaching. */}
+      <div className="absolute inset-0 z-0">
+        <AmbientVideo src={video} poster={poster} sizes="100vw" />
+      </div>
       <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/45 via-black/25 to-black/55" />
       {/* faint hairline grid over the footage */}
       <div className="grid-overlay grid-overlay--light z-[2]" aria-hidden="true" />

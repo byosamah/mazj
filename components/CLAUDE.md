@@ -112,6 +112,56 @@ Arabic, so there is no per-locale font swap. `app/globals.css` `:root` sets
 - Hero headline (`Hero.tsx`) is `font-sans font-black` (900), subtitle
   `font-normal`.
 
+🔴 **Kashida swashes on Arabic headings are a house standard, and the font caps
+them at 5.** Thmanyah ships 690 hand-drawn elongation glyphs (138 letter shapes ×
+runs of 1-5, all four weights); there is no sixth, so a 6th tatweel silently
+degrades to six generic `U+0640` glyphs.
+
+⚠️ **That degrade was described here as "a thin flat rule that does not match the
+stroke weight", and the WEIGHT half of that is wrong.** Measured from rendered
+pixels 2026-07-30: the 6-run is the **same** thickness as its neighbours
+(13.33 CSS px at 85px, matching the letters' 12.67-13.33). What actually breaks is
+the SHAPE. A drawn swash modulates 178-220% of its median thickness and its
+centreline **rises 16-28 CSS px** across the run; the 6-run is dead constant (2%)
+and perfectly flat (0.17px rise). So it reads as a ruled line because it is
+STRAIGHT, not because it is light, and **a thickness check alone will never catch
+it.** It is also materially WIDER, not narrower: at 85px/700 the totals jump
++51.4px (`خاصة`) and +52.2px (`للمبدعين`) going from 5 to 6. The cheapest tell of
+all needs no pixels: at six the elongation measures **113.2px regardless of which
+letter precedes it**, because generic tatweels no longer know, while a real drawn
+run differs per letter (40.9 vs 32.7 at three). The rule,
+the legal joins and the verification recipe live in [`TONE.md`](../TONE.md) §8.1,
+and `test/arabic-kashida.test.ts` pins the inventory. Don't hand-tune a heading's
+tatweel count here without reading both.
+
+🔴 **THE FONTS ARE DELIBERATELY NOT PRELOADED. This was built, measured, and
+taken back out — do not "fix" the missing `rel=preload` from an audit.** The
+observation behind it is real (the four woff2 files are requested **last**, at
+169ms, because a `@font-face` URL cannot be discovered until `globals.css` has
+been fetched, parsed and matched against laid-out text). But `font-display: swap`
+means they were never blocking paint: text renders in the fallback immediately.
+So preloading only puts 152 KB of font bytes ahead of the render-blocking
+stylesheet, which they win, because a preload sits above it in the head.
+Measured on the same build with one variable changed: `/en/about` FCP **2.0s with
+the preload versus 0.9s without**, `/en/spaces` the same, and the two routes that
+had been fastest on the site were the ones it hurt most. The full reasoning is
+in a comment in `app/[locale]/layout.tsx`.
+
+⚠️ **If a preload is ever wanted (to kill the swap flash, not to chase a metric),
+SUBSET FIRST.** Split by `unicode-range` the faces are **11.4 KB Latin + 43.2 KB
+Arabic** against 75.7 KB combined. That was built and verified during the
+2026-07-31 audit: zero codepoints lost across all four weights.
+
+🔴 **The naive subset silently drops 140 of the 690 kashida glyphs (690 → 550),
+and nothing errors.** `pyftsubset`'s layout closure fails to reach the
+`*.calt4*` contextual alternates, so the swash inventory this repo depends on
+comes out quietly incomplete. Retaining them needs an explicit `--glyphs-file`
+listing every Arabic and kashida glyph BY NAME alongside `--unicodes`. Verify by
+counting `'kashida' in glyphname` before and after, never by file size. It was
+not shipped because English pages render Arabic too (14-32 characters on the
+routes measured), so both subsets load and the real saving is ~63 KB rather than
+the ~190 KB it first appears to be.
+
 **Adding or verifying a font:** `fonttools` (Python) is installed. Check a woff2's
 glyph coverage (Arabic `U+0627` plus Latin present) before wiring it, and check
 any SPECIAL character before shipping it (`U+0640` tatweel was confirmed in all
@@ -121,6 +171,18 @@ binaries with the sandbox disabled (`github.com` and `raw.githubusercontent.com`
 ARE allowed). Standalone HTML font specimens need `<meta charset="utf-8">` or
 Arabic mojibakes, and Playwright MCP can't open `file://` (serve over 127.0.0.1
 with a UTF-8 charset).
+
+🔴 **`h1`/`h2`/`h3` carry `letter-spacing: -0.02em` in `globals.css`, so CHANGING
+A TAG TO A HEADING RESTYLES THE COPY.** The FAQ questions moved from `<dt>` to
+`<h3>` (the `<dl>` was invalid HTML — the accordion's `<input>` cannot legally
+sit inside one) and silently picked up **-0.32px** of tracking at 16px. Nothing
+errored and the page looked fine; it was caught only by diffing the computed
+`letterSpacing` against the previous build. `.acc-label` now resets it to
+`normal`, and the rendered question measures 258.63px on both, byte for byte.
+The ramp is for DISPLAY headings; a question marked up as a heading for rotor
+navigation is still body-register text. **Check computed tracking after any
+tag change into `h1`-`h3`.** English only: `html[lang="ar"] *` already forces
+`letter-spacing: normal`.
 
 ## Type scale
 
@@ -238,6 +300,36 @@ USP/WhyMazj pins and the hero clip and chip intros are never created). Only the
 GSAP layer is lost; `Reveal`'s CSS base still fires. **Hard-reload before judging
 any motion work.**
 
+🔴 **GSAP, ScrollTrigger and Lenis are DYNAMICALLY imported, inside the effects
+of `ScrollFX` and `motion/SmoothScroll`.** Both are mounted in the locale layout,
+so a static import (and the module-scope `gsap.registerPlugin` that used to sit
+in `SmoothScroll`) put ~141 KB of animation runtime into the initial JavaScript
+of all 26 routes — including `/faq`, `/privacy` and `/terms`, which declare no
+scrubbed motion, and including the reduced-motion path, which returns before
+touching any of it. ⚠️ `SmoothScroll` keeps `import type Lenis` and it must stay
+a TYPE-only import: a value import of the same name puts the library straight
+back in the initial bundle while every type still checks out. Both effects guard
+the async gap with a `cancelled` flag, so a Strict-Mode double-invoke cannot tear
+down before the setup it is undoing.
+
+🔴 **`Reveal` and `WordReveal` take an `immediate` prop, and it is what keeps the
+openers paintable.** Both rest at `opacity: 0` and are restored only by the
+`.is-visible` class their IntersectionObserver adds — which cannot run until
+React has hydrated. That made every sub-page h1 and intro paragraph unpaintable
+until ~250 KB of JavaScript had landed, on content that is on screen from the
+first frame. Lighthouse measured **1291ms of element render delay** on `/en/faq`,
+whose LCP was 8.2s despite the page carrying no photography at all.
+
+`immediate` swaps the observer for a pure CSS animation
+(`.reveal--immediate` / `.word-reveal--immediate` in `globals.css`), so the
+opener paints from the stylesheet with no JS involved. It is applied at
+`PageIntro`'s four opener call sites and nowhere else.
+
+⚠️ **Do not use it below the fold**: it fires on page load, so the block would
+finish animating long before anyone scrolls to it and arrive static. And note the
+delay travels as `--rv-delay` in immediate mode rather than `transition-delay`,
+because an animation ignores the latter.
+
 **`Reveal.tsx`** (client) is the base IntersectionObserver reveal.
 
 🔴 **It is NOT no-JS-safe.** `.reveal`, `.reveal-list > *` and
@@ -305,12 +397,32 @@ both message files): it pauses every `<video>` and stamps
 whole `globals.css` pause block is unreachable.
 
 🔴 **Two rules follow from that.** `<video autoplay>` IGNORES CSS
-`prefers-reduced-motion`, and with MotionToggle unmounted NOTHING gates the 6 live
-ambient loops (Hero bg + desktop clip, nav CTA, footer dune, WhyMazj,
-FoundingBand). Reduced-motion visitors still get all of them, and a Playwright
-`reducedMotion: 'reduce'` context will NOT freeze them. If a gate is ever asked
-for it has to be JS (`usePrefersReducedMotion()` + `video.pause()`), never the
-`@media` block. And `hidden lg:block` still **DOWNLOADS** its media on mobile:
+`prefers-reduced-motion`, so a gate has to be JS (`usePrefersReducedMotion()`),
+never the `@media` block, and a Playwright `reducedMotion: 'reduce'` context will
+NOT freeze an ungated one.
+
+⚠️ **That gate now EXISTS for five of the six ambient loops, since 2026-07-31.
+This paragraph used to say nothing gated any of them; that is no longer true, and
+the distinction matters because the exceptions are not arbitrary.**
+
+| Loop | Gated under reduced motion? |
+|---|---|
+| Hero background (`mazj-hero.mp4`) | ✅ `AmbientVideo` |
+| Hero clip window (`hero.mp4`) | ✅ explicit `!reduceMotion` in `Hero.tsx` |
+| WhyMazj x3, footer dune, FoundingBand | ✅ `AmbientVideo` |
+| Nav CTA (`mazj-button.mp4`) | ❌ **still plays** |
+
+The hero's two loops are gated **together on purpose**: freezing the background
+while the square window kept moving read as a broken page rather than a calmer
+one. Never split that pair.
+
+The nav CTA is the one deliberate holdout. It is 40 KB, it is the header button's
+*fill* rather than a background, and this file records that the always-on loop IS
+the effect (ported 1:1 from Daylight, which has no hover state). Gating it is a
+brand decision, not a technical one, so it was left for the owner. **It means the
+site is NOT fully reduced-motion-safe: say "five of six", never "all".**
+
+And `hidden lg:block` still **DOWNLOADS** its media on mobile:
 conditionally render desktop-only media with `useIsDesktop()` to actually stop the
 fetch (656 KB of hero media was hitting phones).
 
@@ -328,6 +440,90 @@ one page shows the same photo twice (PageIntro hero + SpaceDetail), only the low
 instance carries the alt; the hero keeps `alt=""`.
 
 ## Media
+
+### 🔴 Every photo goes through `next/image`, and `sizes` is the load-bearing prop
+
+Added 2026-07-31. There were **zero** `next/image` call sites and 23 raw `<img>`
+tags, so every phone downloaded the desktop JPEG at desktop dimensions. Measured
+on the landing page at a 390px viewport: **566 KB of pure oversizing**, on top of
+the format penalty (`usp-control.jpg` is a 1066x1333 file painted into a 403x503
+box). `next.config.mjs` now negotiates AVIF then WebP and carries a 390 entry in
+`deviceSizes`, because without it the smallest candidate is 640 and every phone
+over-fetches by ~2.7x in area.
+
+⚠️ **A wrong `sizes` is SILENTLY expensive, never broken.** It is what picks the
+srcset candidate, so a value that overstates the box makes every phone fetch a
+desktop-width file and look perfectly correct doing it. Pass the real rendered
+width per breakpoint at every call site; `MediaFrame`'s default
+(`(min-width: 1024px) 640px, 100vw`) is the common media column, not a universal
+truth.
+
+- **`fill` everywhere**, because each call site draws into an aspect-ratio box it
+  does not know the pixel dimensions of. `fill` needs a positioned ancestor;
+  every one of these boxes was already `relative`.
+- **`priority` only where the image is in the OPENING viewport** —
+  `PageIntro`'s hero photo (the LCP element on all eight photo routes) and the
+  nav wordmark. As a raw `<img loading="eager">` the opener still went out at
+  **Low** fetch priority, queued behind every below-fold photo; `priority` is
+  what emits the preload plus `fetchPriority="high"`.
+- **`location-map.png` is `unoptimized` on purpose.** It is a hand-tuned PNG-8 at
+  256 colours (41 KB, effectively lossless against the styled map's 464 distinct
+  colours). A lossy AVIF re-encode bands the flat cream fields and rings the
+  street labels, which is the exact artifact PNG-8 was chosen to avoid.
+- **SVGs stay raw `<img>`.** Routing one through the optimizer needs
+  `dangerouslyAllowSVG`, and a 1.3 KB vector cannot be made smaller as AVIF. They
+  carry explicit `width`/`height` instead, so the row reserves its box.
+- Event posters come from Supabase Storage, so `next.config.mjs` derives a
+  `remotePatterns` entry from `NEXT_PUBLIC_SUPABASE_URL` rather than hardcoding
+  the ref (the project already moved region once, which changed it).
+
+🔴 **Verifying a `sizes` value: `naturalWidth` LIES. Read the `w=` parameter.**
+It can report a stale decode that does not match `currentSrc`, so a correct
+srcset pick looks like a 2x under-fetch. Measured 2026-07-31: `naturalWidth` 390
+while `currentSrc` was `w=828`, on a 390px box at DPR 2 (828 is the right pick).
+That reading nearly shipped as "49 images render soft on retina". The
+authoritative check is
+`new URLSearchParams(img.currentSrc.split('?')[1]).get('w')` against
+`cssWidth × devicePixelRatio`; confirm by fetching the chosen URL and reading the
+delivered file's real dimensions.
+
+### 🔴 `AmbientVideo` — `preload="none"` DOES NOT SURVIVE `autoPlay`
+
+Six background loops each carried `preload="none"` and a comment claiming that
+kept them off the critical path. It does not: a muted autoplaying video is a
+video the page has asked to start, so the browser fetches it regardless. Measured
+on one cold mobile load of `/en`: `mazj-hero.mp4` transferred **3.0 MB**,
+`why-onehouse` 437 KB, `footer-dune` 323 KB, `step-into` 199 KB, `why-mazj`
+182 KB — every one requested inside the first 80ms, all competing with the fonts
+the headline was waiting on.
+
+`components/motion/AmbientVideo.tsx` is now the single container. It withholds
+the `src` until three gates open, and paints an optimized `next/image` poster
+underneath in the meantime:
+
+1. **In view**, via IntersectionObserver with a 300px margin.
+2. **`desktopOnly`**, used only for the hero background. `hidden lg:block` is a
+   paint concern, not a fetch concern — the same trap `useMediaQuery.ts` already
+   documents. A phone drew 4.7 MB of 720p behind a scrim, a wash and the
+   headline. It now gets `hero-bg.jpg`, which IS that video's frame 0, so the
+   still and the first frame are the same picture.
+3. **Motion not reduced.** ⚠️ This is a deliberate, reversible behaviour change:
+   `<video autoplay>` ignores the CSS `prefers-reduced-motion` block, and with
+   `MotionToggle` unmounted nothing gated these loops at all. This file already
+   said the fix "has to be JS … never the `@media` block". It does **not**
+   reinstate the removed toggle and is invisible to anyone who has not opted in.
+
+🔴 **`ScrollFX` reads `[data-ambient]` BEFORE `video`, and that order is
+load-bearing.** The `pin-scale` effect grabbed the `<video>` directly; that
+element no longer exists at mount, so the lookup would return `null` and the
+scale would silently never run. The wrapper is always in the DOM and holds both
+layers, so scaling it is also the better effect — the still scales too, instead
+of snapping when the clip arrives.
+
+**Re-encoding:** only `mazj-hero.mp4` was worth it (60fps → 30fps, 4734 KB →
+3220 KB at SSIM 0.9888, frame 0 preserved so the poster stays valid). `hero.mp4`
+and `step-card.mp4` are also 60fps but already efficiently encoded — a CRF 30
+pass made both **larger**. Measure before replacing.
 
 **`MediaFrame.tsx` is the ONE media container:** a hairline `after:` ring directly
 on the surface, no white card, no drop shadow (the landing's USP idiom). Sub-pages
@@ -373,15 +569,68 @@ NOT `StepInto.tsx`). Don't swap them for a non-frame-0 image (it flashes on load
 out of the landing), so treat it as a swappable content photo.
 
 The editable **CONTENT** photos are `spaces/*`, `usp-{save,protect,control}`,
-`network-bg`, `step-into`, `contact-welcome`, `events/*` (`location-map` is a
-Google-map still, not a photo). 🔴 `spaces/office-day` and `office-month` are
-LEGACY names from when daily and monthly were separate products: they now hold the
-pod interior and the row of glass rooms respectively, so don't read the filenames
-as descriptions or "correct" the mapping. Crop a content photo to its slot's exact
-dims with
+`network-bg`, `step-into`, `contact-welcome`, `about-{blend,address,community}`,
+`events/*`, `startups`
+(`location-map` is a **custom-styled map still**, not a photo: see the recipe
+below). 🔴 `spaces/office-day` and
+`office-month` are LEGACY names from when daily and monthly were separate
+products: they now hold the pod interior and the row of glass rooms respectively,
+so don't read the filenames as descriptions or "correct" the mapping. Crop a
+content photo to its slot's exact dims with
 `ffmpeg -i SRC -vf "scale=W:H:force_original_aspect_ratio=increase,crop=W:H" -q:v 3 DEST`
 (spaces 1200×800, usp-* 1066×1333, network-bg 1013×1333, step-into 1000×1333,
-events 900×844).
+events 900×844, about-blend 1600×1066, about-address/about-community 1200×800,
+startups 1600×1066).
+
+🔴 **`/about` is the route most exposed to photo reuse, because every visitor who
+reaches it has already scrolled the landing page.** All three of its chapters
+originally ran on frames that ship elsewhere, and all three were replaced for
+that reason (the hero on 2026-07-28, the two chapters the same day). Before
+putting ANY frame on `/about`, grep the repo for the filename first: `day-desk`
+and `spaces/event` are the two most-reused images on the site (5 and 7 live call
+sites), so they are the two most likely to be picked and the two worst to pick.
+
+🔴 **`~/Downloads/Photos from Mazj` is the whole shoot: 28 frames, and 19 are
+already spent.** Before adopting a "new" photo, check this table rather than
+trusting a filename or your eye: several frames are near-duplicates of each other
+(8118/8119, 8208/8212) and several rooms were shot repeatedly from different
+angles, so a fresh-looking frame can be a crop of one already on screen.
+
+| Source | Where it already ships |
+|---|---|
+| `DSC_7830` | `spaces/meeting.jpg` |
+| `DSC_7938` / `DSC_7947` | `spaces/office-day.jpg` / `office-month.jpg` (🔴 private office ONLY, see below) |
+| `DSC_7854` | `about-address.jpg` (the `/about` "One address" chapter) |
+| `DSC_8011` | `events/women-design.jpg` **and** `about-community.jpg` (re-cut from the ORIGINAL, not from the 900×844 crop) |
+| `dsc_8062` | `network-bg.jpg` |
+| `dsc_8077` | `events/loqma-fayda.jpg` |
+| `DSC_8088` | `events/brand-factory.jpg` |
+| `dsc_8103` | `events/coffee-sketch.jpg` |
+| `dsc_8119` | `usp-save.jpg` (and `DSC_8118` is the same setup one frame apart) |
+| `DSC_8125` | `usp-protect.jpg` |
+| `DSC_8134` | `spaces/event.jpg` **and** `process-bg.jpg` |
+| `DSC_8139` | `step-reserve.jpg` **and** `usp-control.jpg` |
+| `DSC_8182` | `about-blend.jpg` (the `/about` hero) |
+| `dsc_8212` | `step-into.jpg` (and `DSC_8208` is the same stair moment) |
+| `DSC_8218` | `spaces/day-desk.jpg` |
+| `DSC_8224` | `spaces/membership.jpg` |
+| `DSC_8272` | `contact-welcome.jpg` |
+| `DSC_8020` | `startups.jpg` (the `/startups` hero, taken 2026-07-28) |
+
+**Still unused and safe to take:** `DSC_7871, 8058, 8157, 8162, 8236,
+8242`. ⚠️ `DSC_8320` (the مزج sign) is unused but **unusable**: it was shot from
+behind the glass, so the wordmark reads mirrored. `DSC_8162` is the red-cap focus
+booth, free for general use but 🔴 **never** as a private office (owner ruling,
+see the `office-day`/`office-month` note above).
+
+**How that table was derived, and how to redo it after the next shoot:** OpenCV
+`matchTemplate` / `TM_CCOEFF_NORMED` on greyscale, sliding each site image over
+each source at scales 1.0 down to 0.17, taking the best score per pair. Anything
+at or above ~0.80 is the same photograph; below ~0.65 is noise. Two traps: the
+frame-0 VIDEO POSTERS (`hero-*`, `footer-dune`, `why-*`, `step-into-video`) are
+not from this folder at all and will still return 0.5-0.7 false hits, so exclude
+them first; and a tight crop of an 8000px original legitimately matches at a
+scale as small as 0.33, so a low `frac` alone does not mean a false positive.
 
 **Changing a video's speed: set `defaultPlaybackRate` too, not just
 `playbackRate`.** The media load algorithm resets the live rate to the default on
@@ -431,6 +680,74 @@ burned-in captions), then boomerang it
 to slow it. Ken Burns (zoompan + boomerang) off a still is the fallback when
 there's no clean footage.
 
+## The location map still (`public/images/location-map.png`)
+
+Restyled 2026-07-30 (owner request). It is a **custom-styled Google map**, not a
+screenshot of Google's default styling, and the style lives in
+`scripts/mazj-map-style.json` in Snazzy Maps / Google `featureType` format.
+
+🔴 **The reason it was restyled is worth keeping: the old still named FIVE other
+businesses on MAZJ's own visit-us card**, one of them a hotel (Aloft by Marriott,
+LEGO Store, JOE & THE JUICE, Hazel Coffee, Regal Burger). `poi` visibility off is
+therefore load-bearing, not decoration. `poi.park` geometry is turned back ON
+after it, which is the one ordering dependency in the file.
+
+**Regenerating it** (pin moved, or the palette changed). There is **no Google
+Maps API key in this project**, and Static Maps 403s without one, so the route is
+Snazzy Maps' own editor, which loads the Maps JS API under *their* key:
+
+1. Resolve the pin. `MAPS_URL` in `lib/contact.ts` is a shortlink; `curl -sL` it
+   and read `!3d<lat>!4d<lng>`. Currently **26.302126, 50.176999**.
+2. Size the browser to the CSS size the card renders at, NOT an arbitrary one.
+   Measured at a 1440 viewport the card is **745×559**, so 760×570 is captured
+   and the DPR-2 screenshot lands at 1520×1140, i.e. exactly 2×. Capturing wider
+   bakes labels that are then downscaled to unreadable.
+3. Open `snazzymaps.com/editor`, then in the console build your own map on their
+   page: wipe `document.body`, append a div with **explicit px width/height**
+   (`inset:0` silently gives it height 0 on that page), and
+   `new google.maps.Map(div, {styles, disableDefaultUI:true, …})`. Await the
+   `idle` event plus ~2s. The coral pin is a `google.maps.Marker` with an SVG
+   path symbol in `#FF5A48`, anchored at the path's tip.
+4. Zoom **18** gives ~407m across at 760px, which is the agreed "destination not
+   region" frame. `road.local` labels are OFF: Google repeats a long street's
+   name once per screen-length, so at this frame it printed "21 St" four times.
+5. Save as **PNG-8, 256 colours**. Measured: the styled map holds 464 distinct
+   colours, so 256 is effectively lossless (max channel error 4) at **41KB**,
+   against 203KB for the JPEG it replaced at a LOWER resolution. JPEG also rings
+   around the street labels.
+
+**The scrim colour and the scrim POSITION are two different decisions, and only
+one of them is yours to change.**
+
+🔴 **The colour is measured and must not be reverted.** It was
+`from-black/70 via-black/20`, which was right while the map was mid-toned Google
+styling (a dark fade reads as a shadow, and Google's attribution renders white on
+dark so it stayed legible). Against the cream styled map the same fade read as
+DIRT and turned the bottom half of the card muddy grey, measured in situ at 1440.
+It is now a cream fade with ink text: 17.4:1 for the label, 7.77:1 for the arrow.
+
+⚠️ **The position is an owner instruction, taken with its cost stated.** The fade
+sits across the BOTTOM and therefore hides the "Google" wordmark and the
+"Map data ©…" line baked into the still. I moved it to the top for exactly that
+reason and the owner asked for it back at the bottom, over the logo, on
+2026-07-30. Recorded, not re-litigated. It pushes the asset further into the grey
+area it already occupied (a self-hosted capture rather than a Static Maps API
+call, because this project holds no Maps key).
+
+🔴 **A MAPS API KEY WAS OFFERED TWICE AND DECLINED, 2026-07-30. Do not propose it
+again.** The owner's reasoning: anyone who wants the real map taps the card and
+lands in Google Maps, so this is a picture of where MAZJ is rather than a map
+product. That also settles the older note in
+[[mazj-location-map-still]] that called the Static Maps API "offered for launch,
+not yet wired": it is now declined, not pending. The only remaining lever is
+easing the gradient so the last ~24px stay clear. **Do not change it silently in
+either direction.**
+
+For reference, with the fade at the top the baked attribution measured **10.47:1**
+(wordmark) and **21:1** (map data), so legibility was never the blocker, only
+placement. ⚠️ Separately, the card's `rounded-[16px]` clips a few pixels of
+"Terms" at 390px; that predates all of this.
+
 ## Recoloring baked-orange video to an exact hex
 
 Overlay a solid `bg-[#hex]` div with `mix-blend-mode:color` over the `<video>`,
@@ -445,8 +762,43 @@ with `[filter:brightness(0.x)]`. Live in `Hero.tsx`, `Footer.tsx`, `Steps.tsx`
   so the dim *is* the final lightness. Measure mean luma:
   `ffmpeg -v error -i v.mp4 -vf "fps=1,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null -`.
   `hero` and `step-card` are the same dune re-cropped (Y≈138) and take
-  `brightness(0.78)`; `footer-dune` is Y≈83 and takes none. Matching luma is what
-  makes two elements read as the same coral.
+  `brightness(0.78)`. Matching luma is what makes two elements read as the same
+  coral.
+  - 🔴 **`footer-dune` is Y≈78, and it is the case that proves a dim is NOT always
+    the right tool.** Because blend:color takes luminosity from the VIDEO, a clip
+    darker than the coral's own 137.5 drags the result down: the footer rendered
+    `rgb(186, 34, 17)` at lightness **39.8%** against the brand's 64.1%, hue
+    perfect. A **de-facto darkened coral**, the exact thing the coral rule below
+    forbids, reached through the luma channel instead of through a hex. The owner
+    read it as "red-ish" on 2026-07-30 and asked for the brand orange.
+  - ✗ **`brightness(1.77)` was the obvious fix, it is WRONG, and it was built and
+    rejected on sight.** The factor is correct arithmetic (137.52 ÷ measured mean
+    luma) and it does land the colour: 62.4% lightness, 0.0° hue error, nothing
+    clipping. But `footer-dune.mp4` is **1280x720 at 0.52 Mbps**, a very low
+    bitrate for 720p, so multiplying a dark heavily-compressed source magnifies
+    its blocking and banding. Measured high-frequency artifact energy went
+    5.2 → **9.2**, nearly double what shipped before, and a pale band blew across
+    the end-side column where both locales put the 50px `h2`, dropping that
+    heading to **1.9:1**. 🔴 **You cannot brighten your way out of a dark
+    low-bitrate source.** Check `bit_rate` with `ffprobe` before reaching for a
+    lift.
+  - ✓ **The fix is to stop asking the video for the colour at all.** Paint the
+    coral FLAT on the isolating wrapper and ride the clip on top at **15%
+    opacity**. Measured: lightness **60.6%** against the 64.1% target, hue error
+    0.0°, and artifacts drop to **0.8**, roughly 6x cleaner than the site shipped
+    before rather than worse. Nothing is brightened so nothing is over-exposed.
+    ⚠️ The `bg-orange` on that wrapper is load-bearing: `isolate` scopes the blend
+    to the group, so without a coral base inside it the 15% video composites
+    against transparency and the blend has no luminosity to take.
+  - **The general rule: a low-opacity clip over a FLAT token beats any filter when
+    the source is dark or noisy.** A brightness factor is only appropriate for a
+    clip that is too BRIGHT (`hero`/`step-card` at Y≈138, dimmed 0.78). For a dark
+    one, dilute rather than amplify.
+  - ⚠️ Any brand-correct footer costs contrast, because cream on flat `#FF5A48` is
+    **2.72:1** and that is the ceiling. Cream sits at ~2.79:1 here. Below AA, and
+    the same brand-over-metric call already accepted elsewhere (see the coral rule
+    below). The old 5.57:1 existed only because the colour was wrong. Do not "fix"
+    it by re-darkening the video, which is how this got here.
 - 🔴 **Exception: the header CTA (`mazj-button.mp4`) takes NO dim** (2026-07-23).
   The owner flagged the 0.78-dimmed coral as "darker than ours", and since the
   clip's own luma (~136) already equals `#FF5A48`'s blend-Lum (137.5), undimming
@@ -465,15 +817,42 @@ with `[filter:brightness(0.x)]`. Live in `Hero.tsx`, `Footer.tsx`, `Steps.tsx`
 ## The hero
 
 **Space-finder (`Hero.tsx`, client):** a square media window plus a facility
-dropdown. `FACILITIES[]` (config, not copy) is **6 picker entries fanned onto only
-4 `BOOKING` URLs** (`dayDesk` + `membership` → `sharedSeat`, `officeDay` +
-`officeMonth` → `privateOffice`), each with its own photo
-(`public/images/spaces/*.jpg`, pulled from mazj.sa's rekaz.io CDN, optimized with
-`sips`). Picking one crossfades its photo into the window and aims the CTA at that
-page. 🔴 The duplicated hrefs are a deliberate leftover of mazj.sa's 6→4
-restructure: the hero still offers duration as a CHOICE, while mazj.sa now handles
-duration as a variant inside each product. **Don't read it as 6 products, and
-don't "dedupe" it.** Copy = `SpaceFinder` namespace.
+dropdown. `FACILITIES[]` (config, not copy) is **4 entries on 4 `BOOKING` URLs**,
+ids matching `SpacesGrid`'s (`openDesk`, `privateOffice`, `meetingRoom`,
+`eventHall`), each with its own photo (`public/images/spaces/*.jpg`, pulled from
+mazj.sa's rekaz.io CDN, optimized with `sips`). Picking one crossfades its photo
+into the window and aims the CTA at that page. Copy = `SpaceFinder` namespace.
+
+⚠️ **It was SIX entries fanned onto those same four URLs until 2026-07-29, and
+this file used to say "don't dedupe it". That instruction is RETIRED, by owner
+ruling, and here is why so nobody restores it from a diff.** The duplication was
+a leftover of mazj.sa's own 6→4 restructure and was defensible only while the
+hero linked OUT to the storefront. Booking moved on-site on 2026-07-27, and the
+booking page takes no duration: no route under `app/[locale]/spaces/*/book/`
+reads `searchParams`, and `BookingFlow` always opens on `prices[0]`, which is
+**"One day"** for both coworking and the private office (verified against the
+live catalog). So `membership` and `officeMonth` opened a page pre-set to a
+single day, i.e. the next screen **contradicted** the label rather than merely
+ignoring it. Duration on the booking page is a price; in the hero it was a
+promise. `membership.jpg` and `office-month.jpg` left the picker but are live in
+`SpaceOffers` and on the private-office page: **do not delete them.**
+
+🔴 **The ORDER is load-bearing and is not alphabetical, by price, or by
+frequency.** The labels are the visitor's own thought, and the grammar sorts
+them: rows 1-2 open `أريد` / "I want" (where I work, for myself), rows 3-4 open
+`لديّ` / "I have" (an occasion I am hosting). Interleave them and the split
+renders as want/have/have/want and the idea disappears. It is also SpacesGrid's
+order, which is the second reason to keep it.
+
+**Each option is TWO lines** (`.sf-option-text` + `.sf-option-sub`): the sentence,
+then a quiet 12px spec line carrying the room's real name and its capacity
+(`الملقى · حتى 6 أشخاص`). 🔴 **That second line is not decoration, and it cannot
+be replaced by the chips.** `chipBase` in `Hero.tsx` resolves to `chipsDefault`
+until something is picked, and that chip reads **"Location / Al-Khobar"**, so
+while the list is OPEN the capacity chip is showing a city. Below `lg` the chips
+do not render at all, and `.sf-facts` needs BOTH a selection and a 600px-tall
+viewport. The sub line is the only surface that states "up to 30" at the moment
+the choice is actually being made, and it is in the option's accessible name.
 
 The window is a CSS square: `.sf-stage` (aspect-ratio box, anchored
 `inset-inline-end`) → `.sf-frame` (clipped: video + `.sf-slide` photo buffers +
@@ -506,6 +885,17 @@ scroll, and re-running `place()` on it clears `maxHeight`, which snapped
 the panel and `place()` restores `scrollTop` across the re-measure; **both guards
 are load-bearing.**
 
+🔴 **Once a space IS selected the CTA is a locale-aware `Link`, in the SAME TAB.**
+It was a raw `<a target="_blank" rel="noopener noreferrer">` until 2026-07-29,
+which was right only while `BOOKING` held mazj.sa URLs. Those became internal
+paths on 2026-07-27, so the old markup opened a new tab on a path with NO locale
+prefix: `/spaces/coworking/book` answers **307** to `/en/...` on a bare request
+(verified), and an Arabic visitor only landed back in Arabic because next-intl
+happened to read their `NEXT_LOCALE` cookie. `lib/links.ts` says it in its own
+header: booking is part of the journey, not a departure from it. Its label is
+`احجز الآن` / "Book now" since the same day, which also widens the trigger's
+label box by 36px in EN and 54px in AR at 448px and up.
+
 **Hero pill CTA is always SOLID and opens the picker** when nothing is selected
 (`.sf-cta-disabled` was deleted: opacity `.45` dropped its internal contrast to
 2.90x versus the reference's 14.53x and made the whole glass control read as
@@ -537,6 +927,77 @@ shrink-wraps to min-content and stacks every word. Longer chip values clip silen
 at 1024-1300 viewports; keep values ≤ ~11 uppercase chars or re-anchor the chip
 first.
 
+## 🔴 The hover rule: a hover must ADD presence, never remove it
+
+Owner ruling 2026-07-31, after the whole site's hover states were measured and
+most of them failed. **Two properties, both checkable, both non-negotiable:**
+
+1. **The control keeps a visible SILHOUETTE in BOTH states (≥2:1 fill against
+   the surface behind it).**
+2. **The label clears AA (≥4.5:1) in BOTH states.**
+
+**What was wrong, and it was not taste.** `.cta`'s sweep was set to the colour of
+the page it sits on, so hovering did not recolour the button, it DELETED it:
+
+| control | rest silhouette | hover silhouette (before) |
+|---|---|---|
+| `dark` on cream | 17.74:1 | **1.00:1** — the fill *was* the page |
+| `onTan` on tan | 15.12:1 | **1.17:1** |
+| `onLavender` | 7.39:1 | **1.89:1** |
+| `.qualify-pill-btn` (hero) | **1.08:1** at REST | 16.35:1 |
+
+The fix, and the reasoning behind each choice, is in `CtaButton.tsx`'s docblock.
+Summary: **every solid button sweeps to coral on hover** (2.90:1 silhouette,
+6.12:1 ink label); the ghost variant was already correct and is untouched; the
+hero pill is **cream at rest** (16.35:1 inside the dark glass, against the
+1.08:1 the ink fill scored) and sweeps coral like the rest.
+
+⚠️ The pill was briefly coral at rest on the same day, which also cleared the
+rule at 5.64:1. The owner moved it to cream because the hero already carried
+coral three times over (header CTA, accented headline word, logo card) and a
+fourth was too much in one view. Both values pass; this one is the aesthetic
+call, so do not "restore" the coral as an improvement.
+
+⚠️ The pill's label no longer changes colour on hover. It was brown, which is
+12.23:1 on the old cream sweep and **4.22:1 on coral, below AA**. Ink holds both
+states on one value (17.74:1 cream, 6.12:1 coral) and the fill carries the change.
+
+🔴 **`--cta-sweep` MAY NEVER BE THE COLOUR OF THE SURFACE BEHIND THE BUTTON.**
+That one mistake is the entire bug, and cream is the *right* sweep inside the
+dark hero pill (16.35:1) while being the *wrong* one on a cream page (1.00:1).
+Same value, opposite outcome. Always check against what is BEHIND.
+
+⚠️ **Coral is not the universal answer, and measuring is what proves it.** Coral
+on the lavender band is **1.63:1**, WORSE than the 1.89:1 it would have replaced,
+so `onLavender` sweeps to ink (9.99:1) instead. The consistent-looking fix was
+the wrong one on exactly one surface.
+
+⚠️ **The sweep must carry NO `border-radius` of its own.** `.cta` already clips
+with `overflow: clip` at 4px; a matching radius on the sweep puts two antialiased
+curves on the same pixels with `--cta-bg` painted underneath, which rendered as a
+faint dark tick at all four corners of every hovered button. Same for
+`.qualify-pill-btn-overlay` at 8px.
+
+**Links follow the same rule, and `hover:opacity-*` breaks it.** Eleven links
+faded to 60-70% on hover, i.e. became harder to read at the moment of intent. All
+replaced 2026-07-31:
+
+| shape | hover signal |
+|---|---|
+| plain ink link (nav, locale switcher, card titles, FAQ) | `underline decoration-transparent` → `hover:decoration-black` |
+| already-underlined link | `decoration-black/30` → `hover:decoration-black` |
+| bracketed link (`[ About ]`, footer + contact socials) | the brackets go `opacity-70` → `group-hover:opacity-100` |
+| link that renders in 3 different inks (`/about` chapters) | underline THICKENS, `decoration-1` → `hover:decoration-2`, because thickness has no hue |
+
+⚠️ `decoration-current/30` looks like the obvious colour-agnostic answer and is
+NOT: an alpha modifier on `currentColor` does not reliably compile, and it dies
+silently like every dead Tailwind class. Thickness is the colour-agnostic lever.
+
+⚠️ Every replacement transition list still names **`transform`**, because
+`active:scale-[0.96]` compiles to `transform` and a list that omits it makes the
+press snap (the trap recorded below). Verify a new hover class actually EMITS
+CSS before trusting it: grep the served chunk with a known-live control class.
+
 ## CTAs, links and press feedback
 
 The signature button is `CtaButton.tsx` (variants `dark`/`light`/`onLavender`/
@@ -550,8 +1011,33 @@ URLs, `SOCIALS`, `ZATCA_TAX_NUMBER`) and `lib/contact.ts` (`WHATSAPP_NUMBER` +
 
 🔴 The site is **self-serve first**: primary CTAs go to `/spaces`, never WhatsApp.
 `waLink` survives only in `/contact`, `/faq`'s closing CTA, `LocationHours`, the
-`/spaces` "not sure which fits?" block, and `FoundingBand`. **Never label anything
-"Pricing" or "Plans".** Booking and checkout still go to `BOOKING.*` on mazj.sa.
+`/spaces` "not sure which fits?" block, and (owner decision
+2026-07-28) **`/about`'s closing plate**. **Never label anything
+"Pricing" or "Plans".**
+
+⚠️ **`FoundingBand` LEFT that list on 2026-07-28** and is the clearest case of
+the self-serve test being applied. Its CTA was a prefilled WhatsApp message
+because the startups offer had nowhere to send anyone; now it goes to
+`/startups`, which explains the offer and takes a real application. The
+`Founding.ctaMsg` key was deleted from both message files in the same change.
+The offer's TERMS are still told in person, which is a copy rule (`TONE.md` §6),
+not a reason for the button to open a chat. ⚠️ Booking is no longer an outbound link at all:
+`BOOKING.*` became on-site `/spaces/<space>/book` paths on 2026-07-27 and only
+the card step leaves, to `platform.rekaz.io` (root `CLAUDE.md`). This line said
+"still go to mazj.sa" until 2026-07-28.
+
+**Why `/about` earned the WhatsApp exception, and the test that grants one.** A
+tour is the one thing on this site that **cannot be self-served**: there is no
+tour product in Rekaz, so `/spaces` cannot sell one. `/about`'s closing copy
+promised "book a tour" while both its buttons pointed at listing pages, i.e. the
+page's last sentence named an action no control on it performed. Every other
+tour CTA (`LocationHours`, `SpaceOffers`, the `Faq` answer, `/contact`) was
+already `waLink`, so the odd one out was `/about`, not the exception. **The test
+is whether a self-serve path exists for the thing the copy promises**, not
+whether the page feels commercial: `/about` keeps `/spaces` as its secondary
+button precisely so the self-serve route is still one click away. Do not read
+this as licence to make WhatsApp primary on a page where `/spaces` can actually
+close the loop.
 
 **Press feedback (scale-on-press)** is centralized in `app/globals.css` as
 `:active { scale: 0.96 }` on the shared interactive classes (`.cta`,
@@ -626,10 +1112,23 @@ across the archive's 1994px block). Scroll them into view or add `.is-visible`
 yourself.
 
 Capture with Playwright `reducedMotion: 'reduce'` (which disables ScrollFX and CSS
-animations) for deterministic final positions. It does **not** pause raw
-`<video autoplay loop>`, and nothing else does either now that `MotionToggle` is
-unmounted sitewide, so ambient videos keep playing on every route and nothing is
-ever frozen on one frame for you. Pause them yourself in the same session before
+animations) for deterministic final positions. It does **not** pause a raw
+`<video autoplay loop>` by itself.
+
+🔴 **But since 2026-07-31 that context CHANGES WHAT IS ON THE PAGE, and a capture
+agent that does not know this will file a false bug.** Five of the six ambient
+loops are gated on `usePrefersReducedMotion()`, and the gate does not pause them,
+it **never mounts the `<video>` at all**: you get the `next/image` poster instead.
+So under the very capture mode this section tells you to use, the hero background,
+the hero clip window, the three WhyMazj clips, the footer dune and FoundingBand
+are all STILLS. That is correct behaviour, not a broken page, and it is not what a
+real visitor without the preference sees. Only the nav CTA (`mazj-button.mp4`)
+keeps playing.
+
+**So: to photograph the site as most visitors see it, do NOT use
+`reducedMotion: 'reduce'`** — take normal motion and pause the videos yourself.
+Use the reduced-motion context only when you want the reveal-state rescue, and
+expect posters where clips would be. Pause videos in the same session before
 measuring anything over video
 (`document.querySelectorAll('video').forEach(v => v.pause())`), or sample ≥12
 frames ~620ms apart and take the worst case.
@@ -638,6 +1137,70 @@ The page never reaches Playwright `networkidle` (looping autoplay videos keep th
 network busy), so wait on `domcontentloaded` + `wait_for_selector('header')` +
 a short settle instead. If the Chrome extension is unconnected, delegate capture to
 a subagent (system `chrome --headless=new --screenshot`, or Playwright).
+
+🔴 **The chrome-devtools MCP is the best full-page route, and `fullPage: true`
+DEFEATS the svh problem** that makes tall `--window-size` captures useless.
+`captureBeyondViewport` keeps the layout viewport at whatever `resize_page` set,
+so `svh` stays bound to THAT height instead of expanding to the content:
+`resize_page(1440, 900)` then `take_screenshot({fullPage: true})` returns the
+whole page with every `min-h-svh` section a sane 900px. Three traps: `filePath`
+must be INSIDE the workspace root (same as Playwright MCP: save to the repo,
+then move); output is at **DPR 2**, so a 1440px page returns 2880px wide and
+every crop coordinate must be scaled; and availability varies run to run, so
+ToolSearch for it before assuming system Chrome is the only fallback.
+
+🔴 **`resize_page` CANNOT go below ~500px on macOS: it reports success while
+`innerWidth` stays 500**, so a 320px pass silently measures desktop and passes.
+Use `emulate` with a CDP device-metrics override (`320x800x2, mobile, touch`)
+and ASSERT `window.innerWidth` before trusting a number.
+
+⚠️ **It also refuses to START when a stale browser still holds its profile**
+(`The browser is already running for ~/.cache/chrome-devtools-mcp/chrome-profile`),
+and `list_pages` fails with the same message, so it reads as "the MCP is down"
+rather than "the profile is locked".
+
+🔴 **Do NOT `pkill -f chrome-devtools-mcp` to clear it. That pattern matches the
+MCP SERVER as well as the browser, and killing it removes every
+`mcp__plugin_chrome-devtools-mcp__*` tool for the REST OF THE SESSION** — the
+tools stop existing and ToolSearch returns no match for them, so there is no way
+back. Done once, 2026-07-31, on the strength of this file's own previous advice
+("kill that PID"), which is why that advice is gone.
+
+Recover instead by switching to claude-in-chrome (separate profile, unaffected),
+or by dropping the MCP entirely: `npx --yes lighthouse@latest` and Python
+Playwright both need no browser MCP and did the whole job that day.
+
+🔴 **A static capture of `/about` shows its chapter photos MISSING, and both
+causes look like your bug.** `MediaFrame` renders `loading="lazy"`, so below-fold
+images report `naturalWidth === 0` and never fetch; and `data-fx="clip"` holds
+`clip-path: inset(34% 12% 28% round 16px)` until ScrollTrigger fires. Together
+they read as a broken image path plus broken CSS, and cost a false alarm on
+2026-07-28. **Drive a REAL scroll first** (Lenis owns scroll, so
+`getLenis()?.scrollTo(y, {immediate: true, force: true})`, imported from
+`components/motion/SmoothScroll`, stepped in ~400px
+increments with a ~90ms wait), then assert `naturalWidth > 0` and
+`clipPath === "inset(0% round 16px)"` before you believe a blank frame.
+  - 🔴 **There is no `window.lenis`, and this file told you there was until
+    2026-07-30.** The instance is module-scoped (`getLenis()` in
+    `components/motion/SmoothScroll`) and is **not created at all** under reduced
+    motion, which is the very context every capture recipe here tells you to use.
+    So the Lenis handle a capture script reaches for is `undefined`, the scroll
+    silently does nothing, and the agent reports the section as blank: the exact
+    false alarm this bullet exists to prevent. **Under `reducedMotion: 'reduce'`,
+    plain `window.scrollTo` is authoritative and works.** Reach for `getLenis()`
+    only in a normal-motion session.
+
+🔴 **The small black circular "N" in a dev screenshot is Next's DEV-TOOLS
+INDICATOR, not your layout.** It is `position:fixed`, so it does not mirror in
+RTL and it sits ON TOP of real text at 390px, which is exactly what a genuine
+mobile overlap looks like. A capture subagent reported it as a confirmed layout
+bug on 2026-07-28, with a careful write-up naming the two headings it "broke",
+and its own strongest evidence (it stayed on the physical left while the Arabic
+content mirrored right) was the proof it was not part of the page. It cannot
+exist in production. **Settle it in one command rather than reasoning about it:**
+`curl -s localhost:3000/<route> | grep -c next-devtools` returns 1 on the dev
+server and 0 on a real `npm start`. Worth telling capture agents up front, since
+they cannot know.
 
 🔴 **Tall `--window-size` captures are defeated by `svh` sections:** the landing
 hero (`h-svh min-h-[min(640px,100svh)]`), the WhyMazj video cards
@@ -652,6 +1215,14 @@ use a real viewport with a JS-capable tool, or verify via the DOM instead.
 
 ## Overflow and fit
 
+- **Neither `--window-size=390` NOR claude-in-chrome `resize_window` emulates a
+  narrow viewport.** The first lays out desktop and crops; the second reports
+  "Successfully resized" while `window.innerWidth` stays at the desktop value,
+  so the numbers look measured and are not. Font metrics ARE linear in
+  font-size, so PROJECT instead: measure the string once at 100px, divide by
+  100, multiply by the target breakpoint's size, and compare against that
+  breakpoint's column. That cleared the kashida `h1` at **178.9px** against the
+  **272px** column at 320vw without ever rendering at 320px.
 - **Overflow checks need BOTH methods.** `body` and `<main>` both set
   `overflow-x:hidden`, so `documentElement.scrollWidth` under-reports and reads
   clean while content overflows. Walk each element's bounding rect against the
@@ -659,6 +1230,12 @@ use a real viewport with a JS-capable tool, or verify via the DOM instead.
   text overflowing its own box (`whitespace-nowrap`), since the box stays at
   container width: only `el.scrollWidth > el.clientWidth` on that element catches
   it. **Run both.**
+- ⚠️ **`sr-only` spans are FALSE POSITIVES in that second method.** The class
+  clips them to a 1px box, so each one reports its whole text width as overflow:
+  measured `scrollWidth 117 / clientWidth 1` on an "(opens in a new tab)" span at
+  390 on `/admin`, where the page's real overflow was **zero**
+  (`documentElement.scrollWidth === innerWidth === 390`). Two of them made a clean
+  page read as two defects. Filter the class out before counting.
 - 🔴 **`el.scrollWidth > el.clientWidth` is BLIND on a `flex-1 truncate` label.**
   The span stretches to fill its box, so `scrollWidth` returns the BOX width
   whenever the text fits: the test reports equal-and-fine with zero slack
@@ -674,6 +1251,12 @@ use a real viewport with a JS-capable tool, or verify via the DOM instead.
   shorthand (`900 85px "Thmanyah Sans"`) → `actualBoundingBoxAscent` /
   `Descent`, and find the real baseline by injecting a 0×0
   `vertical-align:baseline` probe span into the line.
+  - ⚠️ **That probe must run PER LINE, not per element.** Appended to a
+    multi-line heading it measures the LAST line's baseline against a ONE-line
+    box and returns a negative "room" (measured `-47` on `/about`'s two-line
+    `closingTitle`). Probe each `.wr-line`, or the first text node. A negative or
+    absurd result is the tell that you measured the wrong box, **not** that the
+    heading clips: confirm visually before acting on it.
 - **Responsive fit is testable without a mobile viewport: rebuild the component's
   box at fixed widths.** Recreate the real geometry in a specimen rig (the
   component's flex/padding/gap values plus the actual woff2) at each breakpoint's
@@ -682,6 +1265,15 @@ use a real viewport with a JS-capable tool, or verify via the DOM instead.
   BY HAND per case (`.sf-trigger` padding/gap under 360, `.qualify-pill-btn`
   padding under 359) or all rows silently test desktop geometry and pass. Cheaper
   and more honest than fighting `--window-size`.
+- 🔴 **For pure text WIDTHS, shape the real woff2 with HarfBuzz: exact, not
+  approximate.** `pip install uharfbuzz` (sandbox off), shape at the element's px
+  size; it reproduced all seven of `TONE.md` §7's browser-measured values to
+  **0.1px**. Two traps, both SILENT: HarfBuzz here is built without brotli, so
+  `hb.Face(<woff2 bytes>)` shapes everything to `.notdef` and every n-character
+  string returns the SAME width (identical widths for different strings is the
+  only tell); and `TTFont(path).save()` round-trips back to woff2, so set
+  `font.flavor = None` first. Tracking is per character for Latin and **zero**
+  for Arabic (`html[lang="ar"] *` neutralises it).
 - **When no JS-capable browser tool is up**, run the ink-width and baseline-probe
   measurements in that same rig: copy the woff2 into the scratchpad beside the
   specimen, `python3 -m http.server`, have the script write its numbers into the
@@ -781,8 +1373,72 @@ numbers on cream. **Leave them.** Any real fix must keep the coral at full
   TEXT (std 3 → 30, pure artifact), and `element.screenshot()` on a fractional-px
   bbox returns 802×122 not 800×120, so edge rows are half background: re-cut on
   the device grid before measuring a 1px rim.
+- 🔴 **An offscreen measuring span does NOT load the webfont, and
+  `document.fonts.ready` resolves anyway.** Nothing visible uses the face, so it
+  is never requested, and every width comes back in the FALLBACK font. The
+  output is plausible rather than obviously broken, which is what makes it
+  expensive: a kashida sweep returned a uniform `0.203em` for all 220 Arabic
+  codepoints and read as a real finding about the font. Call
+  `await document.fonts.load('900 100px "Thmanyah Sans"', sample)` FIRST, and
+  assert one known width as a control before trusting the run.
 
 ---
+
+## `components/ui/` and `components/admin/`: the ADMIN's design system
+
+Added 2026-07-29. 🔴 **Neither folder is part of the marketing site and neither
+may be imported from one.** `components/ui/` is shadcn, vendored from the
+`new-york-v4` registry and patched for this repo's Tailwind 3.4;
+`components/admin/` is the 22 MAZJ primitives built on top. Both style
+themselves with tokens that resolve through CSS custom properties defined in
+`app/admin/admin.css`, which only the admin's own root layout imports.
+
+⚠️ Used on a marketing page they do not throw and they do not look broken: the
+declaration is invalid, the browser drops it, and the element keeps whatever it
+inherited. `eslint.config.mjs` bans the imports; nothing can ban a copied class
+name. **The full mechanics, the four silent traps, and the vendoring script live
+in [`../app/CLAUDE.md`](../app/CLAUDE.md) under "The admin's design system".**
+
+🔴 **`cn()` from `@/lib/utils` is sanctioned in those two folders and forbidden
+everywhere else in `components/`.** The marketing site composes its classes
+literally on purpose: a literal class list is greppable, and this repo has been
+bitten by a format-on-save linter rewriting Tailwind values it could see. Values
+hidden behind a merge function are values it cannot.
+
+## `components/events/`
+
+Added 2026-07-28, when `/events` stopped being static copy. Four files:
+`EventCard`, `UpcomingEvents`, `PastEvents`, `EventRegistration`. The first
+three are Server Components; only the form is a client one.
+
+🔴 **They take DATA, not translations, for the event itself.** `useTranslations`
+still supplies the chrome (labels, empty states, CTAs), but every event string
+arrives already resolved to ONE language from
+`app/[locale]/events/_lib/events.ts`. A component handed `{en, ar}` has to
+decide, and a component that decides eventually decides wrong on one locale.
+
+🔴 **Dates are formatted on the SERVER and cross as finished strings.** `ar-SA`
+resolves to a different CALENDAR depending on the engine's ICU version (region
+SA defaults to `islamic-umalqura`), so a date formatted in the browser can
+disagree with the one rendered on the server. Inside a `<time>` element that is
+a React hydration mismatch, i.e. a broken page rather than a wrong date. Never
+move this into a client component "to use the visitor's timezone": the event
+happens in Al Khobar and that is the only time that means anything.
+
+⚠️ The old `components/UpcomingEvents.tsx` and `components/PastEvents.tsx` were
+DELETED, not edited, and their `EventsPage.upcoming` / `EventsPage.archive` keys
+are gone from both message files. A grep for either will find nothing.
+
+**The archive is mostly UNLINKED on purpose.** 41 imported historical events
+carry a title, a date and a one-line subtitle and nothing else, so linking each
+to its own page would publish 41 near-empty URLs from the strongest page on the
+route. `hasDetail` is the rule: an upcoming event always gets a page (that is
+where registration happens), a past one only when it has a description or a
+poster.
+
+**The empty poster state is `.dot-field`, not a stock photo.** An event is often
+published the minute it is decided and gets its artwork a week later, so the
+gap is a normal state rather than an error.
 
 ## Adding a section
 
@@ -790,3 +1446,22 @@ Create the component here in `components/`, add its namespace to **both** messag
 files, and render it in `app/[locale]/page.tsx`. Server components can call
 `useTranslations` directly; client components work because the whole tree sits
 under `NextIntlClientProvider`.
+
+## Removing a section
+
+Mirror of the above, and it reaches further than expected. Measured while
+deleting `/about`'s principles ledger (2026-07-31):
+
+1. The component: the JSX, plus any now-unused `type` and `t.raw()` read. `tsc`
+   catches the orphaned type; **nothing** catches a dead `raw()` call.
+2. **Both** message files. Prove it was a pure DELETE (diff opcodes, not a line
+   count) and that leaf-key parity still holds.
+3. 🔴 `test/arabic-kashida.test.ts`, if any removed key carried a swash. The
+   pinned inventory is an equality assertion, so a deleted key fails the suite.
+4. 🔴 `TONE.md`, which quotes real copy as worked examples. **Four** separate
+   rules cited this one section. Keep the rules, mark the copy deleted, or the
+   next session greps for a string that no longer exists.
+
+**Before proposing a replacement, measure what the section uniquely carried.**
+Here the answer was "nothing": the page's own h1 and intro already made the
+claim, and its only facts were capacities living in 7 and 11 other keys.

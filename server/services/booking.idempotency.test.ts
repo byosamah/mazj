@@ -14,6 +14,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * failure, which reads as obviously reasonable and is wrong precisely in the
  * case that costs money. An adversarial review found it. Do not "simplify" the
  * branch back.
+ *
+ * 🔴 THE SECOND HALF, added 2026-07-29: WHAT reconciliation is asked. Every
+ * branch above turns on the answer, and the answer is only as good as the
+ * question. Reconciliation matches on the exact slot start and on the mobile as
+ * REKAZ stores it, so a call handed `slotTo` instead of `slotFrom`, or the
+ * digits the visitor typed instead of the E.164 form, matches nothing and comes
+ * back `absent`. `absent` is the confident answer: it releases the key and
+ * invites the customer to book again, on top of a booking that already exists.
+ * That drift changes no outcome any of the tests above assert, so it would pass
+ * the whole file green while producing a second real invoice per timed-out
+ * booking in production. Hence the argument assertions at the bottom.
  */
 
 const abandonIdempotent = vi.fn(async () => undefined);
@@ -25,6 +36,47 @@ const beginIdempotent = vi.fn(async () => ({
 
 const createReservation = vi.fn();
 const createSubscription = vi.fn();
+
+/**
+ * A customer Rekaz already knows, needed only by the subscription branch.
+ *
+ * 🔴 `reconcileSubscription` searches by `customerId`, which is the one filter
+ * `GET /subscriptions` honours, so the subscription arm cannot reach that call
+ * at all unless the lookup found somebody: a first-time buyer short-circuits to
+ * `absent` without asking Rekaz anything. That is why this file's lookup became
+ * controllable rather than a fixed "no such customer".
+ *
+ * ⚠️ Carries `REQUEST`'s number deliberately, in the E.164 form Rekaz stores it
+ * in rather than the `05…` form the visitor types. This is the record the
+ * lookup hands back for that number, so the two must agree or the fixture is
+ * describing somebody else.
+ */
+const MEMBER = {
+  id: "member-customer-id",
+  name: "A Real Member",
+  customerNumber: null,
+  mobileNumber: "+966534600488",
+  email: null,
+  isBlocked: false,
+};
+
+// Typed against the real union, or `vi.fn(async () => X)` narrows to X and tsc
+// rejects every other outcome while vitest itself passes.
+type CustomerLookup =
+  | {
+      ok: true;
+      value:
+        | { kind: "found"; customer: typeof MEMBER }
+        | { kind: "none" }
+        | { kind: "ambiguous"; count: number };
+    }
+  | { ok: false; error: { code: string; message: string } };
+
+const NO_SUCH_CUSTOMER: CustomerLookup = { ok: true, value: { kind: "none" } };
+
+const findCustomerByMobile = vi.fn(
+  async (): Promise<CustomerLookup> => NO_SUCH_CUSTOMER
+);
 
 vi.mock("@/server/core/idempotency", () => ({
   beginIdempotent: (...a: unknown[]) => beginIdempotent(...(a as [])),
@@ -51,6 +103,14 @@ vi.mock("@/server/env", () => ({
   }),
 }));
 
+// The booking record is bookkeeping AFTER the sale, deliberately best effort in
+// the service. Stubbed to a success so nothing here depends on a database, and
+// so a failure of it could never be mistaken for a failure of the idempotency
+// rules this file exists to pin.
+vi.mock("@/server/db/bookings", () => ({
+  recordBooking: async () => ({ ok: true, value: undefined }),
+}));
+
 const PRICE = {
   id: "live-price-id",
   immutableId: "stable-price-id",
@@ -64,35 +124,48 @@ const PRICE = {
   hasDeposit: false,
 };
 
+const product = (slug: string, typeString: string) => ({
+  id: "p1",
+  slug,
+  nameAr: "x",
+  nameEn: "x",
+  name: "x",
+  type: 0,
+  typeString,
+  pricing: [PRICE],
+  customFields: [],
+  productProviders: [],
+  branchIds: ["branch-1"],
+  isOutOfStock: false,
+  amount: 110,
+  duration: 60,
+  description: null,
+  shortDescription: null,
+  maximumQuantityPerOrder: 1,
+});
+
 vi.mock("@/server/rekaz/catalog", () => ({
   listProducts: async () => ({
     ok: true,
     value: {
-      totalCount: 1,
+      totalCount: 2,
       items: [
-        {
-          id: "p1",
-          slug: "ghrfh-alajtmaaat-almlqa",
-          nameAr: "x",
-          nameEn: "x",
-          name: "x",
-          type: 0,
-          typeString: "Reservation",
-          pricing: [PRICE],
-          customFields: [],
-          productProviders: [],
-          branchIds: ["branch-1"],
-          isOutOfStock: false,
-          amount: 110,
-          duration: 60,
-          description: null,
-          shortDescription: null,
-          maximumQuantityPerOrder: 1,
-        },
+        product("ghrfh-alajtmaaat-almlqa", "Reservation"),
+        // The subscription flow reaches a DIFFERENT reconcile function through a
+        // different branch, so the catalog has to be able to sell both.
+        product("adwyh-almsahh-almshtrkh", "Subscription"),
       ],
     },
   }),
   listBranches: async () => ({ ok: true, value: [{ id: "branch-1" }] }),
+  // `resolveBranchId` moved into `catalog.ts` on 2026-07-28 when event tickets
+  // became a second caller, so it is now a cross-module dependency of
+  // `booking.ts` and has to be declared here. Mirrors the real function: the
+  // product's own branch, falling back to the tenant's only one.
+  resolveBranchId: async (product: { branchIds?: string[] }) => ({
+    ok: true,
+    value: product.branchIds?.[0] ?? "branch-1",
+  }),
 }));
 
 // Typed against the real union, or TypeScript narrows the mock to whatever the
@@ -128,7 +201,10 @@ vi.mock("@/server/rekaz/booking", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/rekaz/booking")>();
   return {
     ...actual,
-    findCustomerByMobile: async () => ({ ok: true, value: null }),
+    // ⚠️ `CustomerMatch`, not a bare customer-or-null. The lookup gained a
+    // THIRD outcome (`ambiguous`) on 2026-07-28; a `null` here now reaches
+    // `lookup.kind` and throws rather than reading as "no such customer".
+    findCustomerByMobile: (...a: unknown[]) => findCustomerByMobile(...(a as [])),
     createReservation: (...a: unknown[]) => createReservation(...(a as [])),
     createSubscription: (...a: unknown[]) => createSubscription(...(a as [])),
   };
@@ -146,12 +222,35 @@ const REQUEST = {
   ip: { ip: "203.0.113.9", attested: true },
 };
 
+/** The E.164 form `0534600488` normalises to before anything upstream sees it. */
+const NORMALISED_MOBILE = "+966534600488";
+
+/**
+ * Computed rather than written down, because the service refuses a start date
+ * in the past: a literal would pass until the day it did not.
+ */
+function riyadhDay(offsetDays: number): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(
+    new Date(Date.now() + offsetDays * 86_400_000)
+  );
+}
+
+const SUBSCRIPTION_REQUEST = {
+  space: "coworking",
+  priceImmutableId: "stable-price-id",
+  startAt: riyadhDay(7),
+  customer: { name: "Test Person", mobile: "0534600488" },
+  idempotencyKey: "key-sub-recon-1",
+  ip: { ip: "203.0.113.9", attested: true },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   beginIdempotent.mockResolvedValue({ ok: true, value: { kind: "proceed" } });
   completeIdempotent.mockResolvedValue({ ok: true, value: undefined });
   reconcileReservation.mockResolvedValue({ ok: true, value: { outcome: "absent" } });
   reconcileSubscription.mockResolvedValue({ ok: true, value: { outcome: "absent" } });
+  findCustomerByMobile.mockResolvedValue(NO_SUCH_CUSTOMER);
 });
 
 describe("releasing the idempotency key", () => {
@@ -333,5 +432,71 @@ describe("replaying a key", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("conflict");
+  });
+});
+
+/**
+ * 🔴 The question, not the answer.
+ *
+ * Everything above asserts what the service DOES with each reconciliation
+ * outcome. Nothing above asserts what it ASKED, and the two are not the same
+ * risk: a mocked reconcile returns whatever the test says regardless of its
+ * arguments, so every branch above stays green while the real call goes out
+ * describing a booking nobody made.
+ *
+ * ⚠️ Then it comes back `absent`, because nothing matches. `absent` is the
+ * CONFIDENT answer: the key is released and the customer is invited to try
+ * again, on top of a booking that already exists. So a silent drift in either
+ * argument does not degrade this machinery, it INVERTS it, on the one path that
+ * exists to stop a second invoice.
+ */
+describe("what reconciliation is asked", () => {
+  const TIMED_OUT = {
+    ok: false as const,
+    error: {
+      code: "upstream_unavailable",
+      message: "Rekaz did not respond within 10000ms",
+    },
+  };
+
+  it("🔴 names THIS slot's start and the number as Rekaz stores it", async () => {
+    // `slotFrom` and `slotTo` are both in scope at the call site and either
+    // compiles. `reconcileReservation` matches a row on `startAt` equality, so
+    // `slotTo` finds nothing, ever. The mobile is the same kind of trap from the
+    // other direction: it is both the upstream filter and the equality check
+    // against what Rekaz stored, which is `966534600488`. The national `05…`
+    // form the visitor types is neither a substring of that nor equal to it, so
+    // it matches nothing on either look.
+    createReservation.mockResolvedValue(TIMED_OUT);
+
+    await createBooking({ ...REQUEST });
+
+    expect(reconcileReservation).toHaveBeenCalledWith({
+      mobile: NORMALISED_MOBILE,
+      slotFrom: REQUEST.slotFrom,
+    });
+    // A reservation reconciled through the subscription seam would search by
+    // customer id and answer about a different resource entirely.
+    expect(reconcileSubscription).not.toHaveBeenCalled();
+  });
+
+  it("🔴 names THIS customer and THIS start date on the subscription flow", async () => {
+    // The subscription arm reaches Rekaz only through the customer it found
+    // before the write, so the lookup argument is load-bearing twice: it decides
+    // the payload, and then it decides what reconciliation can see.
+    findCustomerByMobile.mockResolvedValue({
+      ok: true,
+      value: { kind: "found", customer: MEMBER },
+    });
+    createSubscription.mockResolvedValue(TIMED_OUT);
+
+    await createBooking({ ...SUBSCRIPTION_REQUEST });
+
+    expect(findCustomerByMobile).toHaveBeenCalledWith(NORMALISED_MOBILE);
+    expect(reconcileSubscription).toHaveBeenCalledWith({
+      customerId: MEMBER.id,
+      startAt: SUBSCRIPTION_REQUEST.startAt,
+    });
+    expect(reconcileReservation).not.toHaveBeenCalled();
   });
 });

@@ -74,8 +74,7 @@ export default function SpacesGrid({
                 src={card.img}
                 alt={t(`cards.${card.id}.photoAlt`)}
                 ratio="aspect-[3/2]"
-                width={1200}
-                height={800}
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
               />
               <div className="flex flex-1 flex-col gap-3 border-t border-black/10 pt-5">
                 <p className="eyebrow text-12 text-muted tabular-nums">
@@ -87,7 +86,7 @@ export default function SpacesGrid({
                       as anchor text; the CTA below keeps its booking job. */}
                   <Link
                     href={card.detailHref}
-                    className="inline-block [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
+                    className="inline-block underline decoration-transparent underline-offset-[6px] hover:decoration-black [transition:text-decoration-color_200ms,transform_120ms] active:scale-[0.96]"
                   >
                     {t(`cards.${card.id}.name`)}
                   </Link>

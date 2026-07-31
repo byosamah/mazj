@@ -16,27 +16,59 @@ import type { RekazPage, RekazSubscription } from "./types";
  * correct today and would quietly undercount the day MAZJ sells a package.
  */
 
+/**
+ * 🔴 **`customerId` is the one filter this endpoint is known to honour** (98
+ * rows to 1, measured 2026-07-27). Everything else lives in `unverifiedFilters`
+ * below, because a parameter that reads as an ordinary filter and does nothing
+ * is exactly what cost a session an afternoon on `GET /reservations`.
+ */
 export type ListSubscriptionsOptions = {
+  /** Verified to filter. The handle to use when you know the customer. */
   customerId?: string;
-  customerMobile?: string;
-  /** ISO 8601. */
-  startAtMin?: string;
-  startAtMax?: string;
-  statuses?: string[];
-  branchId?: string;
   skipCount?: number;
   maxResultCount?: number;
+  /**
+   * Parameters that are sent and must not be relied on.
+   *
+   * 🔴 `customerMobile` is MEASURED NOT TO WORK here: 101 rows with it and 101
+   * without, on 2026-07-28. That is worth stating twice over, because the same
+   * parameter name on `GET /reservations` genuinely does filter. The two
+   * resources disagree about which of their own filters they implement, so
+   * "it works over there" is not evidence about this one.
+   *
+   * The remaining four have never been probed against the live tenant. Untested
+   * is not the same as broken, but it is not something a caller may build on
+   * either: measure one before treating it as a filter, and move it up into
+   * `ListSubscriptionsOptions` in the same edit that records the measurement.
+   */
+  unverifiedFilters?: UnverifiedSubscriptionFilters;
+};
+
+/** @see ListSubscriptionsOptions.unverifiedFilters. */
+export type UnverifiedSubscriptionFilters = {
+  /** 🔴 Measured 2026-07-28 NOT to filter. Sent anyway; changes nothing. */
+  customerMobile?: string;
+  /** ISO 8601. Never probed. */
+  startAtMin?: string;
+  /** ISO 8601. Never probed. */
+  startAtMax?: string;
+  /** Never probed. */
+  statuses?: string[];
+  /** Never probed. */
+  branchId?: string;
 };
 
 export function listSubscriptions(
   options: ListSubscriptionsOptions = {}
 ): Promise<Result<RekazPage<RekazSubscription>, AppError>> {
-  const { statuses, ...rest } = options;
+  const { unverifiedFilters = {}, ...rest } = options;
+  const { statuses, ...alsoUnverified } = unverifiedFilters;
   return rekazRequest<RekazPage<RekazSubscription>>({
     path: "/subscriptions",
     query: {
       maxResultCount: REKAZ_PAGE_MAX,
       ...rest,
+      ...alsoUnverified,
       ...(statuses?.length ? { statuses: statuses.join(",") } : {}),
     },
   });

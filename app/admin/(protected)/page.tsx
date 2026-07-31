@@ -1,321 +1,247 @@
-import { refreshDashboard } from "../_lib/actions";
-import { requireAdmin } from "../_lib/auth";
+import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+
 import {
-  loadDashboardCached,
-  type ReservationView,
-  type RoomOccupancy,
-  type Tile,
-} from "../_lib/dashboard";
+  Btn,
+  Metric,
+  Notice,
+  PageHead,
+  Panel,
+  Section,
+} from "@/components/admin";
+
+import { requireAdmin } from "../_lib/auth";
+import { loadNavCounts } from "../_lib/nav-counts";
+import { ADMIN_NAV, adminHref, type AdminNavItem } from "../nav";
 
 /**
- * The operations dashboard.
+ * The admin's index.
  *
- * `force-dynamic` because the page is per-session: it reads the auth cookie and
- * must never be prerendered or shared.
+ * 🔴 IT READS NOTHING FROM REKAZ, AND THAT IS THE POINT (owner ruling,
+ * 2026-07-30). This page used to be an operations dashboard: a live room
+ * occupancy board, today's bookings, the next seven days, subscription totals
+ * and renewals, all crawled out of the Rekaz API on every open. All of it is
+ * deleted, because MAZJ manages bookings and memberships in Rekaz's own
+ * platform and a second copy of somebody else's records is worth less than
+ * nothing: it can only ever be staler than the screen it duplicates, and the
+ * day the two disagree the reader has no way to tell which one is lying.
  *
- * The DATA behind it is cached for 60s, which is a deliberate reversal of the
- * design's original "no caching"; `CACHE_SECONDS` in `_lib/dashboard.ts`
- * carries the measurements that forced it. The "last updated" line is what
- * keeps that honest: it reports when the data was actually assembled, not when
- * the page was rendered, so a stale figure announces itself. Refresh busts the
- * cache rather than merely re-rendering.
+ * What the deletion also buys, and the reason not to reintroduce a tile "just
+ * for reference": that API is the SAME instance that serves mazj.sa's live
+ * checkout. It was recorded answering between 1.2s and 10.8s, this page took
+ * 2.8s to 7.8s to assemble, and it needed a 60-second shared cache plus a
+ * Refresh button plus three separate "this may be incomplete" warnings to be
+ * honest about what it was showing. All of that machinery existed to manage one
+ * dependency. The dependency is gone, so the machinery is gone with it: no
+ * cache, no refresh control, no health strip, and nothing on this screen that
+ * can be stale by more than one Postgres query.
+ *
+ * `force-dynamic` still applies, and for the original reason: the page reads the
+ * auth cookie, so it must never be prerendered or shared between admins.
+ *
+ * 🔴 It still ships ZERO client components. The two that render on this route
+ * both arrive from elsewhere (the layout's rail, and the `error.tsx` boundary
+ * beside this file), and `test/admin-page-guards.test.ts` pins that set by name.
  */
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
-  // 🔴 AUTHORISED HERE TOO, not only by the layout. This is the same lesson as
-  // `refreshDashboard`, one level up: the layout guards the RENDER, and a
-  // render is not the only thing that happens on a request.
-  //
-  // `redirect()` in the layout throws, but React renders the page concurrently
-  // with its ancestors rather than after them, so the throw does not stop this
-  // component. Measured on an anonymous `curl /admin` before this line existed:
+/**
+ * Where MAZJ's bookings, rooms, memberships and money actually live.
+ *
+ * The same host the API base is built on (`REKAZ_API_BASE` in `.env.example`,
+ * whose own comment routes you to "platform.rekaz.io > User Management > API
+ * Keys" for the credential), so this is Rekaz's real operator sign-in and not a
+ * marketing page. It is deliberately a bare origin: any deeper path is a route
+ * inside somebody else's product, and a link that 404s from our chrome reads as
+ * our fault.
+ */
+const REKAZ_PLATFORM = "https://platform.rekaz.io";
+
+export default async function AdminIndexPage() {
+  // 🔴 AUTHORISED HERE TOO, not only by the layout, and above the first data
+  // read. React renders a route's components concurrently rather than
+  // parent-then-child, so the layout's `redirect()` throw does not stop this
+  // component: measured on an anonymous `curl /admin` before this line existed,
   // the response was a correct 307 to `/admin/login` AND carried 28KB of
-  // rendered dashboard, including live Rekaz room names, occupancy and the
-  // subscription totals. The guard was working and the data escaped anyway.
+  // rendered dashboard. `test/admin-page-guards.test.ts` fails if any page under
+  // `(protected)/` omits it, or puts it below the load.
   //
-  // The check belongs where the data is READ, so it must sit above the load and
-  // be awaited. It cannot move down into `loadDashboardCached`: that is wrapped
-  // in `unstable_cache`, which forbids reading cookies and whose whole safety
-  // argument is that it holds nothing per-user. A per-session auth check inside
-  // a shared cache is the opposite of a fix.
-  //
-  // `test/admin-page-guards.test.ts` fails if any page under `(protected)/`
-  // omits this, so the layout's "you cannot forget it" property survives.
-  //
-  // Belt and braces: `loadDashboardCached` also REQUIRES the `AdminUser` this
-  // returns, so forgetting the guard is a compile error rather than a leak that
-  // a regex has to notice. The test remains as the check for pages that do not
-  // happen to read the dashboard.
+  // Belt and braces: `loadNavCounts` REQUIRES the `AdminUser` this returns, so
+  // forgetting the guard is a compile error rather than a leak a regex has to
+  // notice.
   const admin = await requireAdmin();
 
-  const data = await loadDashboardCached(admin);
+  // 🔴 THE SAME CALL THE RAIL MAKES, on purpose, and it costs nothing extra:
+  // `loadNavCounts` is wrapped in React's `cache()`, so the layout and this page
+  // share ONE execution per request. Two loaders would be two definitions of
+  // "coming up" and "waiting on you", and the badge in the chrome disagreeing
+  // with the card in the content is the exact class of defect this admin is
+  // built against. Postgres only, ~40ms, and a failed count arrives as `null`
+  // rather than as a confident zero.
+  const counts = await loadNavCounts(admin);
+
+  const sections = ADMIN_NAV.filter((item) => item.segment);
+  const unsent = counts["startups:alarm"];
 
   return (
-    // A <div>, not a <main>: the layout already provides the landmark, and two
-    // nested <main> elements is an a11y error that screen readers report.
-    <div className="mx-auto max-w-5xl space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-      </div>
+    <div className="space-y-10 lg:space-y-12">
+      <PageHead
+        eyebrow="OVERVIEW"
+        title="Dashboard"
+        lede="What is waiting on you. Bookings, rooms and memberships live in Rekaz, not here."
+        /* 🔴 ABOVE EVERYTHING IT AFFECTS, and absent on every ordinary day.
+           Absence is the all-clear here, the same zero-suppression the rail's
+           badges use: a notice that is always present is a notice nobody reads.
+           This is the one state in the whole admin where somebody outside MAZJ
+           is waiting on an answer we already decided and never sent, and it is
+           invisible on the application row itself, which looks answered.
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-black/50">
-          Last updated{" "}
-          <time dateTime={data.generatedAt}>
-            {new Intl.DateTimeFormat("en-GB", {
-              timeZone: "Asia/Riyadh",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: false,
-            }).format(new Date(data.generatedAt))}
-          </time>{" "}
-          Riyadh time
+           🔴 A FUNCTION CALL, NOT `<UnsentDecisions />`. `PageHead` renders its
+           notice slot inside `{notice && <div className="mt-6">…</div>}`, and a
+           React element is truthy even when the component returns nothing, so a
+           component here would open an empty 24px box above the first section on
+           every quiet day. `undefined` is the only value that closes the slot. */
+        notice={unsentDecisions(unsent)}
+      />
+
+      <Section
+        eyebrow="OPEN WORK"
+        title="What needs you"
+        subtitle="The same figures as the rail, from the same query"
+        ruled={false}
+      >
+        {/* Derived from `nav.ts` rather than written out here, so a section added
+            there gets a card without anybody remembering this file. The index
+            entry is filtered out above: a card linking to the page it is on. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {sections.map((item) => (
+            <SectionCard
+              key={item.segment}
+              item={item}
+              count={counts[item.segment]}
+            />
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="ELSEWHERE"
+        title="Bookings, rooms and memberships"
+        subtitle="Rekaz's records, on Rekaz's screens"
+      >
+        <p className="max-w-[62ch] text-pretty text-14 leading-[1.6] text-subtle-foreground">
+          Reservations, room occupancy, subscriptions and payments are managed in
+          the Rekaz platform. No screen here reads them, so nothing in this tool
+          can disagree with what Rekaz shows you.
         </p>
-        <form action={refreshDashboard}>
-          <button
-            type="submit"
-            className="rounded-full border border-black/15 px-4 py-1.5 text-sm transition-colors hover:border-black/40 hover:bg-black/5"
+
+        <p className="mt-4">
+          {/* The underlined-anchor idiom, matching the public event links on
+              `/admin/events/[id]`: this is a departure from the tool, not a
+              control inside it, and a solid button would read as the latter. */}
+          <a
+            href={REKAZ_PLATFORM}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex min-h-11 items-center gap-2 text-13 underline decoration-border underline-offset-4 hover:decoration-foreground"
           >
-            Refresh
-          </button>
-        </form>
-      </div>
-
-      <Section title="Right now" subtitle="Rooms in use this minute">
-        <TileBody tile={data.occupancy} empty="No bookable rooms found.">
-          {(rooms) => (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {rooms.map((room) => (
-                <RoomCard key={room.id} room={room} />
-              ))}
-            </div>
-          )}
-        </TileBody>
-      </Section>
-
-      <Section title="Today" subtitle={data.today}>
-        <TileBody
-          tile={data.todayReservations}
-          empty="No bookings today."
-        >
-          {(items) => <ReservationTable rows={items} showDay={false} />}
-        </TileBody>
-      </Section>
-
-      <Section title="Next 7 days" subtitle="Upcoming reservations">
-        <TileBody tile={data.upcoming} empty="Nothing booked in the next week.">
-          {(items) => <ReservationTable rows={items} showDay />}
-        </TileBody>
-      </Section>
-
-      <Section title="Subscriptions" subtitle="Members and renewals">
-        <TileBody tile={data.subscriptions} empty="No subscriptions found.">
-          {(subs) => (
-            <div className="space-y-6">
-              <div className="flex gap-10">
-                <Stat label="Active" value={subs.activeCount} />
-                <Stat label="All time" value={subs.totalCount} />
-                <Stat
-                  label="Expiring in 30 days"
-                  value={subs.expiringSoon.length}
-                />
-              </div>
-
-              {subs.expiringSoon.length > 0 && (
-                <table className="w-full text-left text-sm">
-                  <thead className="text-black/45">
-                    <tr className="border-b border-black/10">
-                      <Th>Code</Th>
-                      <Th>Plan</Th>
-                      <Th>Ends</Th>
-                      <Th>Days left</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subs.expiringSoon.map((sub) => (
-                      <tr key={sub.id} className="border-b border-black/5">
-                        <Td className="font-mono text-xs">{sub.code}</Td>
-                        <Td>{sub.itemName}</Td>
-                        <Td>{sub.endsOn}</Td>
-                        <Td>{sub.daysRemaining}</Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-        </TileBody>
+            Open the Rekaz platform
+            <span className="sr-only"> (opens in a new tab)</span>
+            <ExternalLink className="size-3.5" strokeWidth={1.5} aria-hidden />
+          </a>
+        </p>
       </Section>
     </div>
-  );
-}
-
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        {subtitle && <p className="text-sm text-black/45">{subtitle}</p>}
-      </div>
-      {children}
-    </section>
   );
 }
 
 /**
- * Renders one tile's three possible states.
+ * One section of the admin, with the one number that says whether it needs you.
  *
- * 🔴 A failed tile and an empty tile are rendered DIFFERENTLY, always. "No
- * bookings today" and "we could not reach Rekaz" are the same shape on screen
- * if you let them be, and they mean opposite things: one says go home, the
- * other says something is broken. Collapsing them into a zero is the single
- * easiest way to make an operations dashboard actively harmful.
+ * 🔴 `?? null` is load-bearing rather than defensive. `NavCounts` is a
+ * `Partial` record, so an absent key reads as `undefined`, and `Metric` renders
+ * `null` as the WORDS "Not counted" while it renders `0` as a figure. Coercing
+ * either silence to a zero would put "0 waiting on you" on the screen for a
+ * query that failed, which is the one lie this admin is most careful about: a
+ * founder's application sitting unread behind a confident nought.
+ *
+ * The hint is `nav.ts`'s own, not a second sentence written here. The rail says
+ * the same thing under the same label, and one fact stated twice is two places
+ * to keep true.
  */
-function TileBody<T>({
-  tile,
-  empty,
-  children,
+function SectionCard({
+  item,
+  count,
 }: {
-  tile: Tile<T>;
-  empty: string;
-  children: (data: T) => React.ReactNode;
+  item: AdminNavItem;
+  count: number | null | undefined;
 }) {
-  if (!tile.ok) {
-    return (
-      <div className="rounded-xl border border-orange/30 bg-orange/5 px-5 py-4 text-sm">
-        <p className="font-medium text-orange">Could not load</p>
-        <p className="mt-1 text-black/60">{tile.message}</p>
+  return (
+    <Panel className="flex flex-col gap-5">
+      {/* The figure sits BESIDE the name rather than under it. Stacked, each card
+          was three blocks tall to carry four short lines, and at the 1120px lane
+          two of them left the whole right half of every card empty. `items-start`
+          because the hint wraps to two lines at some widths and the number must
+          stay on the name's baseline row, not drift down with it. */}
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <h3 className="text-15 font-medium">{item.label}</h3>
+          <p className="mt-1 text-13 text-subtle-foreground">{item.hint}</p>
+        </div>
+
+        {item.countLabel && (
+          <div className="shrink-0 text-end">
+            <Metric label={item.countLabel} value={count ?? null} />
+          </div>
+        )}
       </div>
-    );
-  }
 
-  if (Array.isArray(tile.data) && tile.data.length === 0) {
-    return (
-      <p className="rounded-xl border border-black/10 px-5 py-4 text-sm text-black/45">
-        {empty}
-      </p>
-    );
-  }
-
-  return <>{children(tile.data as never)}</>;
+      {/* `mt-auto` so the controls line up across cards whose hints wrap to
+          different heights. Two ragged buttons read as two different kinds of
+          card. */}
+      <div className="mt-auto">
+        <Btn asChild variant="quiet" size="sm">
+          <Link href={adminHref(item)}>Open {item.label}</Link>
+        </Btn>
+      </div>
+    </Panel>
+  );
 }
 
-function RoomCard({ room }: { room: RoomOccupancy }) {
-  const busy = room.occupiedBy !== null;
+/**
+ * Decisions that were made and never delivered.
+ *
+ * 🔴 A DECISION AND ITS EMAIL ARE TWO FACTS. The decision commits before the
+ * email is attempted and a mail failure deliberately does not roll it back
+ * (`server/services/startup-application.ts`), so this state is normal, silent,
+ * and invisible on the application row, which looks answered. Somebody outside
+ * MAZJ is waiting on a code that exists only in our database.
+ *
+ * Renders nothing on `0`, on `null` and on `undefined`, which collapses "there
+ * are none" and "we could not find out" into the same silence. That collapse is
+ * wrong nearly everywhere else in this admin and is right here: the count is an
+ * ALARM, and an alarm that fires because a query failed is an alarm people learn
+ * to ignore. The section it points at reports its own failures honestly.
+ *
+ * A function rather than a component, because the caller needs a real
+ * `undefined` to close `PageHead`'s notice slot. See the call site.
+ */
+function unsentDecisions(count: number | null | undefined): React.ReactNode {
+  if (typeof count !== "number" || count === 0) return undefined;
 
   return (
-    <div
-      className={`rounded-xl border px-5 py-4 ${
-        busy ? "border-orange/40 bg-orange/5" : "border-black/10"
-      }`}
+    <Notice
+      tone="destructive"
+      detail="The decision saved. The email did not leave the building, so nothing has reached them yet."
+      action={
+        <Btn asChild variant="quiet" size="sm">
+          <Link href="/admin/startups">Open Startups</Link>
+        </Btn>
+      }
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium">{room.name}</p>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs ${
-            busy ? "bg-orange text-white" : "bg-black/5 text-black/50"
-          }`}
-        >
-          {busy ? "In use" : "Free"}
-        </span>
-      </div>
-
-      {room.occupiedBy && (
-        <p className="mt-2 text-sm text-black/60">
-          {room.occupiedBy.startTime} to {room.occupiedBy.endTime}
-          {room.occupiedBy.customerName
-            ? ` with ${room.occupiedBy.customerName}`
-            : ""}
-        </p>
-      )}
-    </div>
+      {count === 1
+        ? "One startup application was decided and the founder was never told."
+        : `${count} startup applications were decided and the founders were never told.`}
+    </Notice>
   );
-}
-
-function ReservationTable({
-  rows,
-  showDay,
-}: {
-  rows: ReservationView[];
-  showDay: boolean;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[46rem] text-left text-sm">
-        <thead className="text-black/45">
-          <tr className="border-b border-black/10">
-            {showDay && <Th>Day</Th>}
-            <Th>Time</Th>
-            <Th>Space</Th>
-            <Th>Customer</Th>
-            <Th>Status</Th>
-            <Th>Payment</Th>
-            <Th>Ref</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-black/5">
-              {showDay && (
-                <Td className="whitespace-nowrap text-black/60">
-                  {row.weekday} {row.day.slice(5)}
-                </Td>
-              )}
-              <Td className="whitespace-nowrap font-medium">
-                {row.startTime} to {row.endTime}
-              </Td>
-              <Td>
-                {row.productName}
-                <span className="block text-xs text-black/40">
-                  {row.priceName}
-                </span>
-              </Td>
-              {/* An empty customer name means a walk-in booked at the desk, not
-                  a missing record. Saying so beats an unexplained blank cell. */}
-              <Td>{row.customerName ?? <em className="text-black/35">Walk-in</em>}</Td>
-              <Td>{row.status}</Td>
-              <Td className="text-black/60">{row.paymentStatus ?? "-"}</Td>
-              <Td className="font-mono text-xs text-black/40">
-                {row.reservationNumber}
-              </Td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <p className="text-3xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-0.5 text-sm text-black/45">{label}</p>
-    </div>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="py-2 pr-4 font-normal">{children}</th>;
-}
-
-function Td({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`py-2.5 pr-4 align-top ${className}`}>{children}</td>;
 }

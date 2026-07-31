@@ -1,16 +1,21 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
+import AmbientVideo from "./motion/AmbientVideo";
 import CtaButton from "./CtaButton";
-import {waLink} from "@/lib/contact";
+import {STARTUP_OFFER} from "@/lib/links";
 
 /**
  * Startups & builders offer band. The i18n namespace stays "Founding" from
  * this section's first life as the founding-members offer; only the copy
- * changed. The offer is a deliberate closed envelope: no terms or prices on
- * the site (amounts + checkout live on mazj.sa). The copy leads with the pain
- * (a café table isn't a company), the perks are three verifiable facts, and
- * the CTA opens a real WhatsApp chat where the offer is told in person.
+ * changed. The offer is a deliberate closed envelope: no terms or amounts on
+ * the site. The perks are three verifiable facts, never offer terms.
+ *
+ * 🔴 The CTA goes to `/startups` (owner decision, 2026-07-28), where the offer
+ * is explained and applied for. It used to open a prefilled WhatsApp chat. The
+ * envelope stays closed either way: the page sells what MAZJ gives a young
+ * company and says the offer itself arrives with the approval email.
  *
  * Built on the StepInto split-screen idiom (per owner request): the headline
  * sits top-start, the supporting block (wordmark + eyebrow + body + perks +
@@ -65,7 +70,18 @@ export default function FoundingBand() {
               ))}
             </ul>
             <div className="mt-1 flex flex-wrap items-center gap-4">
-              <CtaButton href={waLink(t("ctaMsg"))} variant="onLavender">
+              {/* 🔴 Goes to `/startups`, NOT to WhatsApp (owner decision,
+                  2026-07-28). This band used to open a prefilled chat, which
+                  meant every interested founder arrived as an unstructured
+                  message at an arbitrary hour, nothing recorded who had asked,
+                  and there was no way to answer one properly. `CtaButton`
+                  routes an internal path through the locale-aware Link rather
+                  than opening a new tab, which is right: applying is part of
+                  the journey, not a departure from it.
+
+                  The `Founding.ctaMsg` key that fed the old prefilled message
+                  was deleted from both message files in the same change. */}
+              <CtaButton href={STARTUP_OFFER} variant="onLavender">
                 {t("cta")}
               </CtaButton>
             </div>
@@ -76,32 +92,27 @@ export default function FoundingBand() {
 
         {/* Media column — coworking photo with StepInto's floating square loop-video card */}
         <div className="relative min-h-[62vh] overflow-clip lg:min-h-full">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/images/spaces/day-desk.jpg"
             alt=""
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover"
           />
           <div className="absolute inset-0 flex items-center justify-center p-8">
             <div
               data-fx="rise"
               className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.24),inset_0_0_0_1px_rgba(0,0,0,0.1)]"
             >
-              {/* The same ambient loop clip as StepInto's card. Decorative
-                  (aria-hidden) and below the fold, so preload="none": the
-                  poster shows until the clip is actually requested. */}
-              <video
-                className="h-full w-full object-cover"
-                aria-hidden="true"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="none"
-                poster="/images/step-into-video.jpg"
+              {/* The same ambient loop clip as StepInto's card, decorative and
+                  below the fold. It carried `preload="none"`, which `autoPlay`
+                  overrode: measured at 199 KB fetched in the first 80ms of a
+                  cold load. AmbientVideo holds it back until the card is
+                  actually approaching. */}
+              <AmbientVideo
                 src="/videos/step-into.mp4"
+                poster="/images/step-into-video.jpg"
+                sizes="(min-width: 1024px) 405px, 100vw"
               />
             </div>
           </div>

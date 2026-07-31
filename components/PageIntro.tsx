@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
 import MediaFrame from "./MediaFrame";
@@ -63,15 +64,26 @@ export default function PageIntro({
       <section className="relative flex min-h-[600px] w-full items-end overflow-clip bg-black px-6 pb-14 pt-[150px] lg:min-h-[700px] lg:px-10 lg:pb-20 lg:pt-[190px]">
         {/* Full-bleed route photograph. Decorative here: it sits BEHIND the h1
             that already carries the page's meaning, so alt="" unless a route
-            passes a descriptive imageAlt. Eager — this is the opener's LCP. */}
+            passes a descriptive imageAlt.
+
+            🔴 `priority` is not decoration: this IS the Largest Contentful
+            Paint element on all eight photo routes. As a raw <img loading=
+            "eager"> it still went out at Low fetch priority, so the browser
+            queued it behind every below-fold photo on the page and the opener
+            painted late. `priority` emits the preload hint plus
+            fetchPriority="high", which is the only thing that reorders it.
+
+            `sizes="100vw"` because the photo is full-bleed at every breakpoint;
+            that is what lets the 390px candidate be chosen on a phone instead
+            of the 1920px one. */}
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={image}
             alt={imageAlt ?? ""}
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            loading="eager"
-            decoding="async"
+            fill
+            priority
+            sizes="100vw"
+            className="z-0 object-cover"
           />
         ) : (
           /* Reference routes (no photography) keep a quiet textured ground. */
@@ -108,13 +120,14 @@ export default function PageIntro({
 
             <WordReveal
               as="h1"
+              immediate
               className="max-w-[15ch] font-sans text-45 font-black leading-[1.04] text-beige lg:text-85 lg:leading-[0.98] lg:tracking-[-1.7px]"
             >
               {title}
             </WordReveal>
 
             {intro && (
-              <Reveal delay={220}>
+              <Reveal delay={220} immediate>
                 <p className="max-w-[56ch] text-pretty text-15 leading-relaxed text-beige lg:text-18">
                   {intro}
                 </p>
@@ -140,13 +153,14 @@ export default function PageIntro({
 
           <WordReveal
             as="h1"
+            immediate
             className="max-w-[15ch] font-sans text-40 font-black leading-[1.04] text-black lg:text-70 lg:leading-[1.02] lg:tracking-[-1.4px]"
           >
             {title}
           </WordReveal>
 
           {intro && (
-            <Reveal delay={220}>
+            <Reveal delay={220} immediate>
               <p className="max-w-[56ch] text-pretty text-15 leading-relaxed text-muted lg:text-18">
                 {intro}
               </p>
@@ -155,8 +169,15 @@ export default function PageIntro({
         </div>
 
         {image ? (
-          <Reveal delay={140} className="w-full">
-            <MediaFrame src={image} alt={imageAlt} ratio={imageRatio} eager className="lg:ms-auto lg:max-w-[420px]" />
+          <Reveal delay={140} immediate className="w-full">
+            <MediaFrame
+              src={image}
+              alt={imageAlt}
+              ratio={imageRatio}
+              eager
+              sizes="(min-width: 1024px) 420px, 100vw"
+              className="lg:ms-auto lg:max-w-[420px]"
+            />
           </Reveal>
         ) : (
           /* Reference routes keep the opener quiet: texture, not photography. */

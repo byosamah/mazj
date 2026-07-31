@@ -15,11 +15,49 @@
  */
 
 /** Rekaz's `type` discriminator on a product. Drives which booking flow applies. */
+/**
+ * The figure a buyer is shown, and therefore the figure MAZJ records.
+ *
+ * 🔴 IT EXISTS SO THE TWO CANNOT DRIFT. A Rekaz price carries `amount` and
+ * `discountedAmount`, and the booking page has always rendered the discounted
+ * one when it is set. The booking service separately writes an `amountSnapshot`
+ * onto our own `bookings` row so a member of staff can answer "what did I pay"
+ * after a dashboard price edit has moved the catalog underneath it.
+ *
+ * Those were two expressions of the same rule, written in two files, and they
+ * agreed only for as long as no price carried a discount. The moment the owner
+ * sets `discountedAmount` on a price, the buyer sees one number, is charged that
+ * number, and the desk reads a different one off a field documented as "what
+ * MAZJ charged". The divergence is triggered by exactly the event this snapshot
+ * was built to survive, so the rule now lives in one place and both callers ask
+ * it the same question.
+ *
+ * ⚠️ `|| ` rather than `??` on purpose, and it matches the shipped behaviour:
+ * Rekaz sends `discountedAmount` equal to `amount` when nothing is discounted
+ * rather than sending null, and a genuine zero is not a price this site sells.
+ */
+export function chargedAmount(price: RekazPrice): number {
+  return price.discountedAmount || price.amount;
+}
+
 export const REKAZ_PRODUCT_TYPE = {
   /** Time-slot booking: meeting room, events hall. `POST /reservations/bulk`. */
   reservation: 0,
   /** Term booking: shared seat, private office. `POST /subscriptions`. */
   subscription: 1,
+  /**
+   * A one-time purchase. Rekaz calls it `Merchandise`, and MAZJ's event tickets
+   * are this.
+   *
+   * 🔴 THERE IS NO WRITE ENDPOINT FOR IT, and that single fact is why the whole
+   * event-ticket flow leaves this site. Rekaz publishes POST for reservations,
+   * subscriptions, customers and attendances and nothing else, and their own
+   * storefront sells merchandise through an add-to-cart flow rather than one
+   * call. So a paid event does not transact here: it links to the product's page
+   * on the Rekaz storefront. See `./store.ts` and
+   * `docs/superpowers/specs/2026-07-30-paid-events-link-out-design.md`.
+   */
+  merchandise: 2,
 } as const;
 
 export type RekazProductType =
@@ -36,6 +74,24 @@ export type RekazBranch = {
   nameAr: string;
   nameEn: string;
   addressUrl: string | null;
+};
+
+/**
+ * A price's inventory, when the merchant configures one.
+ *
+ * ⚠️ **Both MAZJ ticket products currently sit on `isUnlimited: true`, so the
+ * two quantity fields are null and the meanings below are read off the field
+ * NAMES rather than measured.** Nothing here can be verified until somebody sets
+ * a real quantity in the Rekaz dashboard. That is why `ticketStock` in
+ * `services/event-tickets.ts` leans on `RekazProduct.isOutOfStock`, which is a
+ * plain boolean this code has always read, and treats a missing or
+ * non-numeric `remainingQuantity` as "say nothing" rather than as zero.
+ */
+export type RekazStock = {
+  availableQuantity: number | null;
+  allocatedQuantity: number;
+  isUnlimited: boolean;
+  remainingQuantity: number | null;
 };
 
 export type RekazPrice = {
@@ -56,6 +112,8 @@ export type RekazPrice = {
   discountedAmount: number;
   depositAmount: number;
   hasDeposit: boolean;
+  /** Absent on older records, so optional rather than nullable-required. */
+  stock?: RekazStock | null;
 };
 
 export type RekazCustomField = {

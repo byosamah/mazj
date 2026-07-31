@@ -22,6 +22,7 @@ source of truth for its layer; copy a rationale into ONE of them, never several.
 | [**`DESIGN.md`**](./DESIGN.md) | How it **looks**: colour, type, space, shape, motion, component form | Any visual change |
 | [**`TONE.md`**](./TONE.md) | How it **sounds**: voice, register, settled vocabulary, what copy may and may not say | Any user-facing string |
 | [`server/README.md`](./server/README.md) | The backend's layer contract, for humans | Adding anything to `server/` |
+| [`.claude.local.md`](./.claude.local.md) | THIS MACHINE: what the command sandbox blocks, the two GitHub identities, the `$TMPDIR` split, worktree `node_modules` | 🔴 Before your first `curl localhost`, `npm install`, build or push |
 
 **Why it is split this way.** Claude Code loads this root file into every
 session, but a `CLAUDE.md` inside a directory loads only when you actually work
@@ -40,12 +41,34 @@ how it is BUILT (mechanics, gotchas, verification recipes).
 **GSAP**, with a **Supabase** backend added 2026-07-27.
 
 It is a pixel-faithful animated multi-page site: home plus `/about` `/contact`
-`/events` `/faq` `/privacy` `/spaces` `/terms`, plus the four space-detail routes
+`/events` `/faq` `/privacy` `/spaces` `/startups` `/terms`, plus the four
+space-detail routes
 `/spaces/{coworking,private-office,meeting-room,event-hall}`, all under
-`app/[locale]/`. That is 12 route groups x 2 locales = 24 prerendered pages, with
+`app/[locale]/`. That is 13 route groups x 2 locales = 26 pages, most of them
+prerendered, with
 `app/[locale]/[...rest]` catching everything else and rendering on demand. Since
 2026-07-27 each space also has a `/book` child (4 routes x 2 locales, rendered on
 demand) where booking happens against the Rekaz API.
+
+**`/events` became a real product on 2026-07-28**, and it is the first route
+whose CONTENT is not in `messages/*.json`. Events are database rows authored in
+`/admin/events`: bilingual, with a poster uploaded to Supabase Storage, a seat
+limit, and either free sign-up or a Rekaz-paid ticket. Each published event gets
+`/events/<slug>` (rendered on demand, plus an `/ics` calendar child), and an
+event moves itself from "coming up" into the archive when its `ends_at` passes,
+computed at read time. The 41 hand-typed archive entries moved into the database
+in the same change, so `EventsPage.upcoming` and `EventsPage.archive` no longer
+exist in either message file. 🔴 The i18n rule below still governs the page's
+CHROME (labels, empty states, the form); it no longer governs the events
+themselves. See [`server/CLAUDE.md`](./server/CLAUDE.md).
+
+**`/startups` was added 2026-07-28**: the startups & builders offer explained,
+plus a form that files an application into `startup_applications`. `/admin`
+approves it with a code or rejects it with a reason, and either way the applicant
+gets a branded email in their own language. 🔴 The offer's terms stay a closed
+envelope everywhere (`TONE.md` §6), and 🔴 the code cannot be redeemed by
+software: Rekaz has no coupon API, so a MAZJ person honours it and `/admin`
+records that they did. See [`server/CLAUDE.md`](./server/CLAUDE.md).
 `/pricing`→`/spaces` and `/community`→`/about` are redirects in
 `next.config.mjs`. Routes are locale-prefixed: `/en` (LTR) and `/ar` (RTL).
 English is the default; `/` redirects to `/en`.
@@ -53,9 +76,21 @@ English is the default; `/` redirects to `/en`.
 Since 2026-07-27 there is also **`/admin`**, an English-only internal tool with
 its own root layout, deliberately **outside** the locale system: no locale
 prefix, no hreflang, no sitemap entry, `Disallow` in robots.txt. Sign-in is a
-Supabase magic link restricted to `@mazj.org` by three independent gates. It
-shows live Rekaz operations. See [`app/CLAUDE.md`](./app/CLAUDE.md) for the
-routing and [`server/CLAUDE.md`](./server/CLAUDE.md) for the gates.
+Supabase magic link restricted to `@mazj.org` by three independent gates. See
+[`app/CLAUDE.md`](./app/CLAUDE.md) for the routing and
+[`server/CLAUDE.md`](./server/CLAUDE.md) for the gates.
+
+🔴 **`/admin` READS NOTHING FROM REKAZ, owner ruling 2026-07-30, and that is now
+the defining fact about it.** It managed events and startup applications AND
+mirrored Rekaz operations (a live room-occupancy board, today's bookings, the
+next seven days, subscription totals and renewals, plus a by-mobile booking
+lookup). All of that is deleted. MAZJ manages bookings and memberships in
+Rekaz's own platform, so a second copy here could only ever be staler than the
+screen it duplicates, and on the day the two disagreed the reader had no way to
+tell which was lying. `/admin` is now an index over the two things MAZJ actually
+runs from here, plus a link out to `platform.rekaz.io`. What went with it: the
+60-second `unstable_cache`, the Refresh action, the health strip, and the 2.8s
+to 7.8s page assembly. **Do not reintroduce a Rekaz tile "for reference".**
 
 **Brand facts (not derivable from the code):**
 
@@ -180,17 +215,55 @@ at Vercel.**
    before this change the deployed admin sent a real, valid magic link that
    landed on `localhost:3000`. Whenever a new origin starts serving `/admin`,
    add it here or sign-in breaks in a way that looks like a mail problem.
-3. **Two domains serving identical content is duplicate content.** `lib/site.ts`
-   holds exactly ONE origin behind every canonical, hreflang, `og:url`, sitemap
-   `<loc>` and JSON-LD `@id`, which is correct: **pick one primary** and have the
-   secondary 301 to it, or serve cross-domain canonicals pointing at the primary.
-   Do NOT let both resolve 200 with self-canonicals.
-4. **Which domain is primary is an SEO decision, not a preference.** mazj.org
-   holds the Arabic ranking equity (#1-3 on head terms); mazj.sa is the
-   commercial domain and matches the brand's country. Whichever is secondary must
-   301, not merely redirect in the browser, or that equity is lost. The existing
-   `docs/mazj-org-301-redirect-map.md` assumes mazj.org is retired; re-read it
-   against whatever is decided.
+3. ✅ **DECIDED 2026-07-31: BOTH domains serve this one site.** Owner's words:
+   "we gonna use mazj.sa and mazj.org together, they will be the same target,
+   open same website and everything." So there is no second site and no split
+   content, and the duplicate-content trap this item used to warn about is
+   structurally closed rather than merely avoided: `lib/site.ts` reads ONE
+   `NEXT_PUBLIC_SITE_URL` and every canonical, hreflang, `og:url`, sitemap
+   `<loc>` and JSON-LD `@id` is built from it, with no per-host branch anywhere.
+   Whichever host serves a request, the page still names the SAME canonical.
+   🔴 It follows that nobody may ever make that origin host-dependent. The moment
+   two hosts self-canonicalise, MAZJ has two copies of one site.
+
+   ⚠️ **Still open, and it is small: which name sits in the address bar.** On
+   Vercel that is one setting (add both domains, mark one primary, Vercel 301s
+   the other). It is worth deciding rather than defaulting, because the redirect
+   is what carries mazj.org's Arabic ranking equity (#1-3 on head terms) to
+   whichever name wins. `docs/mazj-org-301-redirect-map.md` assumes mazj.org is
+   retired; re-read it against the answer.
+4. 🔴 **THE REAL BLOCKER IS NOT SEO, IT IS THAT `mazj.sa` IS CURRENTLY THE REKAZ
+   STORE.** `REKAZ_STORE_ORIGIN` in `server/rekaz/store.ts` is
+   `https://mazj.sa`, and every paid event's ticket button points at
+   `mazj.sa/<locale>/merchandise/<slug>` there. Point `mazj.sa` at Vercel and
+   those buttons hit this app, which has no such route, so every ticket link dies
+   on day one. `npm run check:env` already warns when `NEXT_PUBLIC_SITE_URL` and
+   the store origin share a domain, deliberately as a warning rather than a
+   throw. Probed 2026-07-30: `mazj.rekaz.io`, `mazj.rekaz.sa`, `store.mazj.sa`
+   and `shop.mazj.sa` all fail to resolve, so the store has no other address yet.
+   **Rekaz supports custom domains** (their own platform strings confirm it), so
+   the fix is to ask them to move the store to something like `store.mazj.sa`
+   and then update that one constant. Sequence that BEFORE pointing `mazj.sa` at
+   Vercel.
+
+   🔴 **REKAZ ACCEPTS EXACTLY ONE CUSTOM DOMAIN** (owner, 2026-07-31). Moving it
+   is still fine, because changing which single domain Rekaz holds is not adding
+   a second. What is ruled out is an overlap window: nothing serves the store on
+   both names at once, so it is a hard cutover.
+
+   ✅ **The blast radius is ONE constant and, today, probably zero live sales.**
+   The site's only dependency on the store is the paid-event ticket button and
+   its JSON-LD `Offer` url, both built from `rekazStoreUrl()`. Room booking moved
+   on-site on 2026-07-27 and the four legacy store paths already 308 to it. The
+   tenant's only merchandise product is `فعالية تجريبية` ("trial event", 50 SAR),
+   i.e. a test item, so there is likely nothing real to break. Verify that before
+   the cutover rather than assuming it.
+
+   ⚠️ **And the cutover hands us the cleanup tool.** Once `mazj.sa` points at
+   Vercel we can 301 stale store URLs ourselves, which is impossible while Rekaz
+   holds the domain. `LEGACY_STORE_PATHS` already does this for the four room
+   products; a `/:locale/merchandise/:slug` rule to the new store origin is the
+   missing sibling.
 
 ### Deploying
 
@@ -219,6 +292,7 @@ first deploy had to be a manual `vercel --prod`.
 | `npm run test` / `test:watch` | Vitest. 294 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
+| `npm run check:rekaz` | One live GET `/branches`: proves the Rekaz credential actually works. 🔴 `check:env` only length-checks it, so it passes on a dead key. Sandbox OFF. |
 | `npm run db:push` / `db:types` / `db:types:check` / `db:diff` | Supabase migrations and generated types. See `server/CLAUDE.md`. |
 
 🔴 **`npm run build` requires `NEXT_PUBLIC_SITE_URL`.** `lib/site.ts` throws on
@@ -243,6 +317,25 @@ permitted (os error 1)`. It names a real source file and reads as a CSS defect;
 it is not one. It is a compile-phase abort that happens BEFORE the `SITE_URL`
 gate, so a sandboxed run tells you nothing about `NEXT_PUBLIC_SITE_URL`.
 `npm run lint` and `tsc --noEmit` both exit 0 sandboxed. See `.claude.local.md`.
+
+🔴 **`npm start`, and any build that READS the database, also needs
+`IP_TRUST_PROXY`.** `server/env.ts` refuses to boot in production without it, so
+a local production run answers **500 on every route** with the reason only in
+the server log, never in the response. It is set on Vercel and deliberately
+absent from `.env.local`, so locally:
+`NEXT_PUBLIC_SITE_URL=https://<domain> IP_TRUST_PROXY=none npm start`.
+⚠️ Missing at BUILD time it does not fail, it DEGRADES: `env()` throws, the
+Supabase client with it, and `app/sitemap.ts` silently ships the static routes
+and **zero** event URLs. Measured 2026-07-28: 22 entries where there should have
+been 26.
+
+🔴 **Never pipe `npm run build` into `head`.** `head` closes the pipe, SIGPIPE
+kills the build mid-flight, and the visible exit status still looks plausible.
+`.next` is left without a build id and the failure surfaces much later, from a
+different command, as `Could not find a production build in the '.next'
+directory`. Redirect to a file and grep the file. (The same rule already applies
+to every long command here; this is the one where the damage outlives the
+command.)
 
 `next.config.mjs` and `proxy.ts` changes need a dev-server restart;
 Tailwind, CSS and component edits hot-reload.
@@ -323,6 +416,19 @@ re-verify leaf-key path parity.
 - **`grep` mangles Arabic in this shell** (matches one term, silently misses
   siblings). Verify Arabic in rendered HTML with `python3 -c` + `str.count`,
   never shell grep.
+- 🔴 **A multi-word heading NEVER matches a grep of rendered HTML**, the opposite
+  failure to the `NextIntlClientProvider` one above. `WordReveal` splits on `\n`
+  then on whitespace, so `وتُولد الفرص` ships as two `.wr-word` spans with a tag
+  between them and a search for the phrase returns **0**. It reads as "the
+  heading is missing" and cost two false alarms in one session. Search a SINGLE
+  word, or strip tags first (`re.sub(r'<[^>]+>','',block)`).
+- 🔴 **One string often serves MANY keys, so a targeted copy edit LEAKS.**
+  Measured 2026-07-29: **61** AR strings are shared across **165** keys.
+  `المكتب المرن` is 6 keys (the space cards, the offers list,
+  `SpaceCoworking.eyebrow`, `Booking.space.*`, a `/startups` form dropdown), and
+  `الفعاليات` includes `Nav.events`. Before editing one heading, group
+  `messages/ar.json` by VALUE and read the key list. Key-path parity will NOT
+  catch this: the paths never change, only the shared value does.
 
 ## Cross-cutting gotchas
 
@@ -341,29 +447,135 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   `git worktree remove`. Commit `01dfd0e` is what happens otherwise: it swept a
   half-finished, broken file from another session into an unrelated feature
   commit.
+- 🔴 **AN UNTRACKED FILE CANNOT COME BACK FROM GIT, AND MOST OF THE NEW WORK HERE
+  IS UNTRACKED.** Measured 2026-07-30: **43** untracked files under `app/` and
+  `test/`, **32** of them under `app/admin/` and `test/` alone. So `rm` on a `??`
+  path is permanent, while `git rm` on a tracked one is not. Copy anything you are
+  about to delete into the scratchpad first, and run `git ls-files <path>` to learn
+  which kind you are holding. This is not hypothetical: deleting `/admin`'s
+  dashboard on 2026-07-30 orphaned `test/admin-booking-lookup.test.ts`, which was
+  the ONLY assertion behind a payment-link access check and had never been
+  committed. ⚠️ `git rm` is also atomic (one untracked pathspec aborts the whole
+  command, removing nothing) and refuses a locally-modified file without `-f`, so
+  a delete can silently not happen at all.
 - **Corollary: `git diff --stat` cannot show you your own edit here.**
   `messages/*.json` reads as ~440 changed lines when yours is 2, because the diff
   is against HEAD and the tree may carry another session's copy rewrite. Prove
   your own write instead: capture the file text before, and diff line indices
   after (`[i for i,(a,b) in enumerate(zip(before.splitlines(), out.splitlines())) if a!=b]`).
-- **A `tsc` error in a file you did not touch may be another session writing it
-  right now.** Re-run before diagnosing, and don't "fix" it: you will collide
-  with their in-flight edit.
+- 🔴 **A config-diff needs BOTH sides compiled at the same moment.** Proving "my
+  `tailwind.config.ts` change did not touch the marketing site" means compiling
+  HEAD's config and yours against identical content. A baseline generated even
+  an hour earlier silently mixes another session's SOURCE drift into the result:
+  measured 2026-07-29, a stale baseline reported `.text-9xl` and `.text-base` as
+  config-caused when the real answer was two unreferenced `@keyframes`.
+  Regenerate both back to back, and scope the content glob to the marketing tree
+  only (`lib/` is NOT in the real globs; including it made `lib/utils.ts`'s own
+  docblock examples compile into the probe).
+- **A `tsc` error OR a failing TEST in a file you did not touch may be another
+  session writing it right now.** Re-run before diagnosing, and don't "fix" it:
+  you will collide with their in-flight edit. **Attribute before you diagnose**:
+  `git status <path>` on the failing file, then re-run scoped
+  (`npx vitest run test/ --exclude '<their file>'`). On 2026-07-28 a copy-only
+  change appeared to break 24 tests; all 24 were a parallel session moving
+  `resolveBranchId` into `rekaz/catalog.ts` without updating three `vi.mock`
+  factories, plus making `app/sitemap.ts` async without awaiting it in
+  `admin-surface.test.ts`. The suite also grew 294 → 344 between two consecutive
+  runs, so even the test COUNT is not a stable baseline.
+- **A leaf-key count that drops hard is probably not your deletion.** Removing 9
+  keys took `messages/*.json` from 844 paths to 662. Attribute the gap before
+  panicking: diff paths against `git show HEAD:messages/en.json` and bucket them,
+  `Counter(k.split('.')[0] for k in gone)`. It was 224 `EventsPage` keys moving
+  into Supabase, and exactly 9 of mine.
+- 🔴 **A read-modify-write of `messages/*.json` can CLOBBER a concurrent
+  session, and the loss is INVISIBLE**: the file stays valid JSON and en/ar
+  parity still holds, so every check you would think to run still passes. The
+  corollary above tells you how to see your own edit; this is the other
+  direction. After writing, diff your before-snapshot against the result and
+  assert that ONLY your namespaces moved. Verified live 2026-07-28: a parallel
+  session rewrote `EventsPage.intro` inside this session's own edit window, and
+  the only reason it was noticed was a leaf-key count that moved the wrong way.
+- **A targeted Edit into a Markdown TABLE can be ORPHANED by a concurrent
+  rewrite.** A row added to `server/CLAUDE.md`'s table applied cleanly and then
+  sat below another session's newly-inserted prose, outside the table, rendering
+  as a stray line. Re-read the region afterwards: "the edit applied" is not "the
+  edit landed where you meant".
 - **Format-on-save linter** rewrites Tailwind arbitrary values
   (`tracking-[-0.24px]`→`tracking-[0.05em]`, `text-11`→`text-12`) and can swap a
   heading to `WordReveal`, so a component may change on disk mid-task. Re-Read it
   before a dependent edit.
 - After rapid edits the editor's inline TS diagnostics lag and show **phantom**
   errors (names from just-removed code). `tsc --noEmit` is the source of truth.
+  The quickest tell is a **line number past EOF**: a diagnostic citing line 344
+  of a 335-line file is stale by construction.
+- 🔴 **Measure a "this is still handled over there" rationale before you write
+  it. A false fallback is worse than no comment**, because the next reader stops
+  checking. Deleting `/about`'s stat block, this repo gained a `TONE.md` line and
+  a code comment both saying the four capacities "remain stated where a buyer
+  needs them (the space pages, the FAQ, `AboutPage.spaceBody`)". An audit
+  measured it: `spaceBody` states NONE of them, `"25"` appears in zero strings
+  site-wide, and no string anywhere says how many private offices exist. The
+  sentence was written from memory of what the copy MEANT rather than from a
+  grep. **Every "X survives in Y" claim needs the count that proves it, in the
+  comment.**
+- **Adversarial verification is what catches that class of error.** A 13-agent
+  audit of one session's own copy work returned 23 findings; an adversary told to
+  REFUTE killed 12, and the 11 survivors included two real defects self-review
+  had missed (the false rationale above, and a claim contradicted by another
+  route one click away). Self-review found neither. This is the complement to the
+  phantom-finding warning below: verify findings against the live file, AND
+  verify your own confident sentences against a measurement.
 - **Re-verify audit findings against the live DOM and the current file before
   fixing.** A 13-agent responsive audit measured a `fixed z-[9999]` MotionToggle
   that the on-disk code had already moved into footer flow. Long audits plus
   parallel-session edits mean a finding can describe a page that no longer exists
   (1 of 3 majors and ~5 minors were moot). One live probe (`elementFromPoint`, or
   a computed position) kills a phantom fix.
+- ⚠️ **A capture subagent's NUMBERS can be right while its CLAIM is wrong. Check
+  the two separately.** Both agents on 2026-07-30 did it: one called the
+  6-tatweel kashida degrade "narrower" than the 5-run (HarfBuzz says **+51px
+  WIDER**, and the agent's own comparison image agreed), and one called a video
+  subject "a murky red smudge nobody would notice" when the before/after plainly
+  showed him. Re-derive a NUMERIC claim a second way; LOOK at the artifact
+  yourself for a QUALITATIVE one. Both errors survived careful, well-evidenced
+  write-ups, which is exactly what made them persuasive.
 
 **Tooling**
 
+- ⚠️ **A detached `( cmd1; cmd2 ) &` makes the background-task notification
+  LIE.** The launcher returns immediately, the harness reports "completed, exit
+  0", and the real work runs on for another 40 minutes. Poll for the artifacts
+  it produces rather than trusting the notification, or don't detach.
+- **Next 16 prints NO bundle sizes** (`next build` has no "First Load JS"
+  column), so route weight has to be measured off the built output:
+  `find .next/static -name '*.js' -exec ls -la {} \; | awk '{s+=$5} END {print s/1024}'`.
+  ⚠️ Total JS can legitimately go UP after a `dynamic import()` split while the
+  per-route INITIAL payload goes down; count the scripts a route's HTML actually
+  references, not the whole directory.
+- 🔴 **ONE LIGHTHOUSE RUN IS NOT A BASELINE, AND ON THIS SITE THE ERROR IS BIG
+  ENOUGH TO INVENT A REGRESSION.** Measured 2026-07-31: `/en/about` scored **96**
+  on the first baseline sweep, and re-running the SAME unchanged build three
+  times gave **83, 78, 82**. The 96 was an outlier, and comparing an optimised
+  build against it read as a 16-point regression that did not exist. The
+  optimised build, by contrast, returned 80/80/80 with zero spread. **Take a
+  median of 3 per route before claiming any delta**, and treat anything under
+  ~5 points as noise. `npx --yes lighthouse@latest` works with the sandbox off;
+  give each run its own `--user-data-dir` or they collide.
+- ⚠️ **Lighthouse's default throttling is SIMULATED (Lantern), so the timings in
+  `network-requests` are real localhost numbers while the metric is a model
+  computed on top of them.** The two do not reconcile, and `lcp-breakdown-insight`
+  summing to ~200ms while LCP reports 6.7s is expected, not a bug. Read the
+  breakdown for WHICH phase dominates and the metric for the score; never
+  subtract one from the other.
+- ⚠️ **`cmd | tail -3; echo $?` reports TAIL's exit code, not the command's.** It
+  reads as a clean run on a failing lint or build. Redirect to a file, capture
+  `$?` on the next line, then grep the file.
+- 🔴 **ESLint flat config does NOT merge two settings of the same rule.** For a
+  file matched by both blocks the LAST one wins outright, so a narrower "allow"
+  block added after `no-restricted-imports` silently DELETES the server boundary
+  rather than relaxing it. A later block must RESTATE every pattern that still
+  applies (`eslint.config.mjs` block 1b does, and says so). Verify with a probe
+  file per direction, never by reading.
 - **Browser capture routes:** Python Playwright works (`python3 -m playwright`,
   Chromium installed); `npx playwright` does NOT (root-owned npm cache blocks
   it). ⚠️ That failure is specific to Playwright, **not to npx**:
@@ -371,7 +583,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   in the allowlist), verified with `npx --yes @google/design.md@latest`. Don't
   avoid npx wholesale. System `chrome --headless=new --screenshot` sometimes
   never exits after writing the file: poll for the file then kill, and give it a
-  scratch `--user-data-dir`. `--force-prefers-reduced-motion` gets deterministic
+  scratch `--user-data-dir`. Run it via Bash `run_in_background` and poll in a
+  SECOND call; the task notification then reports **exit 143/144 "failed"**,
+  which is only your own `pkill` landing and does NOT mean the capture failed.
+  Judge it by the PNG, never by the exit code.
+  `--force-prefers-reduced-motion` gets deterministic
   static captures without Playwright.
 - **Playwright MCP** writes screenshots only **inside the repo root** (sandbox):
   save there, then move to the scratchpad. Flaky under contention ("Browser is
@@ -381,6 +597,15 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   CPU, accepts TCP, never responds, even for already-compiled routes; only a kill
   plus `npm run dev` relaunch recovers). Warm routes sequentially before any
   parallel fetch or assertion sweep.
+- 🔴 **`HTTP ERROR 431` on `localhost:3000` is the BROWSER, not the app.** Node's
+  header ceiling is 16KB and an old localhost cookie jar exceeds it, so the request
+  dies before Next runs. `curl` works (no cookies) while the browser fails, which
+  reads exactly like a broken site and sends you hunting a fault that is not there.
+  Fix: private window, or clear `localhost` cookies. Reproduce the 431 with
+  `curl -H "Cookie: c=$(python3 -c "print('x'*20000)")" http://localhost:3000/en`.
+- **The claude-in-chrome extension can report "not connected" when it is fine.**
+  `list_connected_browsers` then `select_browser` recovers it; do not conclude the
+  page is broken.
 - **Review many images or frames in one Read** by tiling:
   `ffmpeg -pattern_type glob -i '*.jpg' -filter_complex "scale=W:H,tile=CxR" -frames:v 1 sheet.jpg`.
   `drawtext` isn't compiled into this ffmpeg build, so print a cell→file/timestamp
@@ -393,7 +618,10 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   generates `.next/types/validator.ts` referencing every route it has seen, so
   after removing one, `npm run typecheck` fails with
   `Cannot find module '../../app/<route>/route.js'`. It names a file you
-  deliberately deleted and reads like a real error. `rm -rf .next` clears it.
+  deliberately deleted and reads like a real error. **`rm -rf .next/types` is
+  enough**, and unlike `rm -rf .next` it does not force a running dev server to
+  rebuild everything, which matters when the server belongs to another session
+  (verified 2026-07-30, after deleting a temporary admin route).
 - ⚠️ **A `*/` inside a block comment ENDS it.** Writing a glob or a path like
   `/ar/spaces/*/book` in a JSDoc terminates the comment early and everything
   after it parses as code (`TS1443`, `Unterminated template literal`). Use prose
@@ -407,11 +635,77 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
 - **`grep -c "<img"` counts JSDoc prose, not elements**: it reported 18 raw
   `<img>` tags when there are 16 (two hits are comments *describing* them).
   Filter to real JSX before quoting any element count in a finding.
+- 🔴 **TAILWIND READS YOUR COMMENTS, AND ONE ARBITRARY VALUE WRITTEN IN PROSE
+  TAKES THE WHOLE SITE DOWN.** `content` in `tailwind.config.ts` is
+  `./app/**` + `./components/**`, and the JIT extracts class-like tokens from
+  RAW TEXT: it cannot tell a JSDoc paragraph from markup. A new
+  `components/admin/Field.tsx` explained itself with the phrase "rather than a
+  `bg-[url(...)]` arbitrary value", Tailwind compiled a real
+  `background-image: url(...)` rule into `globals.css`, and Turbopack tried to
+  resolve `...` as a MODULE. Result: **every route answered 500**, including the
+  landing page and all eight booking routes.
+  - **The error names the wrong file, by a mile.** It reads
+    `./app/globals.css:1828 Module not found: Can't resolve '...'` and quotes
+    generated CSS, so it presents as a stylesheet defect with no connection to
+    the comment that caused it. `npm run lint` and `tsc --noEmit` both pass
+    clean, because nothing is wrong with any TypeScript.
+  - **Find it with a fixed-string grep** over the two content roots
+    (`grep -rF 'url(...)' app/ components/`), not by reading the CSS.
+  - ⚠️ **Fixing the source is not enough: Turbopack caches the failure.** The
+    error stayed byte-identical, line numbers and all, after the token was
+    removed and `globals.css` was touched. It took `rm -rf .next` plus a dev
+    restart. So a stale identical error is not evidence your fix failed.
+  - **The rule:** never spell a Tailwind arbitrary value in prose under `app/`
+    or `components/`. Say "a Tailwind arbitrary background-image value" instead.
+    Breaking the token with a Unicode ellipsis does NOT work either, it just
+    generates a different unresolvable URL.
+  - ✅ **MARKDOWN IS EXEMPT, and that is why the scoped docs may quote classes.**
+    The globs are `./app/**/*.{js,ts,jsx,tsx,mdx}` and the same for
+    `components/`, so a `.md` file inside those trees is never scanned:
+    `app/CLAUDE.md` naming `max-w-[1120px]` and `components/CLAUDE.md` naming
+    dozens of arbitrary values are all safe. Verified against the config
+    2026-07-30. The rule above binds **code comments**, not these files. ⚠️ Note
+    `.mdx` IS scanned; only `.md` is out.
+- 🔴 **zsh globs `[locale]` in a PATH ARGUMENT**, not only in flag values:
+  `find app/[locale]/spaces/_lib` dies with `no matches found`. Quote any path
+  carrying the route group: `find "app/[locale]/..."`. It is the commonest path
+  shape in this repo.
+- **`npx vitest run <path>` reports "No test files found" for a path outside
+  `include`** (`server/**/*.test.ts`, `test/**/*.test.ts`, in `vitest.config.ts`).
+  A scratch test at the repo root silently matches nothing: put it in `test/`.
+- **There is NO DOM test environment.** `vitest.config.ts` is
+  `environment: "node"` and neither jsdom, happy-dom nor testing-library is
+  installed, so a client component's BEHAVIOUR cannot be tested, only its pure
+  helpers. Adding one churns the lockfile in a tree that usually carries another
+  session's work. Verify in a browser instead, and say in the report that it was
+  not machine-verified.
+- ⚠️ **A temporary `return` at the top of a function makes `tsc` report a BOGUS
+  error further down**, because TypeScript drops narrowing in unreachable code. A
+  probe in `ticketStock` produced `'stock' is possibly 'null'` on a line that had
+  just typechecked clean, and it reads as a real defect. Gate probes on an env
+  var so the code stays reachable, which also lets ONE build serve several cases.
 - 🔴 **Literal control characters cannot go in a `.ts` file or a Bash command.**
   A literal NUL or ESC byte in source is a hard ESLint parse error
   (`Unexpected keyword or identifier`), and the Bash tool refuses a command
   containing one. Write `\u0000`-style escapes in source, and build such test inputs
   with `chr(0)` in Python.
+  ⚠️ And to WRITE such an escape INTO source, build it from CODE POINTS
+  (`"\\u%04x" % n` in Python) rather than typing it: emitting `\u0000` directly
+  can produce the real byte, which Bash then refuses ("command contains
+  control characters") and Edit cannot match. Cost three blocked calls
+  2026-07-28, and the damaged character class rendered as three visible
+  dashes that silently stripped nothing.
+- **A Next dev 500 hides its real error in the HTML body.** When every route
+  500s while `lint` and `tsc` pass clean, it is a CSS/asset COMPILE error, not
+  code: `curl -s localhost:3000/en` then
+  `re.findall(r'"message":"(.*?)","stack"', html)`. Reading the rendered page
+  tells you nothing, and the symptom you notice first (e.g. "all booking routes
+  are down") points at the wrong subsystem.
+- **To read live Rekaz catalog state, curl your own booking page rather than
+  scripting the API.** `/en/spaces/<space>/book` renders real prices in Rekaz's
+  own `order`, and the DEFAULT variant is `aria-pressed="true"` on card 0. That
+  is how "both products default to One day" was established. No credential
+  handling, so it sidesteps the classifier refusal below.
 - 🔴 **Hand-rolled API calls that read `.env.local` are refused by the permission
   classifier.** A script reading a credential from that file and POSTing or
   PATCHing an external API was blocked twice in one session (bulk env upload to
@@ -428,3 +722,17 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
 - `components/Proof.tsx` and `components/MotionToggle.tsx` are mounted on **no**
   route. Don't spend edits there. See `components/CLAUDE.md` for why MotionToggle
   was unmounted and why it must not be re-added from an audit.
+- `components/admin/RevealedSecret.tsx` (and its `RevealButton`) joined them on
+  2026-07-30: its only caller was `/admin`'s deleted booking lookup. It is kept
+  because it is this repo's one correct rendering of a bearer capability, and
+  `test/admin-page-guards.test.ts` still pins its no-anchor rule. 🔴 Bringing it
+  back means WRITING ITS TEST AGAIN FROM SCRATCH. `test/admin-booking-lookup.test.ts`
+  was deleted with the feature and the owner confirmed on 2026-07-31 that it
+  should not be kept, so no copy exists anywhere. It was the only assertion
+  behind the reveal's entire access check, and `RevealedSecret`'s own docblock
+  now records the two properties it pinned, which is the part that mattered.
+- In `server/`, `fetchAllReservations`, `fetchAllSubscriptions` and
+  `bookableRooms` lost their last production caller in the same change, as did
+  `bookingsByMobile` and `getBookingPaymentLink` in `server/db/bookings.ts`. All
+  five are still exercised by tests and still documented in
+  `docs/rekaz-api-findings.md`, so they are reference material, not live paths.

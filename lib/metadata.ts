@@ -47,7 +47,20 @@ export async function pageMetadata(
   // layout, and a newline in a <title> renders as a stray space in the SERP.
   const headline = t.has("metaTitle") ? t("metaTitle") : t("title");
   const title = `${headline.replace(/\s*\n\s*/g, " ")} | ${meta("siteName")}`;
-  const description = t("intro");
+
+  // `metaDescription` is optional and works exactly like `metaTitle`: the page
+  // `intro` drives the description unless a namespace overrides it. Added
+  // 2026-07-28 for `/events`, where the on-page intro and the SERP snippet want
+  // different things (the intro sets a scene, the snippet has to carry
+  // "Al-Khobar" and a reason to click).
+  //
+  // ⚠️ It is also the escape hatch for an `intro` that takes ICU arguments.
+  // `t("intro")` with no argument does not render a placeholder, it THROWS, and
+  // inside `generateMetadata` that takes the whole route down rather than
+  // degrading. Any namespace whose `intro` gains a parameter needs this key.
+  const description = t.has("metaDescription")
+    ? t("metaDescription")
+    : t("intro");
   const isAr = locale === "ar";
 
   return {

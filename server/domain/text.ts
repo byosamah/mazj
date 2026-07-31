@@ -42,6 +42,47 @@ export function cleanFreeText(value: string, maxLength: number): string {
 }
 
 /**
+ * The same three protections, for text where LINE BREAKS carry meaning.
+ *
+ * `cleanFreeText` collapses every run of whitespace to a single space, which is
+ * exactly right for a name and exactly wrong for a paragraph: a founder's
+ * description of what they are building arrives from a `<textarea>`, and
+ * flattening it into one wall of text is a quality loss paid by whoever has to
+ * read fifty of them and decide.
+ *
+ * So newlines survive, and everything else is treated identically:
+ *
+ * - `\r\n` and a bare `\r` normalise to `\n` FIRST, so the stored text is not
+ *   at the mercy of which operating system typed it, and so the strip below
+ *   has only one line ending left to spare.
+ * - C0/C1 control characters are stripped, sparing the newline alone. A NUL
+ *   still reaches Postgres as `unsupported Unicode escape sequence`, which
+ *   this codebase maps to a 503 blaming our own database for the caller's
+ *   input, and an ESC byte still rewrites whatever a human reads in a
+ *   terminal via the log.
+ * - Horizontal whitespace, tabs included, collapses to a single space, so a
+ *   pitch padded out to clear the 20-character floor does not clear it.
+ * - Runs of three or more newlines collapse to two. One blank line is a
+ *   paragraph; forty are a paste accident that renders as an empty screen for
+ *   whoever has to read it.
+ *
+ * 🔴 The ranges are written as ESCAPE SEQUENCES, never as literal bytes. A
+ * literal control byte in a `.ts` file is a hard ESLint parse error, and this
+ * function shipped with exactly that mistake in its first draft: the class
+ * rendered as three visible dashes and silently stripped nothing at all.
+ */
+export function cleanMultilineText(value: string, maxLength: number): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, "")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, maxLength);
+}
+
+/**
  * A permissive check that a string is shaped like an email address.
  *
  * 🔴 Deliberately NOT strict, and never the authority on whether an address is
@@ -64,4 +105,54 @@ export function looksLikeEmail(value: string): boolean {
   }
 
   return !/[\s,;:<>()[\]\\"]/.test(value);
+}
+
+/**
+ * The readable text inside a fragment of HTML.
+ *
+ * 🔴 EXISTS FOR ONE CALLER AND ONE DIRECTION: Rekaz stores a product's
+ * description as HTML (`<p>بلا بلا بلا</p>`), and the admin's event form
+ * prefills its Arabic description box from it. Without this the operator would
+ * see the angle brackets, save them, and MAZJ's own event page would print
+ * markup at a reader, because that field is rendered as PLAIN TEXT and React
+ * escapes it.
+ *
+ * ⚠️ **This is not a sanitiser and must never be used as one.** It is not safe
+ * to feed the result to `dangerouslySetInnerHTML`, and nothing here should ever
+ * want to: the value lands in a form control and is rendered as text at every
+ * step. If a future caller needs to RENDER vendor HTML, that is a different
+ * problem needing a real sanitiser, not this function.
+ *
+ * Block-level closers become newlines first, so two paragraphs stay two
+ * paragraphs instead of running together into one word. Entities are decoded
+ * with `&amp;` LAST, or `&amp;lt;` would decode twice and produce a `<` the
+ * author never wrote.
+ */
+export function htmlToPlainText(value: string): string {
+  return (
+    value
+      // Block boundaries become newlines BEFORE tags are stripped, or
+      // "<p>one</p><p>two</p>" collapses to "onetwo".
+      .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+      // A closing list item or row is a line. A closing paragraph, heading or
+      // block is a PARAGRAPH, so it earns the blank line between them: the
+      // event description renders with its line breaks preserved, and two ideas
+      // running into one line is the thing this is meant to prevent.
+      .replace(/<\/\s*(li|tr)\s*>/gi, "\n")
+      .replace(/<\/\s*(p|div|h[1-6]|blockquote)\s*>/gi, "\n\n")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;|&apos;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&amp;/gi, "&")
+      // Tabs and stray carriage returns go; real newlines survive, because the
+      // event description renders with its line breaks preserved.
+      .replace(/\r/g, "")
+      .replace(/[ \t ]+/g, " ")
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }

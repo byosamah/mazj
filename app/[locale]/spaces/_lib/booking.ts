@@ -1,10 +1,15 @@
 import "server-only";
 
 import { splitByBookingFlow, listProducts } from "@/server/rekaz/catalog";
+import { chargedAmount } from "@/server/rekaz/types";
 import { filterSlotsToRange, getSlots } from "@/server/rekaz/reservations";
 import { riyadhDate, riyadhToday } from "@/server/domain/riyadh-time";
 import { spaceBySlug, type BookingFlow } from "@/server/domain/spaces";
-import type { RekazCustomField } from "@/server/rekaz/types";
+import type {
+  RekazCustomField,
+  RekazPrice,
+  RekazProduct,
+} from "@/server/rekaz/types";
 
 /**
  * Everything the booking pages need from Rekaz, as plain data.
@@ -41,12 +46,32 @@ export type BookableSpace = {
   isOutOfStock: boolean;
 };
 
+/** The live price row behind an immutable id, or `null` if this catalog has none. */
+function priceIn(
+  products: RekazProduct[],
+  rekazSlug: string,
+  immutableId: string
+): RekazPrice | null {
+  const product = products.find((p) => p.slug === rekazSlug);
+  return product?.pricing.find((p) => p.immutableId === immutableId) ?? null;
+}
+
 /**
  * The catalog for one space, or `null` if Rekaz does not have it.
  *
  * Returning null rather than throwing so the page can render an honest "booking
  * is temporarily unavailable" instead of a 500. Rekaz being down must not take
  * a marketing page down with it.
+ *
+ * 🔴 A LIVE read, deliberately, and it must stay one. This is what decides
+ * whether the page renders a booking form at all, because it carries
+ * `isOutOfStock`, and `server/rekaz/catalog.ts` is explicit that its memo is for
+ * read paths and never for checking stock. A cached copy here would keep selling
+ * a room operations pulled a minute ago.
+ *
+ * It is also what makes the cached read in `loadAvailability` nearly free: a
+ * live download still STORES its result in that memo, so rendering this page
+ * warms the entry every duration change then reads.
  */
 export async function loadBookableSpace(
   slug: string
@@ -72,7 +97,12 @@ export async function loadBookableSpace(
       .map((p) => ({
         immutableId: p.immutableId,
         labelAr: p.name,
-        amount: p.discountedAmount || p.amount,
+        // 🔴 The SAME function the booking service records onto our own row as
+        // `amountSnapshot`. It used to be this expression written out here and
+        // `price.amount` written out there, which agreed only while no price
+        // carried a discount; the first discounted price would have shown the
+        // buyer one figure and handed the desk another.
+        amount: chargedAmount(p),
         durationMinutes: p.duration,
         billingPeriodDays: p.billingPeriod,
       })),
@@ -114,9 +144,13 @@ export type DaySlots = {
  * people slots on days they did not ask about, and this morning's slots this
  * afternoon.
  *
- * Fridays and Saturdays simply have no slots: the venue is closed and Rekaz
- * returns nothing for them. The UI must present that as "closed", not as an
- * error.
+ * 🔴 A day Rekaz has no windows on is simply ABSENT from the response, and it
+ * never says why. Closed, sold out, and withdrawn from sale all arrive as the
+ * same silence, so nothing downstream may render one of those three as a fact.
+ * This paragraph used to instruct the UI to present such days as "closed", which
+ * is the one claim the data cannot support. The window is now seeded with every
+ * day in it instead, and the empty ones are offered as unavailable with no
+ * reason attached.
  */
 export async function loadAvailability(
   spaceSlug: string,
@@ -130,24 +164,91 @@ export async function loadAvailability(
     return { ok: true, days: [] };
   }
 
-  const catalog = await listProducts();
+  // 🔴 REK-042, and the ONE cached catalog read in the booking flow.
+  //
+  // This call exists for a single field: turning the immutable id the browser
+  // holds into the live price id `/reservations/slots` wants. It was a full
+  // catalog download on EVERY duration change, on top of the one the page render
+  // had already paid, against a tenant measured answering between 1.2 and 10.8
+  // seconds. Two downloads per press, to read one id.
+  //
+  // `{cached: true}` is `server/rekaz/catalog.ts`'s opt-in, and that module is
+  // emphatic about who may take it: read paths only, never anything about to
+  // bill, to check stock, or to decide what a customer may buy right now. This
+  // clears all three. The slots themselves are still fetched live below,
+  // `isOutOfStock` is read by `loadBookableSpace` on a live catalog, and the
+  // price a customer is CHARGED is resolved from that file's own live read
+  // inside `server/services/booking.ts`. Nothing on this path touches money.
+  const catalog = await listProducts({ cached: true });
   if (!catalog.ok) return { ok: false, reason: "upstream" };
 
-  const product = catalog.value.items.find((p) => p.slug === mapping.rekazSlug);
-  const price = product?.pricing.find((p) => p.immutableId === priceImmutableId);
+  const price = priceIn(catalog.value.items, mapping.rekazSlug, priceImmutableId);
   if (!price) return { ok: false, reason: "upstream" };
 
-  const start = riyadhToday();
-  const end = riyadhDate(new Date(Date.now() + days * 86_400_000));
+  // 🔴 ONE clock reading for the whole window, passed explicitly. `riyadhToday()`
+  // takes its own `new Date()` by default, so calling it bare next to a separate
+  // `Date.now()` is two readings that can straddle midnight: the seeded days
+  // would then start a day away from the range we asked Rekaz for.
+  const now = Date.now();
+  const start = riyadhToday(new Date(now));
+  const end = riyadhDate(new Date(now + days * 86_400_000));
 
-  const result = await getSlots({
+  let result = await getSlots({
     priceId: price.id,
     startDate: start,
     endDate: end,
   });
-  if (!result.ok) return { ok: false, reason: "upstream" };
 
+  if (!result.ok) {
+    // 🔴 The one thing a remembered catalog can get wrong here, answered rather
+    // than left for the visitor to discover.
+    //
+    // A live price id ROTATES whenever anybody edits an amount in the Rekaz
+    // dashboard, so a copy up to a minute old can name an id that no longer
+    // exists, and slots asked for under a dead id fail exactly like an outage
+    // does. Without this the error box's retry button would resend the same dead
+    // id and fail identically for the rest of that minute: a button that cannot
+    // possibly work, offered at the money step.
+    //
+    // So ask live, ONCE, and only re-ask for slots when the id actually moved. A
+    // genuine outage therefore costs one extra catalog read and stops, rather
+    // than looping.
+    const live = await listProducts({ fresh: true });
+    const livePrice = live.ok
+      ? priceIn(live.value.items, mapping.rekazSlug, priceImmutableId)
+      : null;
+    if (!livePrice || livePrice.id === price.id) {
+      return { ok: false, reason: "upstream" };
+    }
+
+    result = await getSlots({
+      priceId: livePrice.id,
+      startDate: start,
+      endDate: end,
+    });
+    if (!result.ok) return { ok: false, reason: "upstream" };
+  }
+
+  // 🔴 REK-054. Every day in the window is seeded EMPTY before a single slot is
+  // filed against it.
+  //
+  // Building this map from the response alone produced a calendar with holes in
+  // it: the strip jumped from Thursday straight to Sunday, which reads as a
+  // rendering fault rather than as a venue that is shut at the weekend. It also
+  // made three pieces of the picker unreachable, since a day with zero slots
+  // could not exist to be disabled, greyed, or explained.
+  //
+  // ⚠️ Seeded, NOT labelled. Rekaz cannot distinguish closed from fully booked
+  // from withdrawn from sale, so the day is offered as unavailable and nothing
+  // is asserted about why. `filterSlotsToRange` guarantees every surviving slot
+  // falls inside `[start, end]`, so this seed covers all of them; the `??` below
+  // stays as a backstop rather than as a live path.
   const byDay = new Map<string, DaySlots>();
+  for (let offset = 0; offset <= days; offset++) {
+    const day = riyadhDate(new Date(now + offset * 86_400_000));
+    byDay.set(day, { day, slots: [] });
+  }
+
   for (const slot of filterSlotsToRange(result.value, start, end)) {
     const day = riyadhDate(slot.from);
     const entry = byDay.get(day) ?? { day, slots: [] };

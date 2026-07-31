@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import {waLink, MAPS_URL} from "@/lib/contact";
@@ -69,12 +70,27 @@ export default function LocationHours({surface = "bg-beige"}: {surface?: string}
         </Reveal>
 
         {/* Links to MAZJ's real Google listing (Life Tower). Carries a static
-            Google-map still of the pin (public/images/location-map.jpg) with the
+            map still of the pin (public/images/location-map.png) with the
             "Get directions" label over a bottom scrim; taps through to Maps.
-            Deliberately the clean, unlabelled-pin capture, NOT the variant that
-            bakes a 4.7-star rating card onto the map (no rating claims on the
-            page, per brand). Regenerate the still from Google Maps if the pin
-            ever moves. */}
+
+            🔴 IT IS A CUSTOM-STYLED MAP, NOT A GOOGLE SCREENSHOT (2026-07-30).
+            The still it replaces was default Google styling, which meant MAZJ's
+            own visit-us card named five other businesses on it, one of them a
+            hotel: Aloft by Marriott, LEGO Store, JOE & THE JUICE, Hazel Coffee
+            and Regal Burger. It now renders MAZJ's palette (cream ground, white
+            roads, hairline strokes, a coral pin) with every business POI
+            suppressed. The style lives in `scripts/mazj-map-style.json` and the
+            regeneration recipe is in `components/CLAUDE.md`.
+
+            ⚠️ Still the clean capture with NO rating card: no rating claims on
+            the page, per brand.
+
+            ⚠️ PNG, not JPEG, and that is measured rather than a preference. The
+            styled map holds 464 distinct colours, so a 256-colour PNG is
+            effectively lossless (max channel error 4) at 41KB, against 203KB for
+            the JPEG it replaces at a LOWER resolution. JPEG also rings around
+            the street labels, which are the one thing here that must stay
+            crisp. */}
         <Reveal delay={120} className="flex">
           <a
             href={MAPS_URL}
@@ -82,20 +98,54 @@ export default function LocationHours({surface = "bg-beige"}: {surface?: string}
             rel="noopener noreferrer"
             className="group relative flex aspect-[4/3] w-full items-end overflow-clip rounded-[16px] bg-beige-card transition-transform duration-[120ms] active:scale-[0.96] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/location-map.jpg"
+            {/* 🔴 `unoptimized`, and it is not laziness. The still is already a
+                hand-tuned PNG-8 at 256 colours (41 KB, measured effectively
+                lossless against the styled map's 464 distinct colours). Running
+                it back through a lossy AVIF/WebP re-encode is the one thing that
+                would undo that: the flat cream fields band and the street
+                labels ring, which is exactly the artifact PNG-8 was chosen to
+                avoid. See the regeneration recipe in components/CLAUDE.md. */}
+            <Image
+              src="/images/location-map.png"
               alt=""
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-[1.04]"
+              fill
+              unoptimized
+              sizes="(min-width: 1024px) 745px, 100vw"
+              className="object-cover transition-transform duration-700 ease-expo-out group-hover:scale-[1.04]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            {/* A CREAM SCRIM ACROSS THE BOTTOM, carrying the label and covering
+                the map's baked-in Google branding. Owner instruction, 2026-07-30.
+
+                🔴 THE COLOUR IS NOT THE PREFERENCE HALF, AND MUST NOT BE
+                REVERTED. This was `from-black/70 via-black/20`, which was right
+                while the still was Google's default styling: that image is
+                mid-toned, so a dark fade read as a shadow. Against the
+                cream-and-white styled map the same fade read as DIRT, turning the
+                bottom half of the card muddy grey. Measured in situ at 1440. Ink
+                on cream is 17.4:1 and the arrow's warm grey 7.77:1, so the flip
+                from cream text to ink is also the safer direction.
+
+                ⚠️ WHAT THE POSITION COSTS, recorded rather than argued. The map
+                renders "Google" and "Map data ©…" along its bottom edge, and this
+                fade is what hides them. Google's terms ask for that attribution
+                to stay legible, so this is a deliberate step further into the
+                grey area the still already sits in: the whole asset is a
+                self-hosted capture rather than a Static Maps API call, because
+                this project holds no Maps key.
+
+                🔴 **THE OWNER DECLINED A MAPS API KEY, 2026-07-30, having been
+                offered it twice. Do not propose it again.** Their reasoning:
+                anyone who wants the real map taps the card, which opens Google
+                Maps. So this still is a picture of where MAZJ is, not a map
+                product, and it stays a picture. The only fix left on the table,
+                if it ever matters, is easing this gradient so the last ~24px stay
+                clear. Do not change it silently in either direction. */}
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-beige via-beige/80 to-transparent" />
             <div className="relative flex w-full items-end justify-between gap-6 p-6 lg:p-8">
-              <p className="eyebrow max-w-[300px] text-12 text-beige underline decoration-beige/30 underline-offset-4 group-hover:decoration-beige">
+              <p className="eyebrow max-w-[300px] text-12 text-black underline decoration-black/20 underline-offset-4 group-hover:decoration-black">
                 {t("mapPlaceholder")}
               </p>
-              <span aria-hidden className="eyebrow shrink-0 text-12 text-beige/70">
+              <span aria-hidden className="eyebrow shrink-0 text-12 text-muted">
                 ↗
               </span>
             </div>

@@ -70,8 +70,7 @@ export default function SpaceOffers() {
                 src={offer.img}
                 alt={t(`offers.${offer.id}.photoAlt`)}
                 ratio="aspect-[3/2]"
-                width={1200}
-                height={800}
+                sizes="(min-width: 768px) 50vw, 100vw"
                 eager={i === 0}
               />
 

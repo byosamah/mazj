@@ -67,7 +67,7 @@ export default function LocaleError({
           <button
             type="button"
             onClick={() => reset()}
-            className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#fff7e9] [--cta-fg-hover:#4c2806]"
+            className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#FF5A48] [--cta-fg-hover:#111111]"
           >
             <span className="cta__label">{retryLabel}</span>
             <span className="cta__sweep" aria-hidden="true" />
@@ -79,7 +79,7 @@ export default function LocaleError({
         <Link
           href="/"
           onClick={() => reset()}
-          className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#fff7e9] [--cta-fg-hover:#4c2806]"
+          className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#FF5A48] [--cta-fg-hover:#111111]"
         >
           <span className="cta__label">{t("NotFound.cta")}</span>
           <span className="cta__sweep" aria-hidden="true" />

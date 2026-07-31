@@ -47,6 +47,21 @@ export const LEGACY_STORE_PATHS = {
   "/reservation/qaah-alfaalyat-almaarj": "/spaces/event-hall/book",
 } as const;
 
+/**
+ * The startups & builders offer page.
+ *
+ * Internal, and centralised here for the same reason `BOOKING` is: the landing
+ * band, the footer and the rejection email all point at it, and a path spelled
+ * out in three components is a path that gets renamed in two of them.
+ *
+ * ⚠️ It became a destination on 2026-07-28. Before that the band's only CTA was
+ * a WhatsApp link, so the offer had no page, no application and no record of
+ * who had asked. `Founding.ctaMsg` (the prefilled WhatsApp message) was removed
+ * from both message files in the same change; if you find a reference to it,
+ * it is stale.
+ */
+export const STARTUP_OFFER = "/startups";
+
 export const SOCIALS = {
   x: "https://twitter.com/mazjorg",
   instagram: "https://www.instagram.com/mazjorg",

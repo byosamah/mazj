@@ -101,6 +101,50 @@ function venueOffsetMs(at: Date): number {
   return asVenue.getTime() - asUtc.getTime();
 }
 
+/**
+ * A wall-clock time as typed at the venue, converted to a UTC instant.
+ *
+ * 🔴 THE INPUT IS RIYADH TIME, NOT THE BROWSER'S TIME, and that distinction is
+ * the whole reason this exists.
+ *
+ * An `<input type="datetime-local">` yields a bare `YYYY-MM-DDTHH:mm` with no
+ * zone, and the obvious `new Date(value)` interprets it in whatever zone the
+ * MACHINE is set to. That is correct only while every person who ever creates
+ * an event is sitting in Al Khobar. The moment one is travelling, or has a
+ * laptop still on another country's zone, an event typed as 7pm is stored three
+ * or eight hours out, published, and shared, and nothing anywhere looks wrong
+ * until people arrive at the wrong time.
+ *
+ * "7pm" on this form means 7pm in the room. The offset is derived from the zone
+ * rather than assumed, the same way `riyadhDayRangeUtc` does it.
+ *
+ * Returns `null` on anything not shaped like a datetime-local value, so the
+ * caller reports a validation error instead of storing `Invalid Date`.
+ */
+export function riyadhWallClockToUtc(wallClock: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(wallClock)) return null;
+
+  const withSeconds = wallClock.length === 16 ? `${wallClock}:00` : wallClock;
+
+  // Read the same digits as if they were UTC, then subtract the venue's offset
+  // at that moment to recover the real instant.
+  const asIfUtc = new Date(`${withSeconds}Z`);
+  if (Number.isNaN(asIfUtc.getTime())) return null;
+
+  return new Date(asIfUtc.getTime() - venueOffsetMs(asIfUtc)).toISOString();
+}
+
+/**
+ * The inverse: a UTC instant as the `YYYY-MM-DDTHH:mm` an edit form expects.
+ *
+ * Needed so opening an existing event shows the time it actually starts rather
+ * than that time shifted into the editor's own zone.
+ */
+export function utcToRiyadhWallClock(instant: Date | string): string {
+  const {date, time} = toRiyadhParts(instant);
+  return `${date}T${time}`;
+}
+
 /** Today's calendar date in Riyadh, `YYYY-MM-DD`. */
 export function riyadhToday(now: Date = new Date()): string {
   return riyadhDate(now);

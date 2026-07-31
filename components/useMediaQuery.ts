@@ -51,9 +51,17 @@ export function useMediaQuery(query: string): boolean {
 
 /**
  * True when the visitor has asked the OS to reduce motion.
- * Note this reports the *preference*, it does not enforce anything: the site's
- * autoplaying background videos ignore it (measured), which is why
- * `MotionToggle` exists.
+ *
+ * ⚠️ This docblock used to say the hook "does not enforce anything" because the
+ * autoplaying background videos ignored it. That stopped being true on
+ * 2026-07-31: this hook IS the enforcement now. `motion/AmbientVideo.tsx` reads
+ * it as one of its three gates and simply never mounts the `<video>` when it is
+ * true, and `Hero.tsx` gates its clip-window loop on it directly.
+ *
+ * 🔴 It gates FIVE of the site's six ambient loops. The nav CTA's fill
+ * (`mazj-button.mp4` in `Navigation.tsx`) is a deliberate holdout, so the site
+ * is not fully reduced-motion-safe. See `components/CLAUDE.md` for which is
+ * which and why the hero's two must always be gated as a pair.
  */
 export function usePrefersReducedMotion(): boolean {
   return useMediaQuery("(prefers-reduced-motion: reduce)");

@@ -5,6 +5,24 @@ import sitemap from "@/app/sitemap";
 import { INDEXABLE_ROUTES, NOINDEX_ROUTES } from "@/lib/routes";
 
 /**
+ * 🔴 The sitemap reads the events table since 2026-07-28, so it is mocked here.
+ *
+ * Without this the suite makes a live Supabase call, which is wrong three ways:
+ * it is a network round trip inside a unit test, it fails on a fresh clone with
+ * no credentials, and its result would vary with whatever is in the database on
+ * the day, so a test about the ADMIN's absence would start failing because
+ * somebody published an event.
+ *
+ * A non-empty return is deliberate: mocking it to `[]` would let a bug that
+ * drops every event URL from the sitemap pass this file unnoticed.
+ */
+vi.mock("@/app/[locale]/events/_lib/events", () => ({
+  listIndexableEventSlugs: async () => [
+    { slug: "coffee-sketch-v10", lastModified: new Date("2026-07-01") },
+  ],
+}));
+
+/**
  * The admin must not exist as far as the public internet is concerned.
  *
  * Authentication stops a stranger READING the dashboard. It does nothing about
@@ -31,22 +49,44 @@ afterEach(() => {
 });
 
 describe("the admin is absent from the public surface", () => {
-  it("does not appear in the sitemap", () => {
-    const urls = sitemap().map((entry) => entry.url);
+  it("does not appear in the sitemap", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
 
     expect(urls.length).toBeGreaterThan(0);
     expect(urls.filter((url) => url.includes("admin"))).toEqual([]);
   });
 
-  it("does not appear in any hreflang cluster either", () => {
+  it("does not appear in any hreflang cluster either", async () => {
     // A URL can be absent from every <loc> and still be published to Google
     // through an alternates block, which is the less obvious half of the same
     // mistake.
-    const alternates = sitemap().flatMap((entry) =>
+    const alternates = (await sitemap()).flatMap((entry) =>
       Object.values(entry.alternates?.languages ?? {})
     );
 
     expect(alternates.filter((url) => String(url).includes("admin"))).toEqual([]);
+  });
+
+  it("still publishes event pages, in both locales, with hreflang", async () => {
+    // Guards the mock above from silently turning into a no-op assertion: if
+    // event URLs stopped reaching the sitemap entirely, the two tests above
+    // would still pass while `/events/<slug>` quietly left the index.
+    const entries = await sitemap();
+    const event = entries.filter((e) => e.url.includes("/events/coffee-sketch-v10"));
+
+    expect(event.map((e) => e.url).sort()).toEqual([
+      "https://mazj.example/ar/events/coffee-sketch-v10",
+      "https://mazj.example/en/events/coffee-sketch-v10",
+    ]);
+    // The self-reference is load-bearing: Google discards a cluster whose page
+    // omits itself.
+    for (const entry of event) {
+      expect(Object.keys(entry.alternates?.languages ?? {}).sort()).toEqual([
+        "ar",
+        "en",
+        "x-default",
+      ]);
+    }
   });
 
   it("is not in the indexable route table", () => {

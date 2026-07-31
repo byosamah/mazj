@@ -8,14 +8,36 @@ import WordReveal from "@/components/WordReveal";
 import MediaFrame from "@/components/MediaFrame";
 import CtaButton from "@/components/CtaButton";
 import Footer from "@/components/Footer";
+import {Link} from "@/i18n/navigation";
+import {waLink} from "@/lib/contact";
 
-type Principle = {word: string; label: string; body: string};
-type Fact = {value: string; label: string};
+type Chapter = {
+  title: string;
+  body: string;
+  img: string;
+  alt: string;
+  w: number;
+  h: number;
+  ratio: string;
+  flip: boolean;
+  surface: string;
+  heading: string;
+  copy: string;
+  rule: string;
+  /**
+   * Optional inline link out of a chapter. Only the community chapter carries
+   * one: the closing plate used to hold BOTH a /spaces and an /events button
+   * next to a headline that also said "come see", so one card ran the word
+   * three times. The events link belongs beside the sentence that earns it
+   * (the one naming what has actually happened here) rather than in a CTA row
+   * it was competing in. That sentence used to carry a count; it must not
+   * again, see `TONE.md` §6.
+   */
+  link?: {href: string; label: string};
+};
 
 function Content() {
   const t = useTranslations("AboutPage");
-  const principles = t.raw("principles") as Principle[];
-  const facts = t.raw("facts") as Fact[];
 
   /**
    * Three chapters, three colour worlds. These used to be one `.map()` over
@@ -25,7 +47,7 @@ function Content() {
    * body ~0.8, rule ~0.15), so the page moves through light -> warm -> deep
    * and the flip becomes one variable among several instead of the only one.
    */
-  const blocks = [
+  const blocks: Chapter[] = [
     {
       title: t("storyTitle"),
       body: t("storyBody"),
@@ -43,9 +65,15 @@ function Content() {
     {
       title: t("spaceTitle"),
       body: t("spaceBody"),
-      /* "One address" describes the whole floor, so it shows the whole floor.
-         It used to show a private-office pod, which is one product on it. */
-      img: "/images/spaces/day-desk.jpg",
+      /* This chapter shipped on `spaces/day-desk.jpg`, which is the single
+         most-reused frame on the site: the landing hero finder, SpacesGrid,
+         FoundingBand, the /spaces hero AND the /spaces/coworking hero all
+         carry it. So the visitor most likely to reach /about (one who has
+         already scrolled the landing page) met it for the fifth time here.
+         DSC_7854 is unused elsewhere, and it answers the heading better: an
+         ADDRESS is a place, not an activity, so this is a room with its own
+         light rather than another shot of people at laptops. */
+      img: "/images/about-address.jpg",
       alt: t("spaceAlt"),
       w: 1200,
       h: 800,
@@ -59,7 +87,15 @@ function Content() {
     {
       title: t("communityTitle"),
       body: t("communityBody"),
-      img: "/images/spaces/event.jpg",
+      /* `spaces/event.jpg` is an EMPTY hall, and it was illustrating the one
+         chapter on the site whose whole claim is that people gather here.
+         It is also the most-repeated frame after day-desk (landing HostEvent,
+         the /events hero, /spaces/event-hall, SpacesGrid, the hero finder,
+         SpaceOffers). DSC_8011 is a real MAZJ community night, re-cut from
+         the original 8256x5504 rather than from the already-compressed
+         events/women-design.jpg crop. It appears once elsewhere, as a small
+         card deep in the /events archive, which this chapter links to. */
+      img: "/images/about-community.jpg",
       alt: t("communityAlt"),
       w: 1200,
       h: 800,
@@ -69,86 +105,25 @@ function Content() {
       heading: "text-beige",
       copy: "text-beige/75",
       rule: "border-beige/20",
+      link: {href: "/events", label: t("eventsCta")},
     },
   ];
 
   return (
     <>
-      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/why-mazj.jpg" />
+      {/* The opener used to be `why-mazj.jpg`, which is not a photograph at all:
+          it is frame 0 of `why-mazj.mp4`, the video card on the LANDING page. So
+          a visitor arriving here from the home page met the same shot twice, the
+          second time upscaled from a 1280x720 video still across a full-bleed
+          700px band. This is a real photograph (DSC_8182, 1600x1066), used on no
+          other route, and it is the only overhead frame on the site, so it
+          cannot read as a repeat of the booth photos on /spaces either. Shot
+          from above, it puts the whole floor's mix of people in one frame, which
+          is the h1's claim rather than a decoration beside it. alt="" stands:
+          the photo sits BEHIND that h1 (see PageIntro), and it appears nowhere
+          else on the page to describe. */}
+      <PageIntro variant="hero" eyebrow={t("eyebrow")} title={t("title")} intro={t("intro")} image="/images/about-blend.jpg" />
 
-      {/* MAZJ's own three-word framework, from its Arabic brand language on
-          mazj.org: مقصد راسخ / وظيفية فاعلة / تكوين أخَّاذ. The Arabic term leads
-          in BOTH locales because it is the brand's actual vocabulary rather than
-          a translation: English carries the gloss as the label, Arabic carries
-          the original adjective. */}
-      <section className="relative w-full bg-beige px-6 py-20 lg:px-10 lg:py-28">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-12">
-          {/* This chapter had no heading at all — its only title was a 12px
-              muted label, so the document outline ran h1 -> nothing -> h2 and
-              MAZJ's own brand framework arrived unannounced. */}
-          <Reveal className="flex flex-col gap-5 border-t border-black/10 pt-6">
-            <p className="eyebrow text-12 text-muted">{t("principlesLabel")}</p>
-            <WordReveal
-              as="h2"
-              className="max-w-[16ch] font-sans text-32 font-bold leading-[1.05] text-black lg:text-45"
-            >
-              {t("principlesTitle")}
-            </WordReveal>
-            <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-muted">
-              {t("principlesNote")}
-            </p>
-          </Reveal>
-
-          {/* A ruled ledger, NOT three cards. Boxing these forced every column
-              to the tallest one and left ragged dead space under the shortest,
-              and a white floating card is a pattern the landing page never
-              uses. As ruled rows the words can run at display scale, the rules
-              land at identical heights by construction, and the block reads as
-              the brand statement it is. */}
-          <ul className="flex flex-col">
-            {principles.map((p, i) => (
-              <Reveal
-                as="li"
-                key={p.word}
-                delay={i * 90}
-                className="grid grid-cols-1 items-baseline gap-x-12 gap-y-4 border-t border-black/15 py-8 last:border-b lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:py-12"
-              >
-                {/* Word + label are ONE Arabic noun phrase (مقصد راسخ /
-                    وظيفية فاعلة / تكوين أخَّاذ), so the label sits on the same
-                    baseline as a continuation rather than in the tiny grey
-                    eyebrow register, which severed the phrase in the AR build.
-                    leading-[1.35]: Arabic glyphs at display size in BOTH
-                    locales, and the tight Latin leading would clip their tops.
-                    lang="ar" dir="rtl" on the word for the same reason it is
-                    unconditional: `word` is the Arabic term in BOTH message
-                    files (only `label` translates), so inside the EN document
-                    it is a foreign-language run that WCAG 3.1.2 requires be
-                    marked, or an English TTS voice reads it as garbage. dir
-                    carries as much weight as lang: it isolates the RTL run from
-                    the surrounding LTR bidi context. Redundant in the AR build,
-                    correct in both. `label` is deliberately NOT marked: it is
-                    English in en.json and Arabic in ar.json, so it always
-                    matches its document language already. */}
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <span
-                    lang="ar"
-                    dir="rtl"
-                    className="font-sans text-45 font-bold leading-[1.35] text-orange lg:text-70"
-                  >
-                    {p.word}
-                  </span>
-                  <span className="font-sans text-20 leading-[1.35] text-orange/60 lg:text-24">
-                    {p.label}
-                  </span>
-                </div>
-                <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
-                  {p.body}
-                </p>
-              </Reveal>
-            ))}
-          </ul>
-        </div>
-      </section>
 
       {blocks.map((block, i) => (
         <section
@@ -171,6 +146,33 @@ function Content() {
               <p className={`max-w-[480px] text-pretty text-15 leading-relaxed ${block.copy} lg:text-16`}>
                 {block.body}
               </p>
+              {/* Colour comes from the chapter, so this link renders in THREE
+                  different inks across the three surfaces (`text-muted`,
+                  `text-brown/85`, `text-beige/75`). That is why the hover may
+                  not name a colour.
+
+                  🔴 It used to be `hover:opacity-70`, which was the right
+                  instinct for the wrong reason: colour-agnostic, yes, but it
+                  makes the link HARDER to read at the moment it is pointed at.
+                  The underline THICKENS instead (1px to 2px). That is equally
+                  colour-agnostic, because thickness has no hue, and it adds
+                  presence rather than removing it. ⚠️ Do not reach for
+                  `decoration-current/30` here: an alpha modifier on
+                  `currentColor` does not reliably compile, and it would fail
+                  silently in the way a dead Tailwind class always does.
+
+                  `active:scale-[0.96]` compiles to `transform`, so the
+                  transition list must name transform or the press snaps with no
+                  easing. The `before:` band lifts the hit area to 44px without
+                  moving the text (WCAG 2.5.8). */}
+              {block.link ? (
+                <Link
+                  href={block.link.href}
+                  className={`relative w-fit text-14 underline decoration-1 underline-offset-4 hover:decoration-2 ${block.copy} before:absolute before:inset-x-0 before:top-1/2 before:h-11 before:-translate-y-1/2 before:content-[''] [transition:text-decoration-thickness_200ms,transform_120ms] active:scale-[0.96]`}
+                >
+                  {block.link.label}
+                </Link>
+              ) : null}
             </Reveal>
             <Reveal
               delay={100}
@@ -188,8 +190,7 @@ function Content() {
                 src={block.img}
                 alt={block.alt}
                 ratio={block.ratio}
-                width={block.w}
-                height={block.h}
+                sizes="(min-width: 1024px) 620px, 100vw"
                 className="w-full max-w-[620px]"
               />
             </Reveal>
@@ -197,24 +198,22 @@ function Content() {
         </section>
       ))}
 
-      {/* Hard capacity numbers, matching the real space. */}
-      <section className="relative w-full bg-beige px-6 py-14 lg:px-10 lg:py-20">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
-          <Reveal className="border-t border-black/10 pt-6">
-            <p className="eyebrow text-12 text-muted">{t("factsLabel")}</p>
-          </Reveal>
-          <ul className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {facts.map((f, i) => (
-              <Reveal as="li" key={f.label} delay={i * 80} className="flex flex-col gap-2">
-                <p className="font-sans text-40 font-bold leading-[1.35] text-black tabular-nums lg:text-50">
-                  {f.value}
-                </p>
-                <p className="text-14 leading-relaxed text-muted text-pretty">{f.label}</p>
-              </Reveal>
-            ))}
-          </ul>
-        </div>
-      </section>
+      {/* 🔴 There is NO "MAZJ in numbers" stat block here, and that is an owner
+          ruling (2026-07-28), not an oversight. It held 25 open desks / 3
+          private offices / 30 seats in Al-Ma'arij / 24-7, and it was removed in
+          the same instruction that banned the event count site-wide. Do not
+          "restore the missing proof" from an audit: the page argues by chapter
+          now, not by counter. See `TONE.md` §6.
+
+          ⚠️ Be precise about what survived, because the first version of this
+          comment was WRONG and an audit caught it. TWO of the four are still
+          stated elsewhere: 30 seats (19 places) and 24/7 (32 places). The other
+          TWO are now stated NOWHERE in either message file: there is no "25"
+          in any string, and no string anywhere says how many private offices
+          exist. `spaceBody` right above names the open desks and the private
+          offices WITHOUT a figure. That is a consequence of the ruling, not a
+          bug to fix here: if the office count is ever wanted back, its home is
+          the private-office page at the buyer's decision point. */}
 
       {/* Closing plate. This used to be two naked buttons centred on empty
           beige — no eyebrow, no headline, no body, no surface. The page simply
@@ -230,12 +229,24 @@ function Content() {
           <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-purple-dark/80 lg:text-16">
             {t("closingBody")}
           </p>
+          {/* 🔴 The primary CTA here is WhatsApp, which is the ONE exception to
+              the site's self-serve-first rule (see components/CLAUDE.md), and it
+              is the same exception /faq's closing CTA already holds. The reason
+              is that `closingBody` promised "book a tour" while both buttons
+              went to listing pages, so the page's last line named an action no
+              control on it performed. A tour is not self-servable: there is no
+              tour product in Rekaz, and every other tour CTA on the site
+              (Location, SpaceOffers, the Faq answer, /contact) is already
+              `waLink`. The self-serve path is preserved as the secondary
+              button, so /spaces did not lose its entry point. `tourMsg` is
+              deliberately NOT ContactPage's string: a distinct prefill tells
+              the team the request came from /about. */}
           <div className="mt-2 flex flex-wrap items-center gap-4">
-            <CtaButton href="/spaces" variant="onLavender">
+            <CtaButton href={waLink(t("tourMsg"))} variant="onLavender">
               {t("tourCta")}
             </CtaButton>
-            <CtaButton href="/events" variant="light">
-              {t("eventsCta")}
+            <CtaButton href="/spaces" variant="light">
+              {t("spacesCta")}
             </CtaButton>
           </div>
         </Reveal>

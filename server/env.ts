@@ -110,6 +110,65 @@ const schema = z.object({
    * documents `_tenant`, which the live API does not accept.
    */
   REKAZ_TENANT_ID: z.string().min(8, "looks too short to be a tenant id"),
+
+  // -------------------------------------------------------------------------
+  // Transactional email (Resend)
+  // -------------------------------------------------------------------------
+  //
+  // 🔴 ALL OPTIONAL HERE, AND THAT IS A DELIBERATE DEPARTURE from how
+  // `IP_TRUST_PROXY` is treated one block down.
+  //
+  // These four are read by exactly one feature (the startups offer). Making them
+  // required in production would mean that the day mazj.sa's DNS records are
+  // half-propagated, `env()` throws at module scope and takes the LIVE BOOKING
+  // FLOW down with it. A marketing feature must not be able to do that to the
+  // revenue path.
+  //
+  // So the requirement moves to the point of use: `server/email/config.ts`
+  // refuses to send with a typed error naming the exact missing variable, the
+  // admin screen renders that failure in red beside the application, and
+  // `npm run check:env` warns when they are unset. Loud at the moment it
+  // matters, rather than fatal at the moment it does not. What is explicitly NOT
+  // done is a silent no-op that reports success.
+
+  /** Resend API key, `re_…`. Server-only; it can send mail as MAZJ. */
+  RESEND_API_KEY: z
+    .string()
+    .min(10, "looks too short to be a Resend key")
+    .optional(),
+
+  /**
+   * The From header, e.g. `MAZJ <hello@mazj.sa>`.
+   *
+   * ⚠️ Its domain must be a VERIFIED sending domain in Resend, and verification
+   * is DNS, not code. An unverified domain answers 403 at send time, which
+   * surfaces on the application row rather than anywhere near this file.
+   */
+  EMAIL_FROM: z.string().min(3).optional(),
+
+  /** Where replies land. Founders answer these; a no-reply would waste that. */
+  EMAIL_REPLY_TO: z.email().optional(),
+
+  /** Where new-application alerts are sent. */
+  EMAIL_ALERT_TO: z.email().optional(),
+
+  /**
+   * The public origin, e.g. `https://mazj-tau.vercel.app`.
+   *
+   * Read from `NEXT_PUBLIC_SITE_URL`, the same variable `lib/site.ts` owns on
+   * the frontend. It is duplicated rather than imported because `server/` may
+   * not reach into `lib/`, and it is needed here for two things an email cannot
+   * do without: an absolute URL for the wordmark image, and the link that takes
+   * the owner from the alert straight into `/admin/startups/<id>`. A relative
+   * path in an inbox is not a link.
+   *
+   * Optional for the same reason as the block above, and because `.env.local`
+   * ships it EMPTY by design, so every local test would otherwise fail here.
+   */
+  SITE_URL: z
+    .url("must be a full URL including https://")
+    .refine((v) => !v.endsWith("/"), "must not end with a trailing slash")
+    .optional(),
 }).superRefine((value, ctx) => {
   // 🔴 REQUIRED IN PRODUCTION. Advisory configuration is not a security control.
   //
@@ -147,6 +206,17 @@ function readEnv(): BackendEnv {
     REKAZ_API_BASE: process.env.REKAZ_API_BASE,
     REKAZ_AUTH_BASIC: process.env.REKAZ_AUTH_BASIC,
     REKAZ_TENANT_ID: process.env.REKAZ_TENANT_ID,
+    // `|| undefined` rather than a bare read on every optional string: an unset
+    // variable in a `.env` file is often the EMPTY STRING, not absent, and an
+    // empty string is a present value that fails `min()` / `url()` instead of
+    // being skipped. `.env.local` ships `NEXT_PUBLIC_SITE_URL=` exactly that
+    // way, which would otherwise make every local run of `npm run test` fail on
+    // configuration that is deliberately blank.
+    RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
+    EMAIL_FROM: process.env.EMAIL_FROM || undefined,
+    EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO || undefined,
+    EMAIL_ALERT_TO: process.env.EMAIL_ALERT_TO || undefined,
+    SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || undefined,
   });
 
   if (parsed.success) return parsed.data;
@@ -176,6 +246,11 @@ const ENV_VAR_NAMES: Record<string, string> = {
   REKAZ_API_BASE: "REKAZ_API_BASE",
   REKAZ_AUTH_BASIC: "REKAZ_AUTH_BASIC",
   REKAZ_TENANT_ID: "REKAZ_TENANT_ID",
+  RESEND_API_KEY: "RESEND_API_KEY",
+  EMAIL_FROM: "EMAIL_FROM",
+  EMAIL_REPLY_TO: "EMAIL_REPLY_TO",
+  EMAIL_ALERT_TO: "EMAIL_ALERT_TO",
+  SITE_URL: "NEXT_PUBLIC_SITE_URL",
 };
 
 let cached: BackendEnv | null = null;

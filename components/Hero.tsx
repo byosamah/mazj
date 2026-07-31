@@ -3,9 +3,11 @@
 import {useEffect, useId, useLayoutEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {useLocale, useTranslations} from "next-intl";
+import {Link} from "@/i18n/navigation";
 import {BOOKING} from "@/lib/links";
 import LogoLoop from "./LogoLoop";
-import {useIsDesktop} from "./useMediaQuery";
+import AmbientVideo from "./motion/AmbientVideo";
+import {useIsDesktop, usePrefersReducedMotion} from "./useMediaQuery";
 
 /**
  * The panel MUST be positioned before its first paint: `.sf-panel` is
@@ -22,19 +24,38 @@ const PANEL_EDGE = 12; // never let the panel touch the viewport edge
 const PANEL_MIN_H = 140; // floor: below this we stop clamping and just scroll
 
 /**
- * The six real MAZJ spaces (mazj.sa), ordered as the dropdown lists them.
- * `id` keys the localized label/name under the SpaceFinder namespace.
- * `href` opens that space's booking page on mazj.sa (external, new tab).
+ * MAZJ's four spaces, ordered as the dropdown lists them.
+ * `id` keys the localized label/sub/name under the SpaceFinder namespace, and
+ * matches `SpacesGrid`'s own ids so the hero and the grid share one vocabulary.
+ * `href` is the internal `/spaces/<space>/book` path (see `lib/links.ts`).
  * `img` is the photo that crossfades into the hero window when picked.
  * These are config, not display copy — the visible strings come from i18n.
+ *
+ * 🔴 THE ORDER IS LOAD-BEARING, and it is not alphabetical or by price. The
+ * labels are the visitor's own thought, and the GRAMMAR sorts them: rows 1-2
+ * open `أريد` / "I want" (where I work, for myself) and rows 3-4 open `لديّ` /
+ * "I have" (an occasion I am hosting). Interleave them and that split renders
+ * as want/have/have/want and the idea is invisible. It also happens to be
+ * SpacesGrid's order, which is the second reason to keep it.
+ *
+ * ⚠️ It was SIX entries fanned onto these same four hrefs until 2026-07-29
+ * (`dayDesk` + `membership` → `sharedSeat`, `officeDay` + `officeMonth` →
+ * `privateOffice`), a leftover of mazj.sa's own 6→4 restructure. That stopped
+ * being defensible when booking moved on-site on 2026-07-27: the booking page
+ * reads no duration (no route here touches `searchParams`) and `BookingFlow`
+ * always opens on `prices[0]`, which is "One day" for both products. So
+ * "Shared-space membership" opened a page pre-set to a single day, i.e. the
+ * next screen CONTRADICTED the label rather than merely ignoring it. Owner
+ * ruling 2026-07-29: four rows, one per page that exists. Duration is a priced
+ * variant on the booking page; in the hero it was only ever a promise.
+ * `membership.jpg` and `office-month.jpg` left the hero but are still live in
+ * `SpaceOffers` and on the private-office page: do not delete them.
  */
 const FACILITIES = [
-  {id: "dayDesk", href: BOOKING.sharedSeat, img: "/images/spaces/day-desk.jpg"},
-  {id: "meeting", href: BOOKING.meeting, img: "/images/spaces/meeting.jpg"},
-  {id: "event", href: BOOKING.event, img: "/images/spaces/event.jpg"},
-  {id: "officeDay", href: BOOKING.privateOffice, img: "/images/spaces/office-day.jpg"},
-  {id: "officeMonth", href: BOOKING.privateOffice, img: "/images/spaces/office-month.jpg"},
-  {id: "membership", href: BOOKING.sharedSeat, img: "/images/spaces/membership.jpg"},
+  {id: "openDesk", href: BOOKING.sharedSeat, img: "/images/spaces/day-desk.jpg"},
+  {id: "privateOffice", href: BOOKING.privateOffice, img: "/images/spaces/office-day.jpg"},
+  {id: "meetingRoom", href: BOOKING.meeting, img: "/images/spaces/meeting.jpg"},
+  {id: "eventHall", href: BOOKING.event, img: "/images/spaces/event.jpg"},
 ] as const;
 
 // 1×1 transparent gif — the crossfade buffers start empty so the orange video
@@ -91,6 +112,10 @@ export default function Hero() {
   // False on the server and on the first hydrating render — see useMediaQuery.
   // Used ONLY to skip fetching desktop-only media, never to gate layout.
   const isDesktop = useIsDesktop();
+  // Gates the clip-window loop so it stops with the hero background, which
+  // AmbientVideo already withholds under reduced motion. See the note at that
+  // <video>: the two are one composition and must not diverge.
+  const reduceMotion = usePrefersReducedMotion();
   // The media window is a SQUARE anchored center-end (right in LTR, mirrored to
   // left in RTL) via logical properties in globals.css (.sf-stage / .sf-frame).
   // The floating telemetry chips anchor to its edges so they track it at any size.
@@ -185,7 +210,10 @@ export default function Hero() {
       // maxHeight below momentarily makes the content fit, which clamps
       // scrollTop back to 0. On short viewports (the clamped overflowY:auto
       // state) that froze the panel's scroll dead — every scroll snapped back
-      // within a frame and options 5-6 were unreachable at 320x568.
+      // within a frame and the last two options were unreachable at 320x568.
+      // (Measured when the list was six single-line rows; it is now four
+      // two-line rows of similar total height, so the guard still earns its
+      // place. Do not drop it because the count went down.)
       const scrolled = el.scrollTop;
 
       // Measure unclamped, or each tick would re-measure the previous clamp.
@@ -197,7 +225,7 @@ export default function Hero() {
       // Open downward by default, flip up only when the panel does not fit
       // below AND there is genuinely more room above. On a phone the pill sits
       // low in the hero, so the 293px panel opened 223px BELOW THE FOLD and
-      // showed exactly one of its six options with nothing hinting at the rest.
+      // showed exactly ONE of its options with nothing hinting at the rest.
       const flip = natural > below && above > below;
       const room = Math.max(flip ? above : below, PANEL_MIN_H);
       const height = Math.min(natural, room);
@@ -209,7 +237,7 @@ export default function Hero() {
         : pill.bottom + PANEL_GAP;
       el.style.top = `${top + window.scrollY}px`;
       // .sf-panel ships overflow:hidden with no max-height (globals.css), so
-      // when neither side can hold all six options the scroller has to be
+      // when neither side can hold every option the scroller has to be
       // switched on from here. overflow-x stays hidden, which is legal.
       el.style.maxHeight = `${height}px`;
       el.style.overflowY = natural > height ? "auto" : "";
@@ -314,21 +342,21 @@ export default function Hero() {
       {/* Base background — looping MAZJ hero video (self-hosted, no controls).
           The autumn photo is the poster shown until the first frame loads. */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-black">
-        {/* preload="metadata": this is the LCP-adjacent element on desktop so it
-            is not starved outright, but it is a ~4.8 MB file and `metadata` stops
-            the browser pulling all of it before the headline has painted.
-            aria-hidden because it is pure decoration: without it some screen
-            readers announce a bare, unlabelled media element. */}
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          aria-hidden="true"
-          preload="metadata"
-          poster="/images/hero-bg.jpg"
+        {/* 🔴 `desktopOnly`, and this is the single biggest byte decision on the
+            site. `mazj-hero.mp4` is 56 seconds of 720p; it used to carry
+            `preload="metadata"` and a comment claiming that kept it off the
+            critical path, and the measurement disagreed by 3.0 MB — `autoPlay`
+            overrides the hint, so a phone downloaded it in full, behind a
+            scrim, a spectrum wash and the headline. It now plays on desktop
+            only. Phones get `hero-bg.jpg`, which IS this video's frame 0, so
+            the still and the first frame are the same picture and nothing about
+            the composition changes. */}
+        <AmbientVideo
           src="/videos/mazj-hero.mp4"
+          poster="/images/hero-bg.jpg"
+          sizes="100vw"
+          priority
+          desktopOnly
         />
         {/* Coral -> lavender spectrum wash (Daylight motif, MAZJ hues): tints the
             video but sits UNDER the scrim below, so headline copy stays legible. */}
@@ -374,8 +402,16 @@ export default function Hero() {
               hydration; the poster div above is already painting by then, at
               the same brightness, so there is nothing to see and nothing to
               shift (.sf-stage is absolutely positioned either way).
-              preload="none" keeps it from racing the background video. */}
-          {isDesktop && (
+              preload="none" keeps it from racing the background video.
+
+              🔴 `!reduceMotion` is here for COHERENCE, not just compliance, and
+              it must stay paired with the hero background's own gate. The
+              background is an `AmbientVideo`, which withholds its clip under
+              reduced motion. Gating one and not the other produced the worst of
+              both: a frozen photographic backdrop with a moving square still
+              playing on top of it, which reads as a broken page rather than as
+              a calmer one. The two are one composition and stop together. */}
+          {isDesktop && !reduceMotion && (
             <video
               className="absolute inset-0 h-full w-full object-cover [filter:brightness(0.78)]"
               autoPlay
@@ -559,17 +595,25 @@ export default function Hero() {
                     </span>
                   </button>
                 ) : (
-                  <a
+                  // 🔴 A locale-aware `Link`, in the SAME TAB. This was a raw
+                  // `<a target="_blank" rel="noopener noreferrer">` until
+                  // 2026-07-29, which was correct only while `BOOKING` held
+                  // mazj.sa URLs. Since 2026-07-27 these are internal paths, so
+                  // the old markup opened a new tab on a path carrying NO locale
+                  // prefix: `/spaces/coworking/book` 307s to `/en/...` on a bare
+                  // request (verified), and an Arabic visitor only landed back in
+                  // Arabic because next-intl happened to read their NEXT_LOCALE
+                  // cookie. `lib/links.ts` says so in its own header: booking is
+                  // part of the journey, not a departure from it.
+                  <Link
                     href={FACILITIES[selected].href}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="qualify-pill-btn font-sans"
                   >
                     <span className="qualify-pill-btn-overlay" aria-hidden="true" />
                     <span className="qualify-pill-btn-label">
                       {ctaLabel}
                     </span>
-                  </a>
+                  </Link>
                 )}
               </div>
 
@@ -618,11 +662,11 @@ export default function Hero() {
                         interactive descendants) and which measurably broke the
                         announcement: focus landed on button.sf-option, so the AT
                         read "button" and lost BOTH the selection state and the
-                        position in set ("option 2 of 6"). `option` is an allowed
+                        position in set ("option 2 of 4"). `option` is an allowed
                         role for <button>, so Enter/Space keep activating
                         natively and the roving-focus model below is untouched.
                         The <li> is presentational, which promotes the buttons to
-                        direct children of the listbox and restores "n of 6". */}
+                        direct children of the listbox and restores "n of 4". */}
                     {FACILITIES.map((f, i) => (
                       <li key={f.id} role="presentation">
                         <button
@@ -641,7 +685,23 @@ export default function Hero() {
                           <span className="sf-option-mark" aria-hidden="true">
                             ›
                           </span>
-                          <span>{tf(`cases.${f.id}.label`)}</span>
+                          {/* Two lines, and the second one is why the picker can
+                              afford a first-person label at all. The trigger
+                              TRUNCATES at 161px, but this row WRAPS inside ~217px,
+                              so the capacity and the room's own name live here
+                              instead of being welded into the visitor's sentence.
+                              🔴 They cannot fall back to the chips: `chipBase`
+                              above resolves to `chipsDefault` until something is
+                              picked, and that reads "Location / Al-Khobar", so
+                              while the list is OPEN the capacity chip shows a city.
+                              Below lg the chips do not render at all, and `.sf-facts`
+                              needs both a selection and a 600px-tall viewport. This
+                              is the only surface that states "up to 30" at the
+                              moment the choice is actually being made. */}
+                          <span className="sf-option-text">
+                            <span>{tf(`cases.${f.id}.label`)}</span>
+                            <span className="sf-option-sub">{tf(`cases.${f.id}.sub`)}</span>
+                          </span>
                         </button>
                       </li>
                     ))}

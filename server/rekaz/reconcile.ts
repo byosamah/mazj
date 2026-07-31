@@ -3,7 +3,7 @@ import "server-only";
 import type { AppError } from "../core/errors";
 import { log } from "../core/logger";
 import { ok, type Result } from "../core/result";
-import { listReservations } from "./reservations";
+import { listReservations, REKAZ_PAGE_MAX } from "./reservations";
 import { listSubscriptions } from "./subscriptions";
 import type { RekazReservation, RekazSubscription } from "./types";
 
@@ -21,11 +21,23 @@ import type { RekazReservation, RekazSubscription } from "./types";
  * question is good enough because we know exactly what we just tried to create.
  *
  * WHY THIS IS RELIABLE, measured against the live tenant:
- * - `GET /reservations` is ordered **`creationTime` DESC**, so something created
- *   seconds ago is at the very top of page one. No paging, no filters (which
- *   Rekaz ignores anyway).
+ * - `GET /reservations` genuinely honours **`customerMobile`** (562 rows to 7,
+ *   reaching records from January 2025), so the booking we just attempted is
+ *   found by ASKING for it rather than by hoping it is still near the top of a
+ *   creation-ordered list. ⚠️ The filter is a SUBSTRING match and tolerates the
+ *   leading plus, so every returned row's own mobile is still compared against
+ *   ours before anything is concluded.
+ * - The unfiltered list is ordered **`creationTime` DESC**, so something created
+ *   seconds ago is at the very top of page one. That is why it remains the
+ *   second look: 🔴 the filtered call is an OPTIMISATION and never the sole
+ *   evidence, because an empty filtered response is indistinguishable from the
+ *   filter having quietly changed on an API with no versioning and no
+ *   changelog. Nothing is ever reported ABSENT on the strength of one call.
  * - `GET /subscriptions` genuinely honours **`customerId`** (98 rows to 1),
- *   which is the one working filter on that resource.
+ *   which is the one working filter on that resource. `customerMobile` does
+ *   NOT work there (101 rows either way, measured 2026-07-28). The two
+ *   endpoints disagree about which of their own filters they implement, so
+ *   "it works on the other resource" is not evidence about this one.
  *
  * ⚠️ WHAT IT CANNOT DO. Neither response carries a payment link. So a
  * reconciled booking can be confirmed to EXIST and handed to operations with its
@@ -56,6 +68,21 @@ function sameMobile(a: string | null | undefined, b: string): boolean {
   return strip(a) === strip(b) && strip(a).length > 0;
 }
 
+/**
+ * Whether Rekaz gave us a mobile to compare at all.
+ *
+ * 🔴 NOT the same question as `sameMobile` returning false, and conflating the
+ * two charges somebody twice. `customerMobile` comes back as an EMPTY STRING on
+ * some older records (`docs/rekaz-api-findings.md`), so a row carrying our exact
+ * `startAt`, created seconds ago, can still fail the mobile test for a reason
+ * that says nothing at all about whose booking it is. Reporting that as
+ * `absent`, which is the CONFIDENT answer, releases the idempotency key and
+ * invites the customer to book again on top of a booking that already exists.
+ */
+function hasMobile(value: string | null | undefined): boolean {
+  return !!value && /[0-9]/.test(value);
+}
+
 function isRecent(iso: string | null | undefined, now: number): boolean {
   if (!iso) return false;
   const t = Date.parse(iso);
@@ -65,9 +92,24 @@ function isRecent(iso: string | null | undefined, now: number): boolean {
 export type Reconciled =
   /** The booking exists upstream. Do NOT retry. */
   | { outcome: "found"; reference: string }
-  /** Confidently absent. Safe to let the customer try again. */
+  /**
+   * Confidently absent. Safe to let the customer try again.
+   *
+   * 🔴 The expensive answer, and the reason this module is written the way it
+   * is. `absent` RELEASES the idempotency key, so a wrong one is a second real
+   * reservation and a second real invoice for a real person. It is only ever
+   * returned when every look we could take came back empty AND unambiguous.
+   */
   | { outcome: "absent" }
-  /** We could not ask. Nothing may be concluded. */
+  /**
+   * Nothing may be concluded, so the caller must HOLD the idempotency key.
+   *
+   * 🔴 Three ways to land here and they must not be collapsed back into
+   * `absent`: we could not ask at all, one of the two looks failed so the
+   * evidence is incomplete, or we asked and the field we match on was blank on
+   * a record that otherwise looks exactly like ours. The last one is rare, and
+   * its cost is a duplicate booking and a duplicate invoice.
+   */
   | { outcome: "unknown" };
 
 /**
@@ -76,6 +118,30 @@ export type Reconciled =
  * Matched on mobile AND exact start time AND recency, all three. Mobile alone
  * would match a different booking by the same person; start time alone would
  * match a different person in the same slot.
+ *
+ * 🔴 TWO LOOKS, AND `absent` NEEDS BOTH OF THEM TO AGREE.
+ *
+ * The first look is a QUERY: `customerMobile` is the one filter
+ * `GET /reservations` honours, and it reaches the whole table rather than the
+ * first page, so a match no longer depends on our row still being near the top
+ * of a creation-ordered list of 562. That makes finding a booking exact and
+ * cheap.
+ *
+ * The second look is the old unfiltered creation-ordered scan, and it is not
+ * legacy weight. An empty FILTERED response is indistinguishable from the
+ * filter having changed: Rekaz publishes no version and no changelog, we send
+ * E.164 with a leading plus, and one exact-match tightening upstream would turn
+ * every filtered call into a successful zero. `absent` is the outcome that
+ * RELEASES the idempotency key and invites the customer to book again, so that
+ * single upstream change would silently issue a second real reservation and a
+ * second real invoice per affected customer. The unfiltered scan structurally
+ * cannot fail that way, which is why nothing is ever called absent on the
+ * strength of the query alone.
+ *
+ * So: `found` as soon as either look finds it, and `absent` only when BOTH
+ * looked and both came back empty and unambiguous. Anything else is `unknown`,
+ * which holds the key. The cost is one extra read on a path that only runs
+ * after a Rekaz timeout in the first place.
  */
 export async function reconcileReservation(input: {
   mobile: string;
@@ -84,26 +150,88 @@ export async function reconcileReservation(input: {
 }): Promise<Result<Reconciled, AppError>> {
   const now = (input.now ?? new Date()).getTime();
 
-  // One page is enough BECAUSE the ordering is by creation. If Rekaz ever
-  // changes that, this quietly stops finding anything, which is why
-  // `test/rekaz.integration.test.ts` pins the ordering.
-  const page = await listReservations({ maxResultCount: 100 });
-  if (!page.ok) {
-    log.warn("booking.reconcile_failed", { kind: "reservation", reason: page.error.code });
+  const filtered = await listReservations({
+    customerMobile: input.mobile,
+    maxResultCount: REKAZ_PAGE_MAX,
+  });
+
+  if (!filtered.ok) {
+    // Worth its own line. A reconcile that fell back to the scan is still
+    // correct, but somebody should hear that the filter is failing before it
+    // fails on a row the scan cannot reach either.
+    log.warn("booking.reconcile_filter_failed", {
+      kind: "reservation",
+      reason: filtered.error.code,
+    });
+  }
+
+  const asked: Reconciled = filtered.ok
+    ? matchReservation(filtered.value.items, input.mobile, input.slotFrom, now)
+    : { outcome: "unknown" };
+
+  if (asked.outcome === "found") return ok(asked);
+
+  // The scan works BECAUSE the unfiltered list is ordered by creation, so
+  // something created seconds ago is at the top of page one. That property is
+  // pinned by `test/rekaz.integration.test.ts`.
+  const scanned = await listReservations({ maxResultCount: REKAZ_PAGE_MAX });
+  if (!scanned.ok) {
+    log.warn("booking.reconcile_failed", {
+      kind: "reservation",
+      reason: scanned.error.code,
+    });
     return ok({ outcome: "unknown" });
   }
 
-  const match = page.value.items.find(
-    (r: RekazReservation) =>
-      sameMobile(r.customerMobile, input.mobile) &&
-      r.startAt === input.slotFrom &&
-      isRecent(r.creationTime, now)
-  );
+  const seen = matchReservation(scanned.value.items, input.mobile, input.slotFrom, now);
+  if (seen.outcome === "found") return ok(seen);
 
-  if (match) {
-    return ok({ outcome: "found", reference: String(match.reservationNumber) });
+  // 🔴 The one place `absent` can be produced, and it takes two clean looks.
+  // If either was blocked or ambiguous the answer is `unknown`, which holds the
+  // idempotency key: a held key costs a customer one conversation, a wrong
+  // `absent` costs them a second invoice.
+  return ok(
+    asked.outcome === "absent" && seen.outcome === "absent"
+      ? { outcome: "absent" }
+      : { outcome: "unknown" }
+  );
+}
+
+/**
+ * Which of the returned rows, if any, is the one we just tried to create.
+ *
+ * Pure, so the substring near-miss and the blank-mobile case can be exercised
+ * without a network, and so both looks in `reconcileReservation` are judged by
+ * exactly the same rule. Exported for those two reasons and no other.
+ */
+export function matchReservation(
+  items: RekazReservation[],
+  mobile: string,
+  slotFrom: string,
+  now: number
+): Reconciled {
+  let blankIdentity = false;
+
+  for (const r of items) {
+    // Cheap, exact, and independent of anything Rekaz filtered, so it runs
+    // first. A row for another slot tells us nothing either way.
+    if (r.startAt !== slotFrom) continue;
+    if (!isRecent(r.creationTime, now)) continue;
+
+    // 🔴 `customerMobile` is a SUBSTRING filter upstream: asking for a number
+    // also returns rows whose number merely CONTAINS it. Without this equality
+    // check a stranger's booking in the same slot could be handed back to our
+    // customer as their own reference number.
+    if (sameMobile(r.customerMobile, mobile)) {
+      return { outcome: "found", reference: String(r.reservationNumber) };
+    }
+
+    // Right slot, right moment, no mobile to compare. See `hasMobile`: this is
+    // the one case that must NOT be reported as confidently absent.
+    if (!hasMobile(r.customerMobile)) blankIdentity = true;
   }
-  return ok({ outcome: "absent" });
+
+  return blankIdentity ? { outcome: "unknown" } : { outcome: "absent" };
 }
 
 /**

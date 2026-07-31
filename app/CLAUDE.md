@@ -64,6 +64,44 @@ how the glass pill is built) are documented in
 [`../components/CLAUDE.md`](../components/CLAUDE.md) and `DESIGN.md`. This file
 only records where the bytes are.
 
+## Delivery: caching and image optimization (`next.config.mjs`)
+
+Added 2026-07-31, after a page-by-page audit. Component-level media rules live in
+[`../components/CLAUDE.md`](../components/CLAUDE.md); this is the config layer.
+
+🔴 **EVERYTHING IN `public/` SHIPPED `Cache-Control: public, max-age=0`.** That is
+Next's default for the public directory and it is easy to miss, because
+`/_next/static/**` is separately given a year of `immutable` and looks after
+itself. Measured on a production `next start`: the fonts, the 3.2 MB hero video,
+every photograph and every logo all came back `max-age=0`, so a **returning**
+visitor revalidated the heaviest bytes on the site on every navigation.
+
+Two rules now, split by how stable each kind of file actually is:
+
+| Path | Header | Why |
+|---|---|---|
+| `/fonts/**` | 1 year, `immutable` | a woff2 here is a fixed artifact, and it is the asset most worth holding |
+| `/videos,images,logos,payments,og/**` | 30 days + `stale-while-revalidate` | these DO get re-cut, so a bounded window matters |
+
+⚠️ **`immutable` on the fonts means replacing one requires RENAMING the file.**
+Editing `thmanyah-sans-400.woff2` in place leaves returning visitors on the old
+face for up to a year. The media rule is deliberately not `immutable` for exactly
+this reason: `mazj-hero.mp4` was re-encoded in place during this very pass and
+`location-map.png` was restyled the week before.
+
+`images.minimumCacheTTL` is raised to the same 30 days. The default is 4 hours,
+which re-derives every AVIF four times a day from source files that change a few
+times a year, and it expires on an unrelated clock from the header above.
+
+🔴 **Warming the image optimizer needs the browser's `Accept` header, and getting
+this wrong silently corrupts a measurement.** `/_next/image` keys its cache on
+the negotiated format, so a warm-up loop using Python's default `Accept` fills
+the **JPEG** entry while Chrome then asks for **AVIF** and pays a cold `sharp`
+encode. Measured: that made the LCP resource take 155ms instead of 1.4ms and
+read as a 2-second LCP regression that did not exist. Send
+`image/avif,image/webp,...` when warming, and confirm `X-Nextjs-Cache: HIT`
+**with that same header** before trusting any number.
+
 ## SEO layer
 
 `lib/site.ts` holds the ONE origin behind every canonical, hreflang, `og:url`,
@@ -72,7 +110,22 @@ sitemap entry and JSON-LD URL, deliberately the unresolvable `mazj.example`
 
 `lib/routes.ts` is the indexable route table, consumed by `app/sitemap.ts`
 **alone** (`SpaceBreadcrumbs` builds its trail from `lib/schema.ts` plus the
-`Nav`/`Space*` i18n labels, not from this table).
+`Nav`/`Space*` i18n labels, not from this table). Since 2026-07-28 the sitemap
+ALSO appends one entry per published event, read from the database through
+`app/[locale]/events/_lib`.
+
+🔴 **`app/sitemap.ts` is PRERENDERED AT BUILD TIME by default, so anything it
+reads from the database freezes at deploy.** Measured: a production build served
+22 URLs and **zero** events, which would have kept every event published after a
+deploy out of Google until somebody happened to deploy again. It now carries
+`export const revalidate = 3600`.
+
+⚠️ **The dev server renders it per request and looks perfectly correct**, so
+this class of bug is invisible in development. Check a real `npm start` before
+trusting any database-backed metadata route (`sitemap.ts`, `robots.ts`,
+`opengraph-image`). Two other things only a production run shows: the build
+needs `IP_TRUST_PROXY` or the same sitemap silently degrades (root `CLAUDE.md`),
+and the dev-tools indicator disappears (`../components/CLAUDE.md`).
 
 `lib/schema.ts` + `components/JsonLd.tsx` render JSON-LD server-side, with no
 `aggregateRating` on purpose.
@@ -99,10 +152,31 @@ not apply to `/admin` because nothing anywhere links to it, so there is no
 discovered-but-unreadable state to fall into. The per-file comments carry the
 full reasoning.
 
-🔴 **Never add `Event` JSON-LD to `/events`.** The `upcoming` entries are labelled
-"Example" with "Date to be announced" and carry real host names, so marking them
-up is fabricated structured data, which is a site-wide penalty rather than a
-page-scoped one. See the comment on that route.
+✅ **The `Event` JSON-LD ban was LIFTED on 2026-07-28, on its own stated
+condition.** It read "never add `Event` JSON-LD to `/events`" because the
+`upcoming` entries were fabricated examples ("Date to be announced") carrying
+real host names, and inventing structured data is a **site-wide** penalty rather
+than a page-scoped one. The ban named its release condition: revisit when
+`upcoming` holds confirmed events with real ISO dates. Events are now database
+rows with real timestamps, so `eventSchema` in `lib/schema.ts` is legitimate.
+
+🔴 **The rules that replaced it, all three still load-bearing:**
+
+1. Markup goes on **`/events/[slug]`**, never on the `/events` LIST. Google wants
+   one `Event` node per event on that event's own URL; a list marking up
+   everything on it, including 2022, is markup with no rich result available and
+   a manual-action surface for no gain.
+2. **Published and FUTURE only.** Drafts, cancelled and past events emit nothing.
+3. `offers.price` is the **live Rekaz figure the page is displaying**, never
+   `events.ticket_amount`, which is a display snapshot taken when the admin
+   picked the price. Marking up a price the buyer is not charged is how a
+   Merchant listing gets suspended.
+4. 🔴 **`offers.url` is the REKAZ STOREFRONT, not this page** (since 2026-07-30).
+   An `Offer`'s url is where the offer is transacted, and a paid event is bought
+   on `mazj.sa`, not here: Rekaz publishes no write endpoint for a one-time
+   product, so this page describes the ticket and links to it. Both values come
+   from ONE `loadTicketOffer` call so they cannot describe different products.
+   See [`../server/CLAUDE.md`](../server/CLAUDE.md).
 
 **Titles decouple from headlines** via an OPTIONAL `metaTitle` key per namespace
 (`lib/metadata.ts`, plus `Meta.metaTitle` for the homepage, which is used
@@ -112,6 +186,12 @@ the display `title` drives the tag, but that fallback now only fires on
 `*Page`/`Space*` namespaces, matching `lib/routes.ts`) already ship a written
 `metaTitle` in BOTH locales, so editing a page's display `title` no longer moves
 its `<title>`, `og:title` or `twitter:title`: **edit `metaTitle`.**
+
+🔴 **A `metaTitle` must NOT carry the brand.** `pageMetadata` always appends
+` | ${siteName}`, so `"Startups offer | MAZJ"` renders `... | MAZJ | MAZJ`. Only
+`Meta` (the homepage) carries its own, because that one is used verbatim.
+Shipped and caught on `/startups` 2026-07-28. Verify the rendered `<title>`,
+never the JSON.
 
 When checking a `metaTitle` against the ~60-char SERP limit, count **sans
 combining marks**: `الخُبر`'s damma is a combining codepoint that overcounts by 1.
@@ -184,8 +264,41 @@ app/admin/
   _lib/                   🔴 the ONLY place here that may import @/server/**
   (protected)/            everything requiring a signed-in admin
     layout.tsx            the guard + chrome
-    page.tsx              the dashboard, at /admin
+    page.tsx              the index, at /admin. 🔴 Reads NO Rekaz, see below.
 ```
+
+🔴 **`/admin` (the index) reads nothing from Rekaz, owner ruling 2026-07-30.**
+It was an operations dashboard: room occupancy, today's bookings, the next seven
+days, subscriptions and renewals, plus a by-mobile booking lookup that could
+reveal a customer's stored checkout link. All deleted, because MAZJ manages
+bookings and memberships in Rekaz's own platform and a mirror of somebody else's
+records can only be staler than the screen it copies. It is now an index: a card
+per section carrying that section's real count, and a link out to
+`platform.rekaz.io`.
+
+**What that deletion took with it, so a grep for any of it comes up empty:**
+
+| Gone | Why it existed |
+|---|---|
+| `_lib/dashboard.ts` | the whole Rekaz view model, plus `loadBookingsForMobile` |
+| `refreshDashboard` in `_lib/actions.ts` | busting the 60-second cache that no longer exists |
+| `DASHBOARD_CACHE_TAG`, `CACHE_SECONDS`, `MOBILE_INPUT_MAX` | the same cache, and the lookup's input clamp |
+| `test/admin-booking-lookup.test.ts` | guarded the reveal control's only access check. 🔴 Never committed and deliberately not kept (owner, 2026-07-31): it must be re-written, not restored. `RevealedSecret`'s docblock lists what it asserted. |
+
+⚠️ **`components/admin/RevealedSecret.tsx` (with `RevealButton`) is now DEAD
+CODE, mounted on no route**, exactly like `MotionToggle` on the marketing side.
+It is kept rather than deleted because it is the one primitive that renders a
+bearer capability correctly (selectable text, no anchor anywhere in its tree,
+one row at a time), and `test/admin-page-guards.test.ts` still pins its
+no-anchor rule. **If a checkout-link reveal ever returns, restore the deleted
+test with it**: that test was the entire access control's only assertion, namely
+that a booking id which the typed mobile did not match is not a key.
+
+🔴 The counts on the index come from `_lib/nav-counts.ts`, the SAME loader the
+rail uses, wrapped in React's `cache()` so the pair costs three Postgres queries
+per request rather than six. Do not write a second loader for the page: two
+definitions of "coming up" is a badge in the chrome that can disagree with the
+card in the content.
 
 🔴 **Why it is not `app/[locale]/admin/`.** Under the locale tree it would exist
 twice (`/en/admin` and `/ar/admin`) as duplicate content, acquire an hreflang
@@ -231,6 +344,20 @@ every admin action must call `requireAdmin()` itself. Sitting under
 `(protected)/` protects nothing. `signOut` is the deliberate exception: requiring
 a session to END one would strand anyone whose token had just expired.
 
+🔴 **NOR ROUTE HANDLERS. A `route.ts` under `(protected)/` gets NO layout at
+all.** Layouts wrap pages; a route handler is reached directly and no layout
+runs for it, so `requireAdmin()` there is not belt-and-braces, it is the only
+access control. The live example is
+`(protected)/events/[id]/csv/route.ts`, which returns a spreadsheet of names,
+mobile numbers and email addresses collected from a public form. The folder name
+is exactly what makes this easy to get wrong.
+
+`test/admin-page-guards.test.ts` now covers three shapes, and **discovers them
+rather than listing them**: every `page.tsx` and every `route.ts` under
+`(protected)/`, plus every `"use server"` module in `_lib/`. It named a single
+actions file until `event-actions.ts` appeared beside it, which is how a guard
+test silently stops covering the thing it was written for.
+
 ⚠️ **`_lib/actions.ts` is `"use server"`, so EVERY export becomes a callable
 Server Action.** Do not re-export a helper taking a non-serialisable argument
 (a Supabase client, say) from it: that creates an action nobody can invoke and
@@ -266,6 +393,130 @@ hydration mismatch in the dev overlay. It is an artifact of the capture, not a
 bug in the page: verify the real route by asserting on its server-rendered HTML
 (`aria-current="page"`, one `<main>`, one `<h1>`) rather than trusting the
 overlay on a snapshot.
+
+### The admin's design system (added 2026-07-29)
+
+`/admin` was rebuilt on **shadcn** in MAZJ's own visual language. What follows is
+the mechanics; the visual rules are `DESIGN.md`, the copy rules are `TONE.md`.
+
+**Where the pieces live.**
+
+| Path | Holds |
+|---|---|
+| `components/ui/**` | shadcn primitives, vendored from the `new-york-v4` registry |
+| `components/admin/**` | the 22 MAZJ primitives (`Panel`, `StatusDot`, `DataTable`, `Notice`…) |
+| `app/admin/admin.css` | every token value, as CSS custom properties |
+| `scripts/vendor-shadcn.py` | re-fetches and re-patches `components/ui/**` |
+| `components.json` | shadcn CLI config |
+
+⚠️ **`npx shadcn@latest init` HANGS here** (interactive prompt, ignores `-y`) and
+writes nothing, so it reads as a broken tool rather than a stalled one. Fetch the
+registry directly instead, which is what `scripts/vendor-shadcn.py` does:
+`https://ui.shadcn.com/r/styles/new-york-v4/<name>.json` returns 200, while
+`/r/<name>.json` 404s.
+
+🔴 **`app/admin/admin.css` is imported by `app/admin/layout.tsx` and by NOTHING
+else, and that is the entire safety argument.** The admin is a second root
+layout with its own `<html>`, so its stylesheet never reaches the marketing
+document. Verified live: `/admin` serves a chunk containing `--ok` / `--warn` /
+`--destructive`, and `/en` serves a different chunk containing none of them.
+⚠️ The corollary is a real footgun: an admin token used on a marketing page
+produces an INVALID declaration that the browser drops, so the element keeps
+what it inherited and **nothing visibly breaks**. `eslint.config.mjs` now bans
+those imports outside `app/admin/**`; it cannot ban a class NAME, so a copied
+class string still fails silently.
+
+🔴 **`muted` is a marketing token (`#514E4A`, 69 uses) so shadcn's
+`muted`/`muted-foreground` are vendored in as `subtle`/`subtle-foreground`.**
+`scripts/vendor-shadcn.py` rewrites them on the way in. Never define a `muted`
+CSS variable.
+
+🔴 **The admin has a STATUS PALETTE and the marketing site does not.**
+`DESIGN.md` forbids status hues and says a new surface must introduce them
+deliberately; this is that introduction, scoped to `admin.css`. `--ok #35682F`,
+`--warn #7F5310`, `--destructive #8F2018`, all clearing AA on cream AND tan. The
+red is that dark specifically to stay 2.85:1 from the coral; lighter candidates
+measured 1.76 to 2.41 and read as a shade of the brand. **Colour is never the
+only signal**: the three marks are 1.01 to 1.33:1 apart in luminance, so
+`StatusDot` requires a shape and a word in its type signature.
+
+**Four traps, all of which shipped silently once and were measured out:**
+
+1. 🔴 **`cn()` deletes numeric font sizes unless taught.** tailwind-merge knows
+   only `text-xs…text-9xl` as sizes and files every other `text-*` under
+   COLOUR, so `cn("text-11 text-ok")` returned the colour ALONE and the element
+   inherited 16px. `lib/utils.ts` extends it with `isNumericFontSize`. ⚠️ The
+   validator must be a FUNCTION: tailwind-merge ignores a RegExp silently, so
+   `[{ text: [/^\d+$/] }]` compiles, reads correctly and does nothing.
+2. 🔴 **Never install `tailwindcss-animate`.** It registers `duration-*`,
+   `delay-*` and `ease-*` as ANIMATION utilities under the names Tailwind
+   already uses for TRANSITIONS, and the marketing site shares this one build.
+   Harmless today (its 7 uses sit on `transition-*` elements) and a trap the
+   moment anything carries both. The ten utilities the shadcn overlays need come
+   from the `adminOverlayMotion` plugin in `tailwind.config.ts`.
+3. 🔴 **Never add shadcn's `borderRadius` override** (`lg: "var(--radius)"`). It
+   repaints the 59 marketing uses of `rounded-sm/md/lg/xl` and breaks them
+   outright, since `--radius` is undefined there. Tailwind 3.4's default ladder
+   already IS `DESIGN.md`'s (2/4/6/8/12/16px).
+4. ⚠️ **The registry is Tailwind v4 and this repo is 3.4.** `shadow-xs`,
+   `outline-hidden`, `field-sizing-content`, `var(--spacing)` and the
+   `max-h-(--x)` variable shorthand all compile to NOTHING here.
+   `scripts/vendor-shadcn.py` patches each and asserts the patch fired. It also
+   strips `dark:` (light-only ruling) and the gratuitous `"use client"` on
+   `table.tsx`. Re-run it rather than hand-editing after a registry update, then
+   re-check every class actually emits CSS.
+
+⚠️ **`aria-invalid:` is not a Tailwind 3 variant.** It is added under
+`theme.extend.aria`; without it every shadcn form-error style compiles to
+nothing and an invalid field looks exactly like a valid one.
+
+**Verifying admin work.** Signing in needs a Supabase magic link that cannot be
+driven from a terminal, so the protected screens cannot be photographed
+directly. The route that worked was a TEMPORARY harness under `app/admin/`
+rendering the shell and every primitive against fixtures, gated on `NODE_ENV`,
+deleted afterwards. ⚠️ Do not name it with a leading underscore: Next treats
+`_`-prefixed folders as private and it will never become a route. ⚠️ A harness
+must reproduce the real lane exactly (`max-w-[1120px] px-6 md:px-8 lg:px-10`) or
+it manufactures a false horizontal overflow at 390.
+
+🔴 **You CANNOT make a protected page photographable by extracting its body into a
+sibling component.** `test/admin-page-guards.test.ts` asserts exactly one heading
+source (`<h1` or `<PageHead`) **per `page.tsx`**, so moving `PageHead` into a view
+module leaves the page with zero and fails there. That is the obvious refactor and
+it is closed, so the harness has to COPY the page's JSX.
+
+**Which means the copy is the risk, and it is measurable.** Strip comments,
+collapse whitespace, and assert the harness body and the real body are IDENTICAL
+before you believe the screenshot. Done on `/admin` 2026-07-30: both sides
+normalised to 1296 characters and compared equal, so the capture was of the
+shipped markup rather than of a drifted copy. Without that step a harness
+screenshot proves only that the harness looks right.
+
+## `/[locale]/startups`: the startups & builders offer
+
+Added 2026-07-28. A marketing page that also takes an application, plus
+`/admin/startups` to decide them. Backend mechanics (the table, the two rate
+limits, the email module, the decision-versus-delivery rule) live in
+[`../server/CLAUDE.md`](../server/CLAUDE.md); this is the routing.
+
+- Indexable and in `lib/routes.ts`. "Coworking for startups in Khobar" is a real
+  query and this is the only page that answers it.
+- The write path is a Server Action in `app/[locale]/startups/_lib/actions.ts`,
+  the second such crossing after booking's. 🔴 It returns an error **CODE**, never
+  a message: `route()` and `toPublicError` are wired into `app/api/**` only, and
+  Next redacts *thrown* errors rather than *returned* action values, so a
+  returned `AppError.message` serialises to the browser verbatim. The booking
+  form shipped exactly that leak once.
+- 🔴 **The locale travels in a hidden input.** A Server Action has no route
+  context, so `headers()` cannot tell the server which language the visitor was
+  reading, and without it every approval and rejection email would go out in
+  English. The service narrows the value to `en`/`ar`, so a crafted post is inert.
+- ⚠️ **The form is NOT wrapped in `Reveal`.** `.reveal` rests at `opacity:0` and
+  is not no-JS safe. A marketing paragraph that never appears is a shame; an
+  application form that never appears is the page failing at its only job.
+- The landing band (`components/FoundingBand.tsx`) now points here instead of at
+  WhatsApp, and `Founding.ctaMsg` was deleted from both message files. The
+  footer links it too, beside Events.
 
 ## Adding a route
 

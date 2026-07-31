@@ -59,7 +59,7 @@ export default function FaqSection({
                       {group.label}
                     </h2>
                   </Reveal>
-                  <dl className="flex flex-col">
+                  <div className="flex flex-col">
                     {group.items.map((item, i) => (
                       <FaqRow
                         key={item.q}
@@ -68,7 +68,7 @@ export default function FaqSection({
                         delay={Math.min(i, 4) * 60}
                       />
                     ))}
-                  </dl>
+                  </div>
                 </div>
               ))}
             </div>
@@ -97,11 +97,11 @@ export default function FaqSection({
               </div>
             )}
           </Reveal>
-          <dl className="flex flex-col">
+          <div className="flex flex-col">
             {teaser.map((item, i) => (
               <FaqRow key={item.q} item={item} id={`faq-${i}`} delay={Math.min(i, 4) * 60} />
             ))}
-          </dl>
+          </div>
         </div>
       )}
     </section>
@@ -111,14 +111,30 @@ export default function FaqSection({
 /**
  * One question. The `input` must precede both the `label` and `.acc-panel`,
  * because the CSS drives open/closed through `~` sibling selectors.
+ *
+ * 🔴 NOT a `dl`/`dt`/`dd`, and it must not be turned back into one. The rows
+ * were exactly that, and it was invalid HTML: a `dl` may contain only `dt`/`dd`
+ * groups or `div`s that themselves contain only `dt`/`dd`, and each row here
+ * has to carry the `<input>` that drives the accordion as a SIBLING of the
+ * question and the answer — that is what the `~` selectors in globals.css
+ * traverse. So the checkbox could not live anywhere legal. axe failed it
+ * (`definition-list`) on every route that renders this section, which is the
+ * landing page and `/faq`.
+ *
+ * A heading is the better answer anyway, not merely the legal one: `dt` is not
+ * a heading, so a screen-reader user could not jump question to question. As
+ * `h3` they land in the rotor, one level under the `h2` that both call sites
+ * already render above them. Tailwind's preflight strips heading margins and
+ * sizes, so nothing moves on screen. The class names are untouched, so the
+ * accordion CSS is byte-for-byte the same contract it was.
  */
 function FaqRow({item, id, delay}: {item: Item; id: string; delay: number}) {
   return (
     <Reveal as="div" delay={delay} className="border-t border-black/10 last:border-b">
       <input type="checkbox" id={id} className="acc-toggle" />
-      <dt>
+      <h3>
         <label htmlFor={id} className="acc-label group">
-          <span className="font-sans text-18 leading-snug text-black transition-opacity duration-200 group-hover:opacity-60 lg:text-20 [text-wrap:balance]">
+          <span className="font-sans text-18 leading-snug text-black underline decoration-transparent underline-offset-[6px] [transition:text-decoration-color_200ms] group-hover:decoration-black lg:text-20 [text-wrap:balance]">
             {item.q}
           </span>
           {/* one glyph, two states: rotated 45deg a plus reads as a close mark */}
@@ -126,14 +142,14 @@ function FaqRow({item, id, delay}: {item: Item; id: string; delay: number}) {
             +
           </span>
         </label>
-      </dt>
-      <dd className="acc-panel">
+      </h3>
+      <div className="acc-panel">
         <div>
           <p className="max-w-[720px] pb-7 text-15 leading-relaxed tabular-nums text-muted [text-wrap:pretty]">
             {item.a}
           </p>
         </div>
-      </dd>
+      </div>
     </Reveal>
   );
 }

@@ -27,6 +27,10 @@ export const INDEXABLE_ROUTES: SiteRoute[] = [
   {path: "/spaces/meeting-room", priority: 0.8, changeFrequency: "monthly"},
   {path: "/spaces/event-hall", priority: 0.8, changeFrequency: "monthly"},
   {path: "/events", priority: 0.7, changeFrequency: "weekly"},
+  // Indexable on purpose. "coworking for startups in Khobar" is a real query
+  // with real intent behind it, and this is the only page on the site that
+  // answers it. Ranked below /spaces because it converts a narrower audience.
+  {path: "/startups", priority: 0.7, changeFrequency: "monthly"},
   {path: "/about", priority: 0.6, changeFrequency: "monthly"},
   {path: "/contact", priority: 0.6, changeFrequency: "yearly"},
   {path: "/faq", priority: 0.6, changeFrequency: "monthly"},

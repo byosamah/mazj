@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {Link} from "@/i18n/navigation";
 import Reveal from "./Reveal";
 import CtaButton from "./CtaButton";
@@ -56,8 +57,13 @@ export default function SpaceDetail({
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal className="flex items-start justify-center">
           <div className="relative aspect-[4/3] w-full max-w-[640px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt={imageAlt ?? ""} className="h-full w-full object-cover" />
+            <Image
+              src={image}
+              alt={imageAlt ?? ""}
+              fill
+              sizes="(min-width: 1024px) 640px, 100vw"
+              className="object-cover"
+            />
           </div>
         </Reveal>
 

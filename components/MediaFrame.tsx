@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 /**
  * The site's ONE media container.
  *
@@ -19,9 +21,8 @@ export default function MediaFrame({
   src,
   alt = "",
   ratio = "aspect-[4/3]",
-  width,
-  height,
   eager = false,
+  sizes = "(min-width: 1024px) 640px, 100vw",
   fx,
   overlay,
   className = "",
@@ -31,9 +32,18 @@ export default function MediaFrame({
   alt?: string;
   /** Tailwind aspect class. Portrait 4/5 matches the landing's USP media. */
   ratio?: string;
-  width?: number;
-  height?: number;
   eager?: boolean;
+  /**
+   * The rendered width per breakpoint, for the responsive candidate picker.
+   *
+   * 🔴 This is the whole point of the component now, and a wrong value is
+   * silently expensive rather than broken: `sizes` is what tells the browser
+   * which srcset entry to take, so a default that overstates the box makes
+   * every phone fetch a desktop-width file and look perfectly fine doing it.
+   * The default matches the commonest call site (a media column capped at
+   * 640px on desktop, full-bleed below it). Pass the real box when it differs.
+   */
+  sizes?: string;
   /** ScrollFX hook, e.g. "clip" for the scrubbed reveal. */
   fx?: string;
   /** Optional scrim, for text sitting over the media. */
@@ -46,15 +56,17 @@ export default function MediaFrame({
       {...(fx ? {"data-fx": fx} : {})}
       className={`relative ${ratio} w-full overflow-clip rounded-[16px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-[''] ${className}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      {/* `fill` rather than intrinsic width/height: every call site draws the
+          photo into an aspect-ratio box it does not control the dimensions of,
+          which is exactly the case fill exists for. The box above is already
+          `relative`, which fill requires. */}
+      <Image
         src={src}
         alt={alt}
-        width={width}
-        height={height}
-        loading={eager ? "eager" : "lazy"}
-        decoding="async"
-        className="h-full w-full object-cover"
+        fill
+        sizes={sizes}
+        {...(eager ? {priority: true} : {})}
+        className="object-cover"
       />
       {overlay && (
         <div

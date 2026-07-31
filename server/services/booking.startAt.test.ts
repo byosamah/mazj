@@ -32,6 +32,11 @@ vi.mock("@/server/env", () => ({
     REKAZ_API_BASE: "https://platform.rekaz.io/api/public",
   }),
 }));
+// The booking record is bookkeeping AFTER the sale, deliberately best effort in
+// the service. Stubbed to a success so nothing here depends on a database.
+vi.mock("@/server/db/bookings", () => ({
+  recordBooking: async () => ({ ok: true, value: undefined }),
+}));
 
 const createSubscription = vi.fn(async () => ({
   ok: true as const,
@@ -80,6 +85,14 @@ vi.mock("@/server/rekaz/catalog", () => ({
     },
   }),
   listBranches: async () => ({ ok: true, value: [{ id: "b1" }] }),
+  // `resolveBranchId` moved into `catalog.ts` on 2026-07-28 when event tickets
+  // became a second caller, so it is now a cross-module dependency of
+  // `booking.ts` and has to be declared here. Mirrors the real function: the
+  // product's own branch, falling back to the tenant's only one.
+  resolveBranchId: async (product: { branchIds?: string[] }) => ({
+    ok: true,
+    value: product.branchIds?.[0] ?? "b1",
+  }),
 }));
 vi.mock("@/server/rekaz/reconcile", () => ({
   reconcileReservation: async () => ({ ok: true, value: { outcome: "absent" } }),
@@ -90,7 +103,10 @@ vi.mock("@/server/rekaz/booking", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/rekaz/booking")>();
   return {
     ...actual,
-    findCustomerByMobile: async () => ({ ok: true, value: null }),
+    // ⚠️ `CustomerMatch`, not a bare customer-or-null. The lookup gained a
+    // THIRD outcome (`ambiguous`) on 2026-07-28; a `null` here now reaches
+    // `lookup.kind` and throws rather than reading as "no such customer".
+    findCustomerByMobile: async () => ({ ok: true, value: { kind: "none" } }),
     createReservation: vi.fn(),
     createSubscription: (...a: unknown[]) => createSubscription(...(a as [])),
   };

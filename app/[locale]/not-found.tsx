@@ -17,7 +17,7 @@ export default function NotFound() {
       <h1 className="text-balance font-sans font-medium text-40 text-black lg:text-70">{t("title")}</h1>
       <Link
         href="/"
-        className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#fff7e9] [--cta-fg-hover:#4c2806]"
+        className="cta font-sans [--cta-bg:#111111] [--cta-fg:#fff7e9] [--cta-sweep:#FF5A48] [--cta-fg-hover:#111111]"
       >
         <span className="cta__label">{t("cta")}</span>
         <span className="cta__sweep" aria-hidden="true" />

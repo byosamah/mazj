@@ -14,7 +14,15 @@ import {absoluteUrl} from "@/lib/site";
  * ineligible for rich results regardless. The rating lives on the Google
  * Business Profile, where it belongs. Do not "add the stars".
  *
- * 🔴 Also deliberately absent: `Event`. See `app/[locale]/events/page.tsx`.
+ * ⚠️ `Event` markup WAS deliberately absent and is now permitted, under one
+ * condition. The old ban existed because `/events` advertised three fabricated
+ * entries labelled "Example" with "Date to be announced" and real host names
+ * attached, and marking those up would have been invented structured data,
+ * which Google penalises site-wide rather than page-by-page. The ban named its
+ * own release condition: "revisit ONLY when `upcoming` holds confirmed events
+ * with real ISO dates." Since 2026-07-28 events are database rows with real
+ * timestamps, so `eventSchema` below is legitimate. It is emitted for
+ * PUBLISHED, FUTURE events only, on their own page only.
  */
 
 /** Stable @id for the business node, so other nodes can reference it. */
@@ -64,9 +72,12 @@ export function localBusinessSchema({
     telephone: `+${WHATSAPP_NUMBER}`,
     vatID: ZATCA_TAX_NUMBER,
     currenciesAccepted: "SAR",
-    // Staffed reception hours. Members hold 24/7 fingerprint access, but that is
-    // a membership benefit, not a public opening time, so it is NOT marked up
-    // here: `openingHours` means "when can anyone walk in".
+    // Staffed reception hours. Members hold 24/7 access by QR code or card, but
+    // that is a membership benefit, not a public opening time, so it is NOT
+    // marked up here: `openingHours` means "when can anyone walk in".
+    // (This comment said "fingerprint" until 2026-07-28. Access is not and has
+    // never been biometric; biometric data is PDPL-sensitive and the word was
+    // stripped site-wide on 2026-07-23. Corrected here so it is not copied.)
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
@@ -137,5 +148,80 @@ export function breadcrumbSchema(
       name,
       item: absoluteUrl(`/${locale}${path}`),
     })),
+  };
+}
+
+/**
+ * One MAZJ event, for its own page.
+ *
+ * 🔴 EMITTED ONLY FOR A PUBLISHED, FUTURE EVENT. Read the note at the top of
+ * this file before relaxing that. Google treats structured data describing an
+ * event that does not exist as spam, and the penalty lands on the whole domain
+ * rather than the page. A past event earns no rich result anyway, so there is
+ * nothing to gain by marking one up and a real penalty available for getting it
+ * wrong.
+ *
+ * `location` references the sitewide LocalBusiness node by `@id` rather than
+ * restating the address. One address, described once, in one place: a second
+ * copy is a second thing to keep true.
+ *
+ * `offers` is included ONLY when the event actually sells a ticket, and its
+ * `price` is the LIVE Rekaz figure the page is displaying at that moment, never
+ * the stored snapshot. Marking up a price the buyer is not charged is the fast
+ * route to a Merchant listing suspension.
+ */
+export function eventSchema({
+  locale,
+  name,
+  description,
+  startsAt,
+  endsAt,
+  path,
+  image,
+  performer,
+  offer,
+}: {
+  locale: string;
+  name: string;
+  description: string;
+  /** ISO 8601 with an offset. */
+  startsAt: string;
+  endsAt: string;
+  /** Locale-less, e.g. `/events/coffee-sketch-v10`. */
+  path: string;
+  image?: string | null;
+  performer?: string | null;
+  offer?: {price: number; url: string} | null;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    "@id": absoluteUrl(`/${locale}${path}`),
+    name,
+    description,
+    startDate: startsAt,
+    endDate: endsAt,
+    // Both are required for a valid Event and both are genuinely true of MAZJ:
+    // people turn up to a room in Al-Khobar, and it is scheduled rather than
+    // rescheduled or moved online.
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    eventStatus: "https://schema.org/EventScheduled",
+    inLanguage: locale === "ar" ? "ar-SA" : "en-US",
+    url: absoluteUrl(`/${locale}${path}`),
+    location: {"@id": BUSINESS_ID},
+    organizer: {"@id": BUSINESS_ID},
+    ...(image ? {image} : {}),
+    ...(performer ? {performer: {"@type": "Person", name: performer}} : {}),
+    ...(offer
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: offer.price,
+            priceCurrency: "SAR",
+            url: offer.url,
+            availability: "https://schema.org/InStock",
+          },
+        }
+      : {}),
   };
 }

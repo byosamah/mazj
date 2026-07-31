@@ -54,6 +54,44 @@ const SERVER_IMPORT_PATTERNS = [
   },
 ];
 
+/**
+ * The admin's design system is closed, and closing it needs a rule because the
+ * failure mode is SILENT.
+ *
+ * `components/admin/**` and `components/ui/**` style themselves with tokens
+ * (`bg-card`, `text-ok`, `border-border`) that resolve through CSS custom
+ * properties defined in `app/admin/admin.css`. That stylesheet is imported by
+ * `app/admin/layout.tsx`, which is the admin's OWN root layout, so the
+ * marketing document never loads it.
+ *
+ * 🔴 Put one of those components on a marketing page and nothing errors and
+ * nothing visibly breaks. `background-color: rgb(var(--card) / 1)` with `--card`
+ * undefined is an INVALID declaration, so the browser drops it and the element
+ * keeps whatever it inherited. No console warning, no failing test, no obviously
+ * wrong colour: just a component quietly wearing the wrong surface on the public
+ * site. `cn()` is in the same list for the same reason, plus a second one: the
+ * marketing site composes its classes literally so a format-on-save linter can
+ * still see and rewrite them, and values hidden behind a merge function are
+ * values it cannot.
+ */
+const ADMIN_UI_IMPORT_PATTERNS = [
+  {
+    group: [
+      "@/components/admin",
+      "@/components/admin/**",
+      "@/components/ui",
+      "@/components/ui/**",
+      "@/lib/utils",
+    ],
+    message:
+      "The admin's design system is closed. These primitives and cn() resolve " +
+      "tokens defined only in app/admin/admin.css, which the marketing document " +
+      "never loads, so on a marketing page the browser drops the declaration " +
+      "silently: nothing errors and nothing visibly breaks. Import them only " +
+      "from app/admin/**, components/admin/** or components/ui/**.",
+  },
+];
+
 const FRAMEWORK_IMPORT_MESSAGE =
   "server/ must not depend on the frontend framework. This is what keeps the " +
   "folder liftable into its own package or service later. If a route needs " +
@@ -83,6 +121,34 @@ export default defineConfig([
       "proxy.ts",
     ],
     ignores: ["app/api/**", "app/**/_lib/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {patterns: [...SERVER_IMPORT_PATTERNS, ...ADMIN_UI_IMPORT_PATTERNS]},
+      ],
+    },
+  },
+
+  // 1b. …but the admin itself, and the two component folders that ARE the admin
+  // design system, may of course import it.
+  //
+  // 🔴 THIS BLOCK RE-STATES THE SERVER PATTERNS, AND DROPPING THEM WOULD OPEN A
+  // HOLE. ESLint's flat config does not merge two settings of the same rule: for
+  // a file matched by both blocks the LAST one wins OUTRIGHT. So this cannot be
+  // a narrower "allow" block listing only the admin patterns; it has to restate
+  // everything block 1 says that still applies here, or `app/admin/(protected)/
+  // page.tsx` would silently regain the right to import `@/server/**` and pull
+  // the Supabase secret key toward a client bundle.
+  //
+  // `_lib` is excluded because it is the sanctioned crossing point and block 1
+  // already exempts it; re-applying the server ban here would break it.
+  {
+    files: [
+      "app/admin/**/*.{ts,tsx}",
+      "components/admin/**/*.{ts,tsx}",
+      "components/ui/**/*.{ts,tsx}",
+    ],
+    ignores: ["app/admin/**/_lib/**"],
     rules: {
       "no-restricted-imports": ["error", {patterns: SERVER_IMPORT_PATTERNS}],
     },

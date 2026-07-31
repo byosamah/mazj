@@ -30,17 +30,18 @@
     "trustLine": "Staffed Sun to Thu, 9 to 9 · 24/7 member access"
   },
   "SpaceFinder": {
-    "trigger": "Which space suits you?",
-    "cta": "Book this space",
+    "trigger": "Which one suits you?",
+    "cta": "Book now",
     "ctaShort": "Book",
     "cases": {
-      "dayDesk": {
-        "label": "A desk for the day",
-        "name": "Day pass",
+      "openDesk": {
+        "label": "I want a desk",
+        "sub": "Open desk · day or month",
+        "name": "Open desk",
         "chips": {
           "capacity": {
             "label": "Fits",
-            "value": "1 person"
+            "value": "1 seat"
           },
           "feature": {
             "label": "Includes",
@@ -48,12 +49,32 @@
           },
           "access": {
             "label": "Access",
-            "value": "Full day"
+            "value": "Members · 24/7"
           }
         }
       },
-      "meeting": {
-        "label": "A meeting, up to 6",
+      "privateOffice": {
+        "label": "I want my own office",
+        "sub": "Private office · day or month",
+        "name": "Private office",
+        "chips": {
+          "capacity": {
+            "label": "Fits",
+            "value": "1 room"
+          },
+          "feature": {
+            "label": "Includes",
+            "value": "A door that locks"
+          },
+          "access": {
+            "label": "Access",
+            "value": "Members · 24/7"
+          }
+        }
+      },
+      "meetingRoom": {
+        "label": "I have a meeting",
+        "sub": "Al-Malqa · up to 6",
         "name": "Meeting room · Al-Malqa",
         "chips": {
           "capacity": {
@@ -70,8 +91,9 @@
           }
         }
       },
-      "event": {
-        "label": "An event, up to 30",
+      "eventHall": {
+        "label": "I have an event",
+        "sub": "Al-Ma'arij · up to 30",
         "name": "Events hall · Al-Ma'arij",
         "chips": {
           "capacity": {
@@ -85,60 +107,6 @@
           "access": {
             "label": "Booking",
             "value": "2-5 hour slots"
-          }
-        }
-      },
-      "officeDay": {
-        "label": "A private office for a day",
-        "name": "Private office · daily",
-        "chips": {
-          "capacity": {
-            "label": "Fits",
-            "value": "1 person"
-          },
-          "feature": {
-            "label": "Includes",
-            "value": "Drinks + Wi-Fi"
-          },
-          "access": {
-            "label": "Access",
-            "value": "Day to a week"
-          }
-        }
-      },
-      "officeMonth": {
-        "label": "Your permanent private office",
-        "name": "Private office · monthly",
-        "chips": {
-          "capacity": {
-            "label": "Fits",
-            "value": "1 person"
-          },
-          "feature": {
-            "label": "Perk",
-            "value": "20% off meeting room"
-          },
-          "access": {
-            "label": "Access",
-            "value": "Members · 24/7"
-          }
-        }
-      },
-      "membership": {
-        "label": "Shared-space membership",
-        "name": "Open-desk membership",
-        "chips": {
-          "capacity": {
-            "label": "Fits",
-            "value": "1 person"
-          },
-          "feature": {
-            "label": "Perk",
-            "value": "15% off meeting room"
-          },
-          "access": {
-            "label": "Access",
-            "value": "Members · 24/7"
           }
         }
       }
@@ -247,7 +215,7 @@
     "eyebrow": "Host your event",
     "title": "Al-Ma'arij has gathered people\nfor years. Yours is next.",
     "features": "Up to 30 · screen · sound system",
-    "body": "Product launches, workshop series, training days, community nights, team celebrations: Al-Ma'arij has hosted more than 40 of them since 2022. Pick your date and book the hall online.",
+    "body": "Product launches, workshop series, training days, community nights, team celebrations: all of them have happened in Al-Ma'arij since 2022. Pick your date and book the hall online.",
     "bookCta": "Book the hall",
     "photoAlt": "The Al-Ma'arij events hall at MAZJ, set up for a gathering"
   },
@@ -255,7 +223,7 @@
     "eyebrow": "A living community",
     "titleLine1": "Around you, ideas",
     "titleLine2": "and opportunities grow.",
-    "body": "At MAZJ, people meet and ideas cross paths. A hallway hello can open a door, a shared table can spark a partnership, and the momentum in the room carries you along.",
+    "body": "At MAZJ, people meet and ideas are born. A hallway hello can open a door, a shared table can spark a partnership, and the momentum in the room carries you along.",
     "qualifyCta": "Book your seat"
   },
   "Location": {
@@ -389,6 +357,7 @@
     "linkAbout": "About",
     "linkSpaces": "Spaces",
     "linkEvents": "Events",
+    "linkStartups": "Startups",
     "linkFaq": "FAQ",
     "linkContact": "Contact",
     "linkTerms": "Terms of Service",
@@ -647,7 +616,7 @@
     "aboutTitle": "An event hall built for workshops",
     "about": [
       "Al-Ma'arij is MAZJ's event hall in Al-Khobar: room for up to 30 people, with a screen and sound system already in place. Renting the hall works in 2-5 hour slots, sized for a workshop, a training day, a talk, or a meetup.",
-      "Tell the team what you're running and they'll help you set the room up for it. The hall has hosted forty-two community events since 2022, from sketching nights to design forums.",
+      "Tell the team what you're running and they'll help you set the room up for it. The hall has been hosting community events since 2022, from sketching nights to design forums.",
       "Companies and communities book it for launches, training days, and meetups; the MAZJ team is around during staffed hours, Sunday to Thursday 9am to 9pm, to help it run smoothly. The live rate is shown as you book, with a VAT invoice on request."
     ],
     "faqTitle": "Events hall questions",
@@ -673,393 +642,47 @@
   "EventsPage": {
     "eyebrow": "Events",
     "title": "Everything that's\nhappened here",
-    "intro": "Forty-two workshops, talks, screenings and gatherings hosted at MAZJ between 2022 and 2025. Four became recurring series. New dates go up on Instagram first.",
+    "intro": "Workshops, talks, screenings and evenings hosted at MAZJ since 2022. Four of them became recurring series. New dates appear here the moment they are set.",
+    "metaDescription": "Workshops, talks, screenings and gatherings hosted at MAZJ in Al-Khobar since 2022. See what is coming up and book your seat.",
     "upcomingLabel": "What's next",
     "upcomingTitle": "Coming up\nat MAZJ",
-    "upcomingNote": "Nothing is confirmed on the calendar right now. The listings below are examples showing how an announcement looks; the programme resumes soon. Follow along on Instagram to hear first.",
-    "exampleBadge": "Example",
+    "upcomingNote": "Registration is open for what is coming, and most gatherings have limited seats.",
     "upcomingEmpty": "No events are scheduled at the moment. Follow us on Instagram to hear about the next one first.",
-    "upcoming": [
-      {
-        "t": "Coffee & Sketch",
-        "v": "V10",
-        "d": "Date to be announced",
-        "h": "Asma Habib",
-        "b": "Two hours of drawing with a marker and a cup of coffee. No previous experience needed."
-      },
-      {
-        "t": "The Brand Factory",
-        "v": "V4",
-        "d": "Date to be announced",
-        "h": "Osamah Khalil",
-        "b": "A one-day sprint: a client brief in the morning, a finished visual identity by the evening."
-      },
-      {
-        "t": "Loqma w Fayda",
-        "v": "V7",
-        "d": "Date to be announced",
-        "h": "Guest to be announced",
-        "b": "Lunch and a conversation worth listening to, with founders and directors talking honestly about their work."
-      }
-    ],
-    "pastBadge": "Ended",
     "archiveLabel": "The full archive",
-    "archiveNote": "Every event MAZJ has hosted, newest first. All dates have passed.",
+    "archiveNote": "Every event MAZJ has hosted, newest first.",
     "followCta": "Follow on Instagram",
     "hostTitle": "Want to run yours here?",
     "hostBody": "Al-Ma'arij seats 30 with a screen and sound system, booked by the slot.",
     "hostCta": "See the events hall",
-    "archive": [
-      {
-        "y": "2025",
-        "d": "1 February",
-        "t": "Digital Creativity in Architectural Rendering",
-        "h": "Asma Habib"
-      },
-      {
-        "y": "2025",
-        "d": "25 January",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V9"
-      },
-      {
-        "y": "2025",
-        "d": "18 January",
-        "t": "The Brand Factory",
-        "h": "Osamah Khalil",
-        "s": "brandFactory",
-        "v": "V3"
-      },
-      {
-        "y": "2024",
-        "d": "18 December",
-        "t": "An evening with Muhannad Al-Malki",
-        "h": "AIA Middle East award winner"
-      },
-      {
-        "y": "2024",
-        "d": "14 December",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V8"
-      },
-      {
-        "y": "2024",
-        "d": "16 November",
-        "t": "The Brand Factory",
-        "h": "a one-day design sprint",
-        "s": "brandFactory",
-        "v": "V2"
-      },
-      {
-        "y": "2024",
-        "d": "February",
-        "t": "An evening with Ahlam Al-Furaihi",
-        "h": "architecture and practice"
-      },
-      {
-        "y": "2024",
-        "d": "6 February",
-        "t": "Stillness, learning and momentum",
-        "h": "a guided session"
-      },
-      {
-        "y": "2024",
-        "d": "3 February",
-        "t": "The Brand Factory",
-        "h": "a one-day design sprint",
-        "s": "brandFactory",
-        "v": "V1"
-      },
-      {
-        "y": "2024",
-        "d": "30 January",
-        "t": "The power of design",
-        "h": "an art session"
-      },
-      {
-        "y": "2024",
-        "d": "27 January",
-        "t": "Urban Sketching",
-        "h": "drawing the city as it is"
-      },
-      {
-        "y": "2023",
-        "d": "5 December",
-        "t": "Between the Frames",
-        "h": "Mada Cultural Club"
-      },
-      {
-        "y": "2023",
-        "d": "24 October",
-        "t": "Loqma w Fayda: Zahra Al-Hussain",
-        "h": "on managing what you build",
-        "s": "loqmaFayda",
-        "v": "V6"
-      },
-      {
-        "y": "2023",
-        "d": "18 October",
-        "t": "RAD Entrepreneurship Forum: open session",
-        "h": "Asharqia Chamber"
-      },
-      {
-        "y": "2023",
-        "d": "17 October",
-        "t": "Arabic Calligraphy",
-        "h": "a hands-on introduction"
-      },
-      {
-        "y": "2023",
-        "d": "30 September",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V7"
-      },
-      {
-        "y": "2023",
-        "d": "26 September",
-        "t": "Women Who Design",
-        "h": "with Lamia of Vena",
-        "s": "womenDesign",
-        "v": "V4"
-      },
-      {
-        "y": "2023",
-        "d": "19 September",
-        "t": "Loqma w Fayda: Khalid Al-Musaad",
-        "h": "founder of Karkam",
-        "s": "loqmaFayda",
-        "v": "V5"
-      },
-      {
-        "y": "2023",
-        "d": "4 September",
-        "t": "Documentary night",
-        "h": "a screening and a conversation"
-      },
-      {
-        "y": "2023",
-        "d": "30 August",
-        "t": "Loqma w Fayda: Manal Ambon",
-        "h": "on training and practice",
-        "s": "loqmaFayda",
-        "v": "V4"
-      },
-      {
-        "y": "2023",
-        "d": "26 August",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V6"
-      },
-      {
-        "y": "2023",
-        "d": "23 August",
-        "t": "Design through the philosophy of play",
-        "h": "a workshop"
-      },
-      {
-        "y": "2023",
-        "d": "9 August",
-        "t": "Women Who Design",
-        "h": "with Alia Abdal",
-        "s": "womenDesign",
-        "v": "V3"
-      },
-      {
-        "y": "2023",
-        "d": "25 July",
-        "t": "Loqma w Fayda: Razan Al-Jishi",
-        "h": "coaching and the inner work",
-        "s": "loqmaFayda",
-        "v": "V3"
-      },
-      {
-        "y": "2023",
-        "d": "22 July",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V5"
-      },
-      {
-        "y": "2023",
-        "d": "18 July",
-        "t": "Fus-ha",
-        "h": "MAZJ with Studio Acumen"
-      },
-      {
-        "y": "2023",
-        "d": "12 July",
-        "t": "Women Who Design",
-        "h": "a founder's evening",
-        "s": "womenDesign",
-        "v": "V2"
-      },
-      {
-        "y": "2023",
-        "d": "20 June",
-        "t": "Women Who Design",
-        "h": "the series opens",
-        "s": "womenDesign",
-        "v": "V1"
-      },
-      {
-        "y": "2023",
-        "d": "17 June",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V4"
-      },
-      {
-        "y": "2023",
-        "d": "13 June",
-        "t": "Loqma w Fayda: Dana Al Salah",
-        "h": "founder of Ab",
-        "s": "loqmaFayda",
-        "v": "V2"
-      },
-      {
-        "y": "2023",
-        "d": "12 June",
-        "t": "Art Direction",
-        "h": "the craft and its methods"
-      },
-      {
-        "y": "2023",
-        "d": "20 May",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V3"
-      },
-      {
-        "y": "2023",
-        "d": "9 April",
-        "t": "Botanical ornament",
-        "h": "with a Ramadan touch"
-      },
-      {
-        "y": "2023",
-        "d": "March",
-        "t": "Creative thinking",
-        "h": "for architects and designers"
-      },
-      {
-        "y": "2023",
-        "d": "11 March",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V2"
-      },
-      {
-        "y": "2023",
-        "d": "March",
-        "t": "Arch Exhibition",
-        "h": "MAZJ as knowledge partner"
-      },
-      {
-        "y": "2023",
-        "d": "17-18 February",
-        "t": "Origami and Architecture",
-        "h": "building your own structures"
-      },
-      {
-        "y": "2023",
-        "d": "15 February",
-        "t": "Coffee & Sketch",
-        "h": "Asma Habib",
-        "s": "coffeeSketch",
-        "v": "V1"
-      },
-      {
-        "y": "2023",
-        "d": "February",
-        "t": "Evening dress design",
-        "h": "a fashion workshop"
-      },
-      {
-        "y": "2023",
-        "d": "February",
-        "t": "Loqma w Fayda",
-        "h": "the series opens",
-        "s": "loqmaFayda",
-        "v": "V1"
-      },
-      {
-        "y": "2022",
-        "d": "November",
-        "t": "Al-Asala University",
-        "h": "MAZJ as knowledge partner, College of Architecture & Design"
-      }
-    ],
-    "metaTitle": "Events in Al-Khobar | Workshops, Meetups & Talks"
+    "metaTitle": "Events in Al-Khobar | Workshops, Meetups & Talks",
+    "registerCta": "Book your seat",
+    "freeLabel": "Free",
+    "ticketedLabel": "Ticketed",
+    "soldOut": "Fully booked",
+    "liveNow": "Happening now",
+    "seatsLeft": "{count, plural, one {1 seat left} other {# seats left}}",
+    "loadFailed": "We cannot show the programme right now. Please refresh in a moment."
   },
   "AboutPage": {
     "eyebrow": "About MAZJ",
     "title": "The blend is\nthe point",
-    "intro": "MAZJ (مزج) means to blend. A shared workspace in Al-Khobar, built as an interactive, learning environment for the Eastern Province's urban community.",
-    "principlesLabel": "What every space here starts from",
-    "principlesTitle": "How a space earns\na whole day",
-    "principlesNote": "MAZJ's own framework for building a room worth spending a day in.",
-    "principles": [
-      {
-        "word": "مقصد",
-        "label": "Purpose",
-        "body": "A firm reason to exist. Every room here starts from what it is for, long before it starts from what it looks like."
-      },
-      {
-        "word": "وظيفية",
-        "label": "Function",
-        "body": "Sized to real use, not to a floor plan. Six around a table in Al-Malqa, thirty in Al-Ma'arij, and a door that actually closes when the work needs quiet."
-      },
-      {
-        "word": "تكوين",
-        "label": "Form",
-        "body": "Made to hold your attention for a whole day. Natural light, plants, and materials chosen so a long day feels shorter than it is."
-      }
-    ],
+    "intro": "MAZJ (مزج) means things coming together into one. That is what happens in the shared workspace here in Al-Khobar: work of every kind, and the people doing it know each other by name.",
     "storyTitle": "Why we built MAZJ",
-    "storyBody": "Work goes best where focus meets company. That is where MAZJ came from: a table where the work actually gets done, and people around you doing the same. The name says the intent. Different people, different work, different stages, blended into one room.",
+    "storyBody": "Work goes best where focus meets company. That is where MAZJ came from: a table where the work actually gets done, and people around you doing the same. Different people, different work, different stages, blended into one room.",
     "spaceTitle": "One address",
-    "spaceBody": "Life Tower on Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. One address holding the shared floor, the private offices, the Al-Malqa meeting room, and Al-Ma'arij, the hall we run events in. Staffed Sunday to Thursday, 9am to 9pm.",
-    "communityTitle": "An urban community",
-    "communityBody": "A workspace gives you a desk. A community gives you momentum. Since 2022 MAZJ has hosted more than forty workshops, talks, screenings and gatherings, from a sketching series that ran nine times to design sprints and film nights. Everyone is welcome here.",
-    "factsLabel": "The space in numbers",
-    "facts": [
-      {
-        "value": "25",
-        "label": "seats in the shared space"
-      },
-      {
-        "value": "3",
-        "label": "private offices"
-      },
-      {
-        "value": "30",
-        "label": "seats in Al-Ma'arij"
-      },
-      {
-        "value": "24/7",
-        "label": "access for members"
-      }
-    ],
-    "eventsCta": "See what's happened here",
-    "tourCta": "Come see the space",
-    "closingTitle": "Come see it\nfor yourself",
-    "closingBody": "The fastest way to understand MAZJ is to spend a day inside it. Book a tour, or look through what the community has already built here.",
+    "spaceBody": "Life Tower on Zaid Ibn Alkhattab Street, Al-Olaya, Al-Khobar. It holds the open desks, the private offices, the Al-Malqa meeting room, and Al-Ma'arij, the hall we run events in. Reception is staffed Sunday to Thursday, 9am to 9pm.",
+    "communityTitle": "The neighbours you choose",
+    "communityBody": "People here have had a standing date since 2022: a sketching series that came back nine times, design sprints, film nights. Al-Ma'arij hosts them, and everyone is invited.",
+    "eventsCta": "Browse the events",
+    "tourCta": "Book a tour on WhatsApp",
+    "tourMsg": "Hi MAZJ, I've been reading about you and I'd like to arrange a visit.",
+    "spacesCta": "Choose your room",
+    "closingTitle": "Let us show\nyou around",
+    "closingBody": "The tour is free, and the coffee is on us. You'll come on an ordinary day, ask whatever you like, and decide in your own time.",
     "metaTitle": "About Us | Coworking in Al-Khobar",
-    "storyAlt": "Inside MAZJ's space in Al-Khobar",
-    "spaceAlt": "The shared floor at MAZJ in Al-Khobar",
-    "communityAlt": "A community event in the Al-Ma'arij hall at MAZJ"
+    "storyAlt": "Someone climbing the white staircase inside MAZJ toward a tall window",
+    "spaceAlt": "A corner table by MAZJ's tall windows in Al-Khobar, with daylight across the floor",
+    "communityAlt": "Four people sitting on the floor around a board game at a MAZJ community night"
   },
   "ContactPage": {
     "eyebrow": "Contact",
@@ -1253,16 +876,15 @@
   },
   "Founding": {
     "eyebrow": "Startups & builders",
-    "title": "Building something?\nBuild it here",
-    "body": "MAZJ has a special offer for startups and builders, made to give your idea its first push. Tell us what you're working on, and we'll tell you what's waiting.",
+    "title": "Building a product,\nor a startup?\nBuild it here",
+    "body": "There is an offer here for you, made to give your idea its first push. Tell us what you're working on, and we'll tell you what's waiting.",
     "perks": [
       "A real address in Al-Khobar",
       "24/7 access for the long hours",
       "Al-Malqa, your room on pitch day"
     ],
-    "cta": "Get the offer",
-    "ctaMsg": "Hi MAZJ, I'm building something and I'd love to hear the startups & builders offer.",
-    "note": "The offer is one message away. Start with your idea."
+    "cta": "Apply for the offer",
+    "note": "The application takes two minutes. We read every one ourselves."
   },
   "Booking": {
     "title": "Book your space",
@@ -1278,8 +900,9 @@
     "mobile": "Mobile number",
     "email": "Email (optional)",
     "loading": "Checking what is free...",
-    "noAvailability": "Nothing is free in the next two weeks. Get in touch and we will find you a time.",
+    "noAvailability": "No times are showing for the next two weeks. Get in touch and we will find you one.",
     "dayClosed": "We are closed on this day.",
+    "noTimes": "No times are showing on this day. Choose another day.",
     "submit": "Continue to payment",
     "submitting": "One moment...",
     "vatNote": "Prices include VAT.",
@@ -1325,12 +948,156 @@
       "idempotency_key_reused": "Please start that booking again.",
       "not_found": "That option is no longer available.",
       "unauthorized": "Something went wrong. Please try again.",
-      "forbidden": "Something went wrong. Please try again.",
+      "forbidden": "We could not complete this booking online. Get in touch and the team will finish it with you.",
       "upstream_unavailable": "Our booking system is not responding. Please try again in a moment, and get in touch if it keeps happening.",
       "internal": "Something went wrong on our side. Please try again.",
-      "booking_exists": "Your booking was created, reference {reference}, but we could not open the payment page. Please contact us with that reference and we will finish it with you. Do not book again."
+      "booking_exists": "Your booking was created, reference {reference}, but we could not open the payment page. Please contact us with that reference and we will finish it with you. Do not book again.",
+      "booking_in_flight": "That booking is still going through. Please wait a moment, and do not send it again.",
+      "booking_unconfirmed": "Your booking may already have reached us, so please do not send it again. Get in touch and the team will check it and finish it with you.",
+      "booking_unconfirmed_reference": "Your booking may already have reached us under reference {reference}, so please do not send it again. Get in touch with that reference and the team will finish it with you."
+    },
+    "help": {
+      "cta": "Finish your booking on WhatsApp",
+      "msg": "Hi MAZJ, I'd like help finishing a booking.",
+      "msgReference": "Hi MAZJ, I'd like help with booking {reference}."
     },
     "retry": "Try again",
     "documentLater": "One more thing: for events we also need your commercial registration or activity permit. We will ask for it by WhatsApp once your booking is confirmed."
+  },
+  "EventDetail": {
+    "back": "All events",
+    "aboutTitle": "About this event",
+    "whenLabel": "When",
+    "whereLabel": "Where",
+    "hostLabel": "With",
+    "seatsLabel": "Seats",
+    "ticketLabel": "Ticket",
+    "defaultLocation": "MAZJ, Al-Khobar",
+    "addToCalendar": "Add to your calendar",
+    "registerTitle": "Book your seat",
+    "registerIntro": "Leave your name and number and we will keep a place for you.",
+    "name": "Full name",
+    "mobile": "Mobile number",
+    "email": "Email (optional)",
+    "submit": "Confirm my seat",
+    "submitting": "One moment...",
+    "vatNote": "Prices include VAT.",
+    "confirmedTitle": "Your seat is booked",
+    "confirmedBody": "See you at MAZJ. We will message you if anything changes.",
+    "alreadyTitle": "You are already on the list",
+    "alreadyBody": "This number is registered for this event. See you there.",
+    "soldOutTitle": "Fully booked",
+    "soldOutBody": "Every seat is taken. Follow along to hear about the next one first.",
+    "closedTitle": "Registration has closed",
+    "closedBody": "Booking for this one is done. Here is what is coming up.",
+    "endedTitle": "This event has ended",
+    "endedBody": "Thank you to everyone who came. Here is what is coming up.",
+    "unavailable": "Registration is not available right now. Message us and we will arrange a seat.",
+    "upcomingCta": "See what is coming up",
+    "error": {
+      "unknown": "Something went wrong. Please try again.",
+      "validation_failed": "Please check the details above and try again.",
+      "rate_limited": "That is a lot of attempts. Please wait a few minutes and try again.",
+      "conflict": "Something changed while you were filling this in. Please refresh the page.",
+      "conflict_full": "The last seat has just gone. Please refresh the page.",
+      "conflict_closed": "Registration for this event has closed.",
+      "idempotency_key_reused": "Please start that again.",
+      "not_found": "This event is no longer listed.",
+      "unauthorized": "Something went wrong. Please try again.",
+      "forbidden": "Something went wrong. Please try again.",
+      "upstream_unavailable": "We could not complete that just now. Please try again in a moment.",
+      "internal": "Something went wrong on our side. Please try again.",
+      "conflict_ticketed": "This event now needs a ticket. Please refresh the page."
+    },
+    "ticketTitle": "Get your ticket",
+    "ticketCta": "Book now"
+  },
+  "Startups": {
+    "metaTitle": "Startups Offer | Coworking for Founders in Al-Khobar",
+    "eyebrow": "Startups & builders",
+    "title": "Make MAZJ\nyour first address",
+    "intro": "A standing offer for people making something new. Tell us what you have in your hands, and if we like what we read we will open the door on terms we settle with you alone.",
+    "offerEyebrow": "What is waiting",
+    "offerTitle": "Three things every\nyoung company needs",
+    "offerBody": "We tell you the offer itself when we approve you, because it is cut to fit you rather than to fit a template. What you get at MAZJ is plain from day one.",
+    "offerPoints": [
+      {
+        "title": "A real address",
+        "body": "Post that reaches you, a line to write on the register, and somewhere in Al Olaya, Al-Khobar to invite a client to."
+      },
+      {
+        "title": "Doors open 24/7",
+        "body": "Code or card entry at any hour, because the first weeks rarely finish at five."
+      },
+      {
+        "title": "Al-Malqa on pitch day",
+        "body": "A meeting room that seats six around one table, for the day you show people what you made."
+      }
+    ],
+    "offerNote": "We do not publish the terms here, and we are not hiding them: they arrive in full in the approval email, and our team applies them when you walk in.",
+    "howEyebrow": "How it goes",
+    "howTitle": "Three steps,\nand an answer in writing",
+    "steps": [
+      {
+        "title": "You send it",
+        "body": "Eight fields and two minutes. No attachments, no deck."
+      },
+      {
+        "title": "We read it ourselves",
+        "body": "A person at MAZJ reads your application, not a filter. Give it a few days."
+      },
+      {
+        "title": "You hear back",
+        "body": "An email either way. An approval carries your code, and a no carries its reason."
+      }
+    ],
+    "formEyebrow": "The application",
+    "formTitle": "Tell us what you are making",
+    "formIntro": "The clearer you write it, the faster and the better our answer.",
+    "founderName": "Your name",
+    "startupName": "Your startup",
+    "email": "Your email",
+    "mobile": "Your mobile",
+    "pitch": "What are you making?",
+    "pitchHint": "One paragraph is plenty: what it is, who it is for, and how far along you are.",
+    "stage": "Where are you today?",
+    "stageOptions": {
+      "idea": "An idea we are shaping",
+      "building": "Building the product",
+      "earning": "We have paying customers"
+    },
+    "teamSize": "How many of you?",
+    "space": "Which space suits you?",
+    "spaceOptions": {
+      "shared_seat": "Open desk",
+      "private_office": "Private office",
+      "meeting_room": "Al-Malqa, the meeting room",
+      "event_hall": "Al-Ma'arij, the events hall"
+    },
+    "submit": "Send your application",
+    "submitting": "Sending…",
+    "consent": "Sending this means we may keep these details in order to answer you. The detail of that is in our",
+    "privacyLink": "privacy policy",
+    "successTitle": "Your application is in",
+    "successBody": "We have emailed you to confirm it arrived. If it is not there, take a look in your spam folder.",
+    "successReference": "Your reference",
+    "successNext": "Keep this number, and quote it if you message us before we answer.",
+    "successCta": "See the spaces",
+    "error": {
+      "rate_limited": "That is a lot of tries from here. Give it a moment and go again.",
+      "conflict": "You already have an application with us that we have not answered yet. We are reading it, and our answer will reach you by email.",
+      "upstream_unavailable": "We could not send that just now. Try again in a moment.",
+      "unknown": "That did not go through. Try again, and message us if it keeps happening.",
+      "field": {
+        "founderName": "Please tell us your name.",
+        "startupName": "Please tell us your startup's name.",
+        "email": "Check your email address: our answer goes there.",
+        "mobile": "Check your mobile number.",
+        "pitch": "Tell us a little more about what you are making.",
+        "stage": "Choose where you are today.",
+        "teamSize": "Give us a number.",
+        "space": "Choose the space that suits you."
+      }
+    }
   }
 }

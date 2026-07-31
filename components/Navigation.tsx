@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect, useRef, useState} from "react";
+import Image from "next/image";
 import {useLocale, useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
 import CtaButton from "./CtaButton";
@@ -173,8 +174,11 @@ export default function Navigation() {
         style={{gap: "28px", padding: rtl ? "6px 16px 6px 6px" : "6px 6px 6px 16px", boxShadow: "0 10px 32px rgba(0,0,0,0.12)"}}
       >
         <Link href="/" aria-label={t("home")} className="relative flex items-center transition-transform duration-[120ms] active:scale-[0.96] before:absolute before:content-[''] before:left-1/2 before:top-1/2 before:h-[44px] before:w-[44px] before:-translate-x-1/2 before:-translate-y-1/2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logos/mazj-wordmark.png" alt="MAZJ" height={19} width={26} className="h-[19px] w-auto" />
+          {/* `priority`: the header is fixed at the top of every route, so this
+              is in the first viewport on all 26 of them. Left to the default it
+              is lazy, and a lazy image in a fixed header still waits for the
+              observer. */}
+          <Image src="/logos/mazj-wordmark.png" alt="MAZJ" height={19} width={26} priority className="h-[19px] w-auto" />
         </Link>
         {/* Labelled so a landmark rotor can tell this from the footer's nav.
             Unlabelled, the two announced as a bare "navigation, navigation".
@@ -186,7 +190,7 @@ export default function Navigation() {
             <Link
               key={l.label}
               href={l.href}
-              className="text-14 text-black inline-flex items-center min-h-[40px] hover:opacity-60 [transition:opacity_200ms,transform_120ms] active:scale-[0.96]"
+              className="text-14 text-black inline-flex items-center min-h-[40px] underline decoration-transparent underline-offset-[6px] hover:decoration-black [transition:text-decoration-color_200ms,transform_120ms] active:scale-[0.96]"
             >
               {l.label}
             </Link>
@@ -287,8 +291,7 @@ export default function Navigation() {
       <div ref={mobileRef} className="pointer-events-none w-[calc(100vw-1.5rem)] lg:hidden">
         <div className="pointer-events-auto flex items-center justify-between rounded-[6px] bg-white px-5 py-3 shadow-[0_2px_20px_rgba(0,0,0,0.1)]">
           <Link href="/" aria-label={t("home")} className="relative flex items-center transition-transform duration-[120ms] active:scale-[0.96] before:absolute before:content-[''] before:left-1/2 before:top-1/2 before:h-[44px] before:w-[44px] before:-translate-x-1/2 before:-translate-y-1/2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logos/mazj-wordmark.png" alt="MAZJ" height={18} width={25} className="h-[18px] w-auto" />
+            <Image src="/logos/mazj-wordmark.png" alt="MAZJ" height={18} width={25} priority className="h-[18px] w-auto" />
           </Link>
           <div className="flex items-center gap-4">
             <LocaleSwitcher />
@@ -348,7 +351,7 @@ export default function Navigation() {
               <Link
                 key={l.label}
                 href={l.href}
-                className="flex min-h-[44px] items-center text-14 text-black hover:opacity-60 [transition:opacity_200ms,transform_120ms] active:scale-[0.96]"
+                className="flex min-h-[44px] items-center text-14 text-black underline decoration-transparent underline-offset-[6px] hover:decoration-black [transition:text-decoration-color_200ms,transform_120ms] active:scale-[0.96]"
               >
                 {l.label}
               </Link>

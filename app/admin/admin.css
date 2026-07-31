@@ -1,0 +1,190 @@
+/* ============================================================
+   /admin ONLY. The token values behind the shadcn primitives.
+   Added 2026-07-29 with the admin redesign.
+   ============================================================
+
+   🔴 WHY THIS FILE EXISTS AT ALL, rather than a block in globals.css.
+
+   `app/admin/layout.tsx` is a SECOND root layout, sitting beside
+   `app/[locale]/layout.tsx`. It renders its own <html> and its own <body>, so a
+   stylesheet imported there reaches the admin document and NOTHING ELSE. That
+   is the whole safety argument for this redesign: /admin can grow a complete
+   second token system without a single byte of it landing on mazj.sa.
+
+   The alternative, defining these in `app/globals.css`, would put admin
+   variables on every marketing page, and shadcn's own installer would happily
+   add `* { @apply border-border }` while it was there, silently restyling the
+   default border colour of a pixel-tuned public site. `components.json` points
+   shadcn's `tailwind.css` at THIS file for exactly that reason: a future
+   `npx shadcn add <thing>` writes here, where it is harmless, instead of there.
+
+   🔴 NO @tailwind DIRECTIVES AND NO @layer HERE, deliberately. Those live in
+   globals.css, which `app/admin/layout.tsx` also imports (and imports FIRST, so
+   the admin still gets Thmanyah, the reset, and the base type ramp). This file
+   is plain CSS custom properties that Tailwind resolves through
+   `tailwind.config.ts`. Adding `@layer base { … }` here without `@tailwind
+   base` in the same file is what would make PostCSS drop the block on the
+   floor.
+
+   The values are RGB CHANNEL TRIPLETS, not hex, and that is not a style
+   preference: `tailwind.config.ts` wraps each one as
+   `rgb(var(--token) / <alpha-value>)`, which is what makes `bg-primary/90`,
+   `ring-ring/50` and `border-destructive/20` work. A hex here would make every
+   opacity modifier in the shadcn components a silent no-op.
+   ============================================================ */
+
+:root {
+  /* ---- MAZJ surfaces, mapped onto shadcn's semantic names --------------
+     Every value is an existing token from DESIGN.md. Nothing new was invented
+     for the base palette; the admin is the same material as the public site,
+     arranged for density. */
+  --background: 255 247 233;             /* #FFF7E9  cream, the page. Same surface as mazj.sa */
+  --foreground: 17 17 17;                /* #111111  ink, near-black and never pure #000 */
+
+  --card: 247 238 217;                   /* #F7EED9  beige-1, the warmer surface tier */
+  --card-foreground: 17 17 17;           /* #111111 */
+
+  /* Pure white is reserved on the marketing site for exactly one thing, the
+     floating nav pill. The admin's only floating overlay is the <select>
+     panel, which is the same category of object, so it may have it. */
+  --popover: 255 255 255;                /* #FFFFFF */
+  --popover-foreground: 17 17 17;        /* #111111 */
+
+  /* 🔴 PRIMARY IS INK, NOT CORAL. DESIGN.md's `button-primary` is an ink fill
+     with cream text, and the coral is "an accent, never a surface: no
+     full-bleed coral sections". A dashboard full of coral buttons would read as
+     a promotion and would also inherit the coral's 2.90:1 contrast, which is
+     tolerated on the marketing site as an explicit brand-over-metric ruling and
+     has no business becoming the default control colour on an internal tool. */
+  --primary: 17 17 17;                   /* #111111 */
+  --primary-foreground: 255 247 233;     /* #FFF7E9 */
+
+  --secondary: 240 229 207;              /* #F0E5CF  tan */
+  --secondary-foreground: 76 40 6;       /* #4C2806  brown, DESIGN.md's ink for type on tan */
+
+  /* Renamed from shadcn's `muted`, which is TAKEN: `muted` is MAZJ's body grey
+     #514E4A, used 69 times across the public site. See tailwind.config.ts. */
+  --subtle: 247 238 217;                 /* #F7EED9 */
+  --subtle-foreground: 81 78 74;         /* #514E4A  7.77:1 on cream, 6.62:1 on tan */
+
+  --accent: 240 229 207;                 /* #F0E5CF  tan, the hover surface */
+  --accent-foreground: 17 17 17;         /* #111111 */
+
+  --border: 231 224 211;                 /* #E7E0D3  DESIGN.md `outline`, every hairline in the system */
+  --input: 231 224 211;                  /* #E7E0D3 */
+
+  /* DESIGN.md names deep indigo as the focus-ring hue, so the admin's focus
+     rings match the public site's rather than inventing a blue. */
+  --ring: 50 31 97;                      /* #321F61 */
+
+  /* ---- THE ADMIN-ONLY STATUS PALETTE ----------------------------------
+     Owner ruling, 2026-07-29.
+
+     DESIGN.md is explicit that "status colours do not exist here" and that
+     "coral must not be pressed into service as an error red: it is the brand
+     accent and would read as a promotion". It is equally explicit about the
+     way out: "If a future surface needs status colour, introduce it
+     deliberately rather than borrowing from this palette." This is that
+     deliberate introduction, and it is scoped to this file, which means it is
+     scoped to /admin.
+
+     What it buys: before this, the dashboard painted a BUSY MEETING ROOM, a
+     FAILED REKAZ CALL, a TRUNCATED CRAWL and an UNSENT APPROVAL EMAIL in the
+     same coral. Four unrelated facts, one colour, and the only one that needs
+     somebody out of their chair looked exactly like the three that do not.
+
+     Every value is measured, not picked by eye:
+
+       token         hex       on cream   on tan    role
+       --ok          #35682F     6.22:1    5.30:1   free, approved, delivered
+       --warn        #7F5310     6.27:1    5.34:1   attention, expiring, partial
+       --destructive #8F2018     8.26:1    7.04:1   failed, cancelled, not sent
+
+     All three clear WCAG AA for body text on BOTH admin surfaces, which is what
+     lets each one be used as dark text on cream AND as a fill carrying cream
+     text: the contrast ratio is symmetric, so one grade serves both.
+
+     🔴 The red is #8F2018 and not a brighter one because of the coral. Measured
+     against #FF5A48 the candidates ran 1.76:1 (#C0392B), 2.12:1 (#B3261E),
+     2.41:1 (#9E2B25) and 2.85:1 (#8F2018). Anything lighter is a shade of the
+     brand accent rather than a different statement, and on a screen that shows
+     both it has to be unmistakably a different statement.
+
+     🔴 COLOUR MUST NEVER BE THE ONLY SIGNAL. Measured against each other the
+     three marks are 1.01:1 (ok/warn), 1.33:1 (ok/destructive) and 1.32:1
+     (warn/destructive) apart in luminance. They are separated by HUE alone, so
+     in greyscale, or to a reader with monochromacy, they are the same dot.
+     Every status in this admin therefore carries a second, non-colour signal:
+     a filled versus hollow mark, and a word. `components/admin/StatusDot.tsx`
+     enforces the pairing so it cannot be forgotten at a call site. */
+  --ok: 53 104 47;                       /* #35682F */
+  --ok-foreground: 255 247 233;          /* #FFF7E9 */
+
+  --warn: 127 83 16;                     /* #7F5310 */
+  --warn-foreground: 255 247 233;        /* #FFF7E9 */
+
+  --destructive: 143 32 24;              /* #8F2018 */
+  --destructive-foreground: 255 247 233; /* #FFF7E9 */
+}
+
+/* The admin is a tool, not a page: it never smooth-scrolls, and it must not
+   inherit the marketing site's Lenis-oriented scroll behaviour. globals.css
+   sets `html { scroll-behavior: smooth }` for hash navigation on long
+   marketing routes; on a dashboard it only makes "jump to the error" feel
+   laggy. Lenis itself is never mounted here (the admin has no SmoothScroll
+   provider), so this is the only half that leaks in. */
+html {
+  scroll-behavior: auto;
+}
+
+/* Figures line up in columns. The admin is mostly numbers in tables: seats,
+   counts, times, days remaining, riyals. Proportional digits make a column of
+   them ragged, and `tabular-nums` at every call site is a rule somebody
+   eventually forgets, so it is set once on the document and inherited.
+   Thmanyah ships real tabular figures, so this is a font feature rather than a
+   synthetic fallback. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   The delayed reassurance under a loading skeleton.
+   ============================================================
+   `components/admin/LoadingLane.tsx` renders one sentence ("Rekaz can take up
+   to ten seconds. It has not failed.") and marks it `.admin-delayed`. Without
+   the rule below the class is inert and that sentence appears INSTANTLY, at
+   full opacity, on every navigation to /admin, /admin/events, /admin/events/[id]
+   and /admin/startups, including the ones that resolve in 40ms.
+
+   That is worse than not having it. A line which appears on every single load
+   is a line the eye stops reading, so on the day a load really does hang for
+   ten seconds, the one sentence written to stop somebody concluding the tool is
+   broken has already been trained out of them.
+
+   Three seconds is the line between "slow" and "broken" on this dashboard: its
+   own assembly measures 2.8s to 7.8s against a Rekaz /products endpoint that
+   has been measured between 1.2s and 10.8s.
+
+   A 1ms animation with a 3s delay, rather than a transition, because there is
+   no state change to transition FROM: the element mounts already in its final
+   state, and only the delay is doing work. `forwards` holds the end state.
+
+   🔴 Under reduced motion the sentence is simply present. globals.css collapses
+   animation-duration to 0.001ms for such readers, which would fire the reveal
+   at once anyway; making it explicit means the copy never depends on an
+   animation running to become readable. */
+@keyframes admin-delayed-in {
+  to {
+    opacity: 1;
+  }
+}
+.admin-delayed {
+  opacity: 0;
+  animation: admin-delayed-in 1ms linear 3s forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-delayed {
+    opacity: 1;
+    animation: none;
+  }
+}

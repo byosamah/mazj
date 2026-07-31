@@ -24,11 +24,42 @@ import { hasSupabaseCredentials } from "./setup";
  * ignore red suites.
  */
 describe.skipIf(!hasSupabaseCredentials)("row level security", () => {
-  const TABLES = ["idempotency_keys", "rate_limit_counters"] as const;
+  const TABLES = [
+    "idempotency_keys",
+    "rate_limit_counters",
+    "startup_applications",
+    "events",
+    "event_registrations",
+    // 🔴 `bookings` is the sharpest one on this list. Every row pairs a live
+    // Rekaz payment link, which anyone holding it can pay, with a salted hash
+    // of the buyer's mobile. Reachable by the publishable key it would be a
+    // purchase history served to whoever asked.
+    "bookings",
+  ] as const;
 
   describe("the publishable key cannot reach any table", () => {
     it.each(TABLES)("cannot read %s", async (table) => {
-      const { data, error } = await supabasePublic().from(table).select("*");
+      // ⚠️ The cast is a stand-in for generated types, not a shortcut.
+      // `bookings` is live in Postgres but absent from
+      // `server/supabase/types.gen.ts`, because regenerating that file runs
+      // `postgres-meta` in a container and Docker was not available when the
+      // table shipped. `npm run db:types` with Docker running removes the need
+      // for this line. Until then a table would silently fall out of this
+      // sweep, which is the one thing this suite exists to prevent, so the
+      // string list stays the source of truth and the client is loosened.
+      // 🔴 Cast the CLIENT, never the method: `from` reads `this.rest`, so
+      // pulling it off the object unbinds it and every row here fails with
+      // "cannot read properties of undefined", which reads exactly like a
+      // passing security test.
+      const client = supabasePublic() as unknown as {
+        from: (t: string) => {
+          select: (columns: string) => PromiseLike<{
+            data: unknown[] | null;
+            error: unknown;
+          }>;
+        };
+      };
+      const { data, error } = await client.from(table).select("*");
 
       // Either PostgREST refuses outright (grants revoked) or RLS filters every
       // row away. Both are closed; returning rows is not.
@@ -67,6 +98,100 @@ describe.skipIf(!hasSupabaseCredentials)("row level security", () => {
 
       expect(error).not.toBeNull();
     });
+
+    /**
+     * 🔴 The startups table is the one on this list holding real personal data:
+     * a founder's name, email, mobile and a description of an unlaunched
+     * business. Reading it is a PDPL breach and a competitive leak in the same
+     * request, so "closed" here has to be proven, not configured.
+     */
+    it("cannot insert a startup application", async () => {
+      const { error } = await supabasePublic().from("startup_applications").insert({
+        reference: "MZ-AAAAAA",
+        founder_name: "Attacker",
+        startup_name: "Attacker",
+        email: "attacker@example.com",
+        phone_e164: "+966500000000",
+        pitch: "This should never reach the table at all.",
+        stage: "idea",
+        team_size: 1,
+        space: "shared_seat",
+      });
+
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot approve itself an offer code", async () => {
+      // The write that would matter most: flipping a row to `approved` mints a
+      // code MAZJ never agreed to and emails it out on the next resend.
+      const { error } = await supabasePublic()
+        .from("startup_applications")
+        .update({ status: "approved", code: "MAZJ-AAAA-AAAA" })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot delete a startup application", async () => {
+      const { error } = await supabasePublic()
+        .from("startup_applications")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      expect(error).not.toBeNull();
+    });
+
+    /**
+     * 🔴 `events` holds 41 published rows, so "closed" here is not the usual
+     * empty-table tautology: if grants were ever restored, this read would
+     * return real data and the assertion above would genuinely fail. That makes
+     * it the strongest row in this file.
+     *
+     * It also matters more than it looks for a table whose contents are
+     * PUBLIC anyway: the rows carry DRAFT events too, which are unannounced
+     * programme plans, and `status` is not a filter anonymous PostgREST would
+     * apply for us.
+     */
+    it("cannot publish itself an event", async () => {
+      const { error } = await supabasePublic().from("events").insert({
+        slug: "attacker-event",
+        status: "published",
+        title_en: "Attacker",
+        title_ar: "Attacker",
+        summary_en: "This should never reach the table at all.",
+        summary_ar: "This should never reach the table at all.",
+        starts_at: "2030-01-01T09:00:00Z",
+        ends_at: "2030-01-01T11:00:00Z",
+      });
+
+      expect(error).not.toBeNull();
+    });
+
+    /**
+     * 🔴 The registrations table is the other one holding real personal data:
+     * a member of the public's name, mobile number and email. Reading it is a
+     * PDPL breach; writing to it mints seats at an event.
+     */
+    it("cannot register itself for an event", async () => {
+      const { error } = await supabasePublic()
+        .from("event_registrations")
+        .insert({
+          event_id: "00000000-0000-0000-0000-000000000000",
+          full_name: "Attacker",
+          phone_e164: "+966500000000",
+        });
+
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot confirm a registration it never paid for", async () => {
+      const { error } = await supabasePublic()
+        .from("event_registrations")
+        .update({ status: "confirmed", hold_expires_at: null })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      expect(error).not.toBeNull();
+    });
   });
 
   describe("the publishable key cannot call any function", () => {
@@ -97,6 +222,49 @@ describe.skipIf(!hasSupabaseCredentials)("row level security", () => {
 
     it("cannot call health_ping", async () => {
       const { error } = await supabasePublic().rpc("health_ping");
+
+      expect(error).not.toBeNull();
+    });
+
+    /**
+     * 🔴 `event_claim_seat` is `SECURITY DEFINER`: it writes a registration row
+     * with the table owner's privileges, so an anonymous EXECUTE grant would
+     * hand the public a way to write into a table RLS otherwise closes
+     * completely. It is the single most dangerous function in the schema.
+     */
+    it("cannot call event_claim_seat", async () => {
+      const { error } = await supabasePublic().rpc("event_claim_seat", {
+        p_event_id: "00000000-0000-0000-0000-000000000000",
+        p_full_name: "Attacker",
+        p_phone_e164: "+966500000000",
+        p_locale: "en",
+        p_hold_seconds: 0,
+        // Supabase's generator types every `text` parameter as non-nullable,
+        // because a SQL signature does not record nullability. Both accept null
+        // in Postgres; the cast states the gap. Same note as `server/db/events.ts`.
+        p_email: null as unknown as string,
+        p_ip_hash: null as unknown as string,
+      });
+
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot call event_expire_holds", async () => {
+      // Writes too: it would let anybody release every held seat at an event,
+      // which is a denial of somebody else's paid-for place.
+      const { error } = await supabasePublic().rpc("event_expire_holds", {
+        p_event_id: "00000000-0000-0000-0000-000000000000",
+      });
+
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot call event_seats_taken", async () => {
+      // Read-only and it leaks only counts, but an endpoint nobody meant to
+      // publish is an endpoint nobody is watching.
+      const { error } = await supabasePublic().rpc("event_seats_taken", {
+        p_event_ids: ["00000000-0000-0000-0000-000000000000"],
+      });
 
       expect(error).not.toBeNull();
     });

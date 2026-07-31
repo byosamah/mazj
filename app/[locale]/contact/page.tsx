@@ -76,11 +76,15 @@ function Content() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative inline-flex min-h-[44px] items-center gap-[8px] before:absolute before:inset-y-0 before:inset-x-[-6px] before:content-[''] [transition:opacity_200ms,transform_120ms] hover:opacity-60 active:scale-[0.96]"
+                  className="group relative inline-flex min-h-[44px] items-center gap-[8px] before:absolute before:inset-y-0 before:inset-x-[-6px] before:content-[''] [transition:transform_120ms] active:scale-[0.96]"
                 >
-                  <span className="opacity-50">[</span>
+                  {/* The brackets carry the hover, not an opacity fade on the
+                      whole link. See the note on the same idiom in Footer.tsx:
+                      fading a link makes it less legible exactly when it is
+                      being pointed at. */}
+                  <span className="opacity-50 [transition:opacity_200ms] group-hover:opacity-100">[</span>
                   <span>{s.label}</span>
-                  <span className="opacity-50">]</span>
+                  <span className="opacity-50 [transition:opacity_200ms] group-hover:opacity-100">]</span>
                 </a>
               ))}
             </div>

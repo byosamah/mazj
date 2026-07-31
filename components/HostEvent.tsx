@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 import CtaButton from "./CtaButton";
@@ -35,8 +36,13 @@ export default function HostEvent() {
             {/* The alt describes the PHOTOGRAPH — it must never be t("title"):
                 that is verbatim the <h2> in the other half of this grid, and it
                 once made the heading announce twice in a row. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/spaces/event.jpg" alt={t("photoAlt")} className="h-full w-full object-cover" />
+            <Image
+              src="/images/spaces/event.jpg"
+              alt={t("photoAlt")}
+              fill
+              sizes="(min-width: 1024px) 560px, 100vw"
+              className="object-cover"
+            />
           </div>
         </Reveal>
       </div>

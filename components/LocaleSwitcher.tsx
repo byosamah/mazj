@@ -43,7 +43,7 @@ export default function LocaleSwitcher({className = ""}: {className?: string}) {
       disabled={isPending}
       onClick={switchLocale}
       aria-label={locale === "en" ? "Switch to Arabic" : "التبديل إلى الإنجليزية"}
-      className={`text-14 text-black relative inline-flex items-center min-h-[44px] before:absolute before:inset-y-0 before:inset-x-[-4px] before:content-[''] hover:opacity-60 disabled:opacity-40 [transition:opacity_200ms,transform_120ms] active:scale-[0.96] ${className}`}
+      className={`text-14 text-black relative inline-flex items-center min-h-[44px] before:absolute before:inset-y-0 before:inset-x-[-4px] before:content-[''] underline decoration-transparent underline-offset-[6px] hover:decoration-black disabled:opacity-40 [transition:text-decoration-color_200ms,opacity_200ms,transform_120ms] active:scale-[0.96] ${className}`}
       lang={other}
     >
       {label}

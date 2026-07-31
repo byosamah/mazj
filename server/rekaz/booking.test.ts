@@ -42,6 +42,48 @@ describe("absolutePaymentLink", () => {
       "HTTPS://x.test/pay"
     );
   });
+
+  /**
+   * 🔴 The residual of that same finding. The reported defect (a relative link)
+   * is closed and covered above; these are the shapes that fix did not cover.
+   *
+   * ⚠️ Both host-takeover cases were mutation-tested against the unfixed
+   * function on 2026-07-28, which is the only thing that makes them worth
+   * having: with the leading-slash collapse removed, the first resolves to
+   * `https://other.host/orders/pay/x` and the second to `https://other.host/x`,
+   * i.e. a payment redirect to a host MAZJ does not control. Note how narrow
+   * the escaping is: ONE backslash in the source is a single JS character that
+   * behaves harmlessly on both versions, so a test written that way would pass
+   * against the bug and prove nothing.
+   */
+  it("🔴 cannot be sent to another host by a protocol-relative value", () => {
+    // Two leading slashes are not an absolute URL, so the value falls past the
+    // scheme test, and `new URL()` reads them as "keep the scheme, replace the
+    // host". Before the collapse this became a same-tab redirect target for a
+    // customer on their way to type a card number.
+    expect(absolutePaymentLink("//other.host/orders/pay/x", API_BASE)).toBe(
+      "https://platform.rekaz.io/other.host/orders/pay/x"
+    );
+  });
+
+  it("treats a backslash pair the same way", () => {
+    // WHATWG resolves a backslash as a slash inside an http URL, so this is a
+    // second spelling of the same escape and a guard looking only for `//`
+    // would miss it. The source below is four characters, i.e. two real
+    // backslashes.
+    expect(absolutePaymentLink("\\\\other.host/x", API_BASE)).toBe(
+      "https://platform.rekaz.io/other.host/x"
+    );
+  });
+
+  it("leaves a path without a leading slash exactly where it was", () => {
+    // The guard must not move a legitimate value. Rekaz has only ever returned
+    // the leading-slash form, and that is asserted above; this pins that the
+    // normalisation did not quietly change the other shape either.
+    expect(absolutePaymentLink("orders/pay/x", API_BASE)).toBe(
+      "https://platform.rekaz.io/orders/pay/x"
+    );
+  });
 });
 
 describe("space mapping", () => {

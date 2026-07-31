@@ -11,6 +11,7 @@ import { log } from "../core/logger";
 import { checkRateLimits, rateLimitedError } from "../core/rate-limit";
 import { err, ok, type Result } from "../core/result";
 import type { ClientIdentity } from "../core/request";
+import { recordBooking } from "../db/bookings";
 import { normalizePhone } from "../domain/phone";
 import { riyadhDate, riyadhToday } from "../domain/riyadh-time";
 import { spaceBySlug, type SpaceMapping } from "../domain/spaces";
@@ -21,13 +22,22 @@ import {
   createReservation,
   createSubscription,
   findCustomerByMobile,
+  type CustomerMatch,
   type RekazBookingReceipt,
   type RekazCustomerDetails,
 } from "../rekaz/booking";
-import { listBranches, listProducts } from "../rekaz/catalog";
-import { reconcileReservation, reconcileSubscription } from "../rekaz/reconcile";
+import { listProducts, resolveBranchId } from "../rekaz/catalog";
+import {
+  reconcileReservation,
+  reconcileSubscription,
+  type Reconciled,
+} from "../rekaz/reconcile";
 import { getSlots } from "../rekaz/reservations";
-import type { RekazPrice, RekazProduct } from "../rekaz/types";
+import {
+  chargedAmount,
+  type RekazPrice,
+  type RekazProduct,
+} from "../rekaz/types";
 
 /**
  * Turning a booking form into a Rekaz booking.
@@ -73,6 +83,26 @@ const MAX_NAME_LENGTH = 120;
 /** RFC 5321's maximum path length. */
 const MAX_EMAIL_LENGTH = 254;
 
+/**
+ * Longest custom-field value forwarded to Rekaz.
+ *
+ * Generous for "tell us about the event", which is the longest thing this form
+ * legitimately collects, and far below "a stranger pasted a novel into your
+ * operations dashboard". Same reasoning as `MAX_NAME_LENGTH`, different budget.
+ */
+const MAX_CUSTOM_FIELD_LENGTH = 500;
+
+/**
+ * Rekaz's custom-field `type` for a file upload.
+ *
+ * Named because the bare number is unreadable at a call site, and because this
+ * particular value carries a behavioural consequence: Rekaz publishes no upload
+ * endpoint, so a file field cannot be collected through this form at all.
+ * `components/booking/BookingFlow.tsx` excludes it from the rendered inputs for
+ * exactly the same reason.
+ */
+const REKAZ_FILE_FIELD = 10;
+
 /** How far ahead a subscription may be scheduled to start. */
 const MAX_START_DAYS_AHEAD = 365;
 
@@ -98,7 +128,14 @@ export type BookingRequest = {
   slotTo?: string;
   /** Subscriptions only. ISO 8601. */
   startAt?: string;
-  /** Events hall only. Keyed by the Rekaz custom field's `name` GUID. */
+  /**
+   * Events hall only. Keyed by the Rekaz custom field's `name` GUID.
+   *
+   * 🔴 Whatever arrives here is a SUGGESTION, like everything else on this
+   * type. `validateCustomFields` narrows it to the keys the product actually
+   * declares before any of it reaches Rekaz; nothing below this line reads the
+   * raw map.
+   */
   customFields?: Record<string, string>;
   customer: BookingCustomer;
   /** Client-generated, stable across retries of the same booking. */
@@ -188,6 +225,43 @@ async function markIndeterminate(
       reason: stored.error.message,
     });
   }
+}
+
+/**
+ * A conflict that is NOT "that slot just went".
+ *
+ * 🔴 THE DISTINCTION IS WORTH MONEY, and the error CODE cannot carry it.
+ * `errors.conflict` is what `prepareReservation` returns when the slot re-check
+ * finds the window gone, and the page renders that as "That time was just taken.
+ * Please choose another." Four other outcomes on this path are also `conflict`,
+ * and none of them means that:
+ *
+ *   - a first attempt still in flight under the same idempotency key;
+ *   - a write we dispatched and could not confirm;
+ *   - a stored idempotency result we could not read back;
+ *   - a replay of a key that was closed as indeterminate.
+ *
+ * Telling a customer whose booking may ALREADY EXIST to go and choose another
+ * time is an invitation to buy the room twice. On the open desk and the private
+ * office, which have no time slot at all, it is not even a sentence about
+ * anything on their screen.
+ *
+ * 🔴 THE INVARIANT THIS ESTABLISHES, and the one thing to preserve if this is
+ * ever refactored: `upstream_unavailable` means NOTHING WAS DISPATCHED and a
+ * retry is safe, while these two mean SOMETHING MAY HAVE BEEN and a retry is
+ * not. Copy that invites a retry may only ever be attached to the first.
+ *
+ * The marker travels in `fields`, the same carrier the confirmed-booking
+ * reference already uses, and `app/[locale]/spaces/_lib/actions.ts` turns it
+ * into a code the page has copy for. It is deliberately NOT a new `ErrorCode`:
+ * that list is a shared contract in `core/errors.ts` with its own HTTP status
+ * table, and both of these map to the same 409 as `conflict` anyway.
+ */
+function bookingConflict(
+  state: "in_flight" | "unconfirmed",
+  message: string
+): AppError {
+  return errors.conflict(message, { fields: { booking: state } });
 }
 
 export async function createBooking(
@@ -284,6 +358,28 @@ export async function createBooking(
   if (!resolved.ok) return resolved;
   const { product, price } = resolved.value;
 
+  // 🔴 CUSTOM FIELDS ARE VALIDATED AGAINST THE PRODUCT, NOT FORWARDED.
+  //
+  // The Server Action accepts any `cf:`-prefixed form key and only trims it, and
+  // this service used to pass the whole map straight into the Rekaz item.
+  // Nothing checked the GUIDs against the product's own `customFields`, which
+  // the server is already holding; nothing bounded the values; and the free-text
+  // cleaner that guards the name and the email was never applied to them. A
+  // crafted POST could therefore put unbounded text, or a control character,
+  // into MAZJ's operations records under a key we never declared.
+  //
+  // `isRequired` was a CLIENT attribute only, which means the browser's
+  // `required` was the entire enforcement. The events hall's two required fields
+  // (how many are coming, and what the event is) would otherwise reach Rekaz
+  // missing and come back as a 400, which `rekaz/client.ts` maps to `internal`
+  // and the page renders as "Something went wrong on our side": our fault, on
+  // their side, for something the visitor could have fixed in a second.
+  //
+  // Checked HERE, before the idempotency claim, so a fixable mistake never
+  // holds a key.
+  const customFields = validateCustomFields(product, request.customFields);
+  if (!customFields.ok) return customFields;
+
   const branch = await resolveBranchId(product);
   if (!branch.ok) return branch;
 
@@ -311,7 +407,22 @@ export async function createBooking(
       mobile,
     },
   });
-  if (!begin.ok) return err(begin.error);
+  if (!begin.ok) {
+    // 🔴 A `conflict` from `beginIdempotent` is `in_flight` or `retry`, and
+    // NEITHER is "that slot just went". Both mean an identical request is
+    // already being handled and this one dispatched nothing, so the honest
+    // advice is to wait rather than to pick a different time or to book again.
+    //
+    // The two cannot be told apart here: `core/idempotency.ts` maps both to
+    // `conflict` and only the message differs, and parsing a message to branch
+    // on it is exactly what `core/errors.ts` forbids. They take the same copy
+    // because they take the same action.
+    return err(
+      begin.error.code === "conflict"
+        ? bookingConflict("in_flight", begin.error.message)
+        : begin.error
+    );
+  }
 
   if (begin.value.kind === "replay") {
     // 🔴 A replayed key has TWO possible meanings, and conflating them is how a
@@ -331,7 +442,8 @@ export async function createBooking(
               `Your booking was created (reference ${stored.reference}) but we could not open payment. Please contact us with that reference.`,
               { fields: { reference: stored.reference } }
             )
-          : errors.conflict(
+          : bookingConflict(
+              "unconfirmed",
               "We could not confirm that booking. Please contact us before trying again."
             )
       );
@@ -341,8 +453,19 @@ export async function createBooking(
     if (!replayed) {
       // The stored row is not a shape we recognise. Refusing beats handing back
       // a malformed payment link built from an unchecked cast.
+      // 🔴 Marked unconfirmed, not "start again", and the difference matters.
+      // A COMPLETED row exists, and `completeIdempotent` is only ever called
+      // after a successful receipt or with the indeterminate sentinel, so a row
+      // we cannot read back is far more likely to be a booking that HAPPENED
+      // than one that did not. "Please start that booking again" was the more
+      // dangerous of the two readings.
       log.error("booking.replay_corrupt", { space: space.slug });
-      return err(errors.conflict("Please start that booking again."));
+      return err(
+        bookingConflict(
+          "unconfirmed",
+          "Stored idempotency result was not a usable booking shape."
+        )
+      );
     }
 
     log.info("booking.replayed", { space: space.slug });
@@ -428,8 +551,71 @@ export async function createBooking(
   //     used to write "[redacted]" into every field that mattered);
   //   - the submitted name and email are NEVER written onto a matched account,
   //     so a stranger cannot repoint an existing customer's contact details.
-  const existing = await findCustomerByMobile(mobile);
-  const customerId = existing.ok ? (existing.value?.id ?? undefined) : undefined;
+  //
+  // 🔴 THREE OUTCOMES, NOT TWO. "We asked and there is no such customer" and "we
+  // could not ask" used to collapse into the same `undefined`, and they lead to
+  // OPPOSITE payloads. On a failed lookup the code below sends `customerDetails`
+  // for a number Rekaz already owns, which is the one payload Rekaz refuses:
+  // HTTP 403, `رقم الجوال مسجل مسبقاً لعميل آخر`, mapped to `internal` and
+  // rendered to the buyer as "Something went wrong on our side". A returning
+  // customer turned away by a lookup blip rather than by anything about their
+  // booking, and silently: the sibling helper logs this distinction and this
+  // path did not.
+  const lookup = await lookupCustomer(mobile, "pre_write");
+
+  if (lookup.kind === "unavailable") {
+    // Nothing has been dispatched, so the key is RELEASED and the same one can
+    // be retried. Reported as retryable rather than proceeding to a payload we
+    // can already predict Rekaz will refuse.
+    await abandonIdempotent({ scope, key: request.idempotencyKey });
+    return err(
+      errors.upstreamUnavailable(
+        `Rekaz customer lookup unavailable: ${lookup.reason}`
+      )
+    );
+  }
+
+  if (lookup.kind === "ambiguous") {
+    // 🔴 TWO customer records share this number, so there is no representable
+    // payload. `customerDetails` is refused because Rekaz already owns the
+    // number; picking one of the two ids bills a person who may not be the
+    // buyer, which is a support problem that looks like fraud. Only a human
+    // merging the duplicate in the Rekaz dashboard can unblock it.
+    await abandonIdempotent({ scope, key: request.idempotencyKey });
+    log.warn("booking.customer_ambiguous", {
+      space: space.slug,
+      count: lookup.count,
+      originHash,
+      submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+    });
+    return err(errors.forbidden("That number matches more than one account."));
+  }
+
+  if (lookup.kind === "found" && lookup.customer.isBlocked) {
+    // 🔴 `isBlocked` was typed on the customer and read NOWHERE, so a booking
+    // against an account MAZJ had deliberately blocked adopted that account's id
+    // and billed it exactly like any other. Blocking somebody in the Rekaz
+    // dashboard has to mean something on the site that sells to them.
+    //
+    // ⚠️ The copy this maps to must NOT confirm the block. The form is public
+    // and the number is unverified, so a message reading "your account is
+    // blocked" would tell anyone who knows a member's number that the member is
+    // blocked. `Booking.error.forbidden` routes them to WhatsApp instead, which
+    // is also the right instruction for the ambiguous case above: one code, one
+    // sentence, and both are resolved by a person rather than by retrying.
+    //
+    // Also released: nothing was dispatched, and a key held here would wedge the
+    // number rather than the person.
+    await abandonIdempotent({ scope, key: request.idempotencyKey });
+    log.warn("booking.customer_blocked", {
+      space: space.slug,
+      originHash,
+      submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+    });
+    return err(errors.forbidden("That account cannot book online."));
+  }
+
+  const customerId = lookup.kind === "found" ? lookup.customer.id : undefined;
 
   // Exclusive by construction: Rekaz rejects a payload carrying both, and
   // `customerDetails` is what creates a genuinely new customer record.
@@ -491,8 +677,21 @@ export async function createBooking(
   // telling those two apart.
   const prepared =
     space.flow === "reservation"
-      ? await prepareReservation(request, price, branch.value, customerId, customerDetails)
-      : await prepareSubscription(request, price, branch.value, customerId, customerDetails);
+      ? await prepareReservation(
+          request,
+          price,
+          branch.value,
+          customerId,
+          customerDetails,
+          customFields.value
+        )
+      : await prepareSubscription(
+          request,
+          price,
+          branch.value,
+          customerId,
+          customerDetails
+        );
 
   if (!prepared.ok) {
     // Nothing was dispatched, so nothing can exist upstream. Release the key so
@@ -532,10 +731,11 @@ export async function createBooking(
     const found =
       space.flow === "reservation"
         ? await reconcileReservation({ mobile, slotFrom: request.slotFrom! })
-        : await reconcileSubscription({
-            customerId: customerId ?? (await lookupCustomerId(mobile)),
-            startAt: request.startAt!,
-          });
+        : await reconcileSubscriptionForMobile(
+            mobile,
+            customerId,
+            request.startAt!
+          );
 
     const outcome = found.ok ? found.value.outcome : "unknown";
 
@@ -556,20 +756,88 @@ export async function createBooking(
     // second. The difference is only what the customer is told.
     const reference = found.ok && found.value.outcome === "found" ? found.value.reference : null;
 
+    // 🔴 THE CODE, NEVER THE MESSAGE, and this is the SECOND of two independent
+    // defences rather than the only one. `AppError.message` on this path is
+    // assembled in `rekaz/client.ts` from up to 300 characters of raw upstream
+    // body, and Rekaz runs ASP.NET Core, whose model-binding errors echo the
+    // submitted value back verbatim. Every booking POST carries the name, mobile
+    // and email the visitor typed, so a validation failure on any of them put
+    // those values on this line under a key (`reason`) the logger's substring
+    // denylist does not match, and `markIndeterminate` then wrote the same
+    // string into `idempotency_keys.response_body` in Supabase, where it
+    // outlives the log and sits in a table nobody thinks of as holding personal
+    // data.
+    //
+    // `core/logger.ts` now runs `scrubValue` over every string value and
+    // `rekaz/client.ts` applies it before the message is built, which closes it
+    // at the source. Keeping the CODE here anyway costs one word of diagnostics
+    // and does not depend on a pattern list matching a format nobody has seen
+    // yet: a scrubber recognises the numbers it was taught, and this recognises
+    // nothing because there is nothing to recognise.
+    //
+    // ⚠️ Rekaz's `traceId` is the first thing their support asks for and it is
+    // NOT available here: it is parsed in `rekaz/client.ts` and not carried on
+    // `AppError`, which has only `code`, `message`, `fields`, `retryAfterSeconds`
+    // and `cause`. That client already logs the traceId on the same request
+    // under `rekaz.request_failed`, so the pair is joinable by timestamp and
+    // path. Carrying it here would mean adding a field in `core/errors.ts`.
     log.error("booking.indeterminate", {
       space: space.slug,
       outcome,
       reference,
       originHash,
       submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
-      reason: receipt.error.message,
+      reason: receipt.error.code,
     });
 
     await markIndeterminate(scope, request.idempotencyKey, {
       space: space.slug,
-      reason: receipt.error.message,
+      reason: receipt.error.code,
       reference,
     });
+
+    // 🔴 THIS ROW MATTERS MORE THAN THE HAPPY-PATH ONE. The customer has just
+    // been told to stop and contact MAZJ about a booking that may or may not
+    // exist, and the `idempotency_keys` row holding the same fact DELETES ITSELF
+    // after 24 hours. Without this, somebody ringing on Monday about Friday is
+    // unfindable from our side.
+    //
+    // `reference` is set HERE and nowhere else, because reconciliation is the
+    // only thing in the whole flow that ever learns one: a non-null value in
+    // that column means exactly "this is the booking whose customer was told we
+    // could not open payment".
+    //
+    // No payment link, because there is not one. That is the entire problem.
+    //
+    // Best effort, like every other write after the point of no return: a
+    // failure here must not change what the customer is told, which is already
+    // the most careful sentence on the path.
+    const noted = await recordBooking({
+      flow: space.flow,
+      spaceSlug: space.slug,
+      priceImmutableId: price.immutableId,
+      // Recorded on this branch too, and it matters MORE here for the same
+      // reason the row does: this is the booking somebody will ring about, and
+      // "what was I charged" is the second question after "does it exist". The
+      // price was resolved server-side long before the dispatch, so it is as
+      // known here as on the happy path. Same `chargedAmount` as the happy path,
+      // for the same reason: the desk must read the figure the buyer saw.
+      amountSnapshot: chargedAmount(price),
+      startsAt:
+        space.flow === "reservation" ? request.slotFrom! : request.startAt!,
+      reference,
+      mobileHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+      originHash,
+      status: "indeterminate",
+    });
+
+    if (!noted.ok) {
+      log.error("booking.record_failed", {
+        space: space.slug,
+        outcome,
+        reason: noted.error.message,
+      });
+    }
 
     return err(
       reference
@@ -580,7 +848,16 @@ export async function createBooking(
             `Your booking was created (reference ${reference}) but we could not open payment. Please contact us with that reference.`,
             { fields: { reference } }
           )
-        : receipt.error
+        : // 🔴 NOT `receipt.error`. That is `upstream_unavailable`, whose copy is
+          // "Please try again in a moment", and the key has just been closed
+          // PERMANENTLY: the same key now replays into the refusal above, and a
+          // page refresh mints a NEW key that would create a second booking on a
+          // write that may already have landed. The one code that must never
+          // appear here is the one that invites a retry.
+          bookingConflict(
+            "unconfirmed",
+            `Booking dispatched and unconfirmed: ${receipt.error.code}`
+          )
     );
   }
 
@@ -612,10 +889,14 @@ export async function createBooking(
       space: space.slug,
       reason: "no payment link",
     });
+    // 🔴 Same reasoning as the indeterminate branch above: Rekaz answered 2xx,
+    // so the booking almost certainly EXISTS, and the key has just been closed
+    // permanently. `upstream_unavailable` reads as "try again in a moment",
+    // which is the one thing this customer must not do. The full response is on
+    // the `booking.no_payment_link` line above, so nothing diagnostic is lost by
+    // dropping the cause.
     return err(
-      errors.upstreamUnavailable("Rekaz returned no payment link", {
-        cause: receipt.value,
-      })
+      bookingConflict("unconfirmed", "Rekaz answered 2xx with no payment link")
     );
   }
 
@@ -627,7 +908,13 @@ export async function createBooking(
       receipt.value.paymentLink,
       env().REKAZ_API_BASE
     ),
-    invoiceId: receipt.value.invoiceId,
+    // ⚠️ Rekaz documents `invoiceId` as always present and a real reservation
+    // came back without it, so the receipt type now says `string | undefined`.
+    // Collapsed to `""` here rather than made optional, matching what
+    // `asBookingResult` already stores for a replayed key, so both routes to a
+    // `BookingResult` produce the same shape. Everything downstream that cares
+    // (the log line, the booking record) treats `""` as absent.
+    invoiceId: receipt.value.invoiceId ?? "",
   };
 
   // Stored so a retry with the same key returns THIS payment link rather than
@@ -651,6 +938,82 @@ export async function createBooking(
     invoiceId: result.invoiceId,
   });
 
+  // 🔴 BEST EFFORT, exactly like the idempotency store above it, and for the
+  // same reason. The booking EXISTS, the invoice EXISTS and the buyer has a
+  // payment link in hand. A bookkeeping failure here must NEVER turn that into a
+  // reported failure, or somebody who has already been sold a room is told to
+  // book it again.
+  //
+  // What it buys: an interrupted checkout can be resumed, and staff can answer
+  // "I booked yesterday and never paid" without going digging in a Rekaz
+  // dashboard that has no way to search by anything we know.
+  //
+  // 🔴 THE MOBILE IS STORED HASHED. This row is a marketing site's copy of a
+  // booking, not the system of record: Rekaz holds the real customer file, and a
+  // second raw phone book in our database is PDPL exposure bought for nothing.
+  // The hash is the same pseudonym the audit trail already uses, so "is this row
+  // the caller on the phone?" is answerable by hashing the number they read out.
+  //
+  // ⚠️ NO `reference` IS PASSED, and that is a rule rather than an omission.
+  // Rekaz's create responses carry no human booking number at all, so any value
+  // here would have come from somewhere that cannot know it. Learning the real
+  // one would cost an extra sequential Rekaz call (measured 1.2s to 10.8s) on
+  // the money path, after the payment link is already in hand. Staff resolve a
+  // booking from the customer's MOBILE instead: measured 2026-07-28,
+  // `GET /reservations?customerMobile=` genuinely filters, narrowing 562 rows to
+  // 7 and reaching January 2025. That costs the buyer nothing, and the row below
+  // is findable by the same number.
+  //
+  // 🔴 The two flows return DIFFERENT shapes and the record has a column for
+  // each. A reservation carries `reservationIds`; a subscription carries its own
+  // `id` and, on the live tenant, nothing under `reservationIds` at all despite
+  // the shared type saying otherwise (see `createSubscription`). Sending both is
+  // what stops the two subscription products storing a row with no Rekaz handle
+  // on it, which would defeat the point of storing the row.
+  const recorded = await recordBooking({
+    flow: space.flow,
+    spaceSlug: space.slug,
+    priceImmutableId: price.immutableId,
+    // 🔴 WHAT WE CHARGED, FROZEN, and the line above cannot substitute for it.
+    // `immutableId` is a POINTER into a catalog the owner edits: resolving it
+    // next month answers what that price costs next month, never what this buyer
+    // was asked for. The day a price is corrected in the Rekaz dashboard, every
+    // row here re-prices itself silently, and that edit is not a commit so no
+    // diff would ever show it. Display-only: never a receipt, never with tax.
+    //
+    // 🔴 `chargedAmount`, NOT `price.amount`. The booking page renders
+    // `discountedAmount` when it is set, so reading the list amount here would
+    // record a number the buyer never saw the moment any price carries a
+    // discount, which is the same dashboard edit this column exists to survive.
+    // One function, both callers, so they cannot drift apart again.
+    amountSnapshot: chargedAmount(price),
+    // One column for both flows: the slot's `from` verbatim for a reservation,
+    // the `YYYY-MM-DD` start for a subscription, which is all Rekaz was given.
+    // Non-null by construction: `prepareReservation` refuses without a slot and
+    // `prepareSubscription` refuses without a start date, and we are past both.
+    startsAt: space.flow === "reservation" ? request.slotFrom! : request.startAt!,
+    rekazReservationIds: receipt.value.reservationIds ?? null,
+    rekazSubscriptionId: receipt.value.id ?? null,
+    // `""` when Rekaz omitted it, which `recordBooking` stores as null.
+    invoiceId: result.invoiceId,
+    mobileHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
+    originHash,
+    // Already absolutised. `recordBooking` REFUSES a relative link, because a
+    // stored relative path is a payment page nobody can reopen.
+    paymentLink: result.paymentLink,
+  });
+
+  if (!recorded.ok) {
+    // Our OWN database's error text, not Rekaz's, so it is safe to log verbatim.
+    // The REK-019 rule above is about upstream bodies echoing what a visitor
+    // typed; nothing here has been near the visitor's input.
+    log.error("booking.record_failed", {
+      space: space.slug,
+      invoiceId: result.invoiceId,
+      reason: recorded.error.message,
+    });
+  }
+
   return ok(result);
 }
 
@@ -660,8 +1023,17 @@ export async function createBooking(
  * Returning a thunk is what lets the caller know, with certainty, that nothing
  * has reached Rekaz yet. Everything before this point can fail safely; the
  * moment it is invoked, a duplicate becomes possible.
+ *
+ * ⚠️ The optional `id` is the SUBSCRIPTION's own identifier. The two Rekaz
+ * writes return different shapes (`createSubscription` returns the subscription
+ * object, `createReservation` returns a receipt), and this type used to erase
+ * that difference, which meant a subscription's only Rekaz handle was
+ * unreachable from here. Optional rather than a second type because every
+ * consumer wants the shared fields and only the booking record wants this one.
  */
-type Dispatch = () => Promise<Result<RekazBookingReceipt, AppError>>;
+type Dispatch = () => Promise<
+  Result<RekazBookingReceipt & { id?: string }, AppError>
+>;
 
 async function prepareReservation(
   request: BookingRequest,
@@ -669,7 +1041,12 @@ async function prepareReservation(
   branchId: string,
   /** Set for a customer Rekaz already knows. Mutually exclusive with details. */
   customerId: string | undefined,
-  customerDetails: RekazCustomerDetails | undefined
+  customerDetails: RekazCustomerDetails | undefined,
+  /**
+   * Already narrowed to the keys the product declares, cleaned and bounded.
+   * 🔴 Never `request.customFields`: that is whatever the browser posted.
+   */
+  customFields: Record<string, string>
 ): Promise<Result<Dispatch, AppError>> {
   const { slotFrom, slotTo } = request;
   if (!slotFrom || !slotTo) {
@@ -680,7 +1057,28 @@ async function prepareReservation(
   // as old as whenever it was fetched, and two people looking at the same
   // Tuesday morning is the ordinary case, not the edge case. Without this the
   // loser of that race gets an invoice for a room that is already taken.
-  const day = slotFrom.slice(0, 10);
+  //
+  // 🔴 THE RIYADH DAY, NOT `slotFrom.slice(0, 10)`.
+  //
+  // `slotFrom` is UTC, and `getSlots` runs everything it fetches through
+  // `filterSlotsToRange`, which compares each window's RIYADH date against the
+  // range asked for. The two disagree for every window starting at or after
+  // 21:00 UTC, because that instant is already midnight in Al Khobar: the
+  // customer's own slot is filtered out of its own re-check, `stillFree` comes
+  // back false, and a perfectly valid booking is refused with "That time was
+  // just taken."
+  //
+  // The events hall sells exactly those late windows, so this was a live refusal
+  // waiting on a 9pm booking rather than a theoretical one. Pinned by
+  // `booking.slotRecheck.test.ts`.
+  //
+  // ⚠️ It also changes the `StartDate`/`EndDate` we ask Rekaz for, and no test
+  // can prove Rekaz still returns a 21:00Z window when asked about the following
+  // Riyadh day. Rekaz PADS ranges rather than honouring them (see
+  // `filterSlotsToRange`), so it returns more than the day requested, not less,
+  // which is why this is the safe direction. Confirm against the live tenant
+  // before treating it as settled.
+  const day = riyadhDate(slotFrom);
   const slots = await getSlots({
     priceId: price.id,
     startDate: day,
@@ -706,9 +1104,9 @@ async function prepareReservation(
           quantity: 1,
           from: slotFrom,
           to: slotTo,
-          ...(request.customFields && Object.keys(request.customFields).length
-            ? { customFields: request.customFields }
-            : {}),
+          // Omitted entirely rather than sent empty: a product with no declared
+          // fields must not gain a `customFields` key it never asked for.
+          ...(Object.keys(customFields).length ? { customFields } : {}),
         },
       ],
     })
@@ -771,39 +1169,100 @@ async function prepareSubscription(
 }
 
 /**
- * The customer's Rekaz id, looked up after a write we could not confirm.
+ * What Rekaz can tell us about the number on this booking. THREE answers.
  *
- * Needed because a booking for a NEW customer has no `customerId` on our side,
- * yet the failed write may have created one. Without this, subscription
- * reconciliation has nothing to search by and every timeout would report
- * "unknown" and dead-end the customer.
+ * 🔴 "There is no such customer" and "we could not ask" are opposite facts, and
+ * collapsing them into one `null` was the shape of two separate defects.
+ *
+ * On the WRITE path it decided the PAYLOAD. A failed lookup produced no
+ * `customerId`, so the booking went out carrying `customerDetails` for a number
+ * Rekaz already owns, which is the one payload Rekaz refuses (403,
+ * `رقم الجوال مسجل مسبقاً لعميل آخر`). The buyer read "Something went wrong on
+ * our side" and MAZJ lost a sale to a lookup blip. 284 customers are already in
+ * that tenant, so this is the common case failing, not a rare one.
+ *
+ * On the RECONCILE path it dead-ended a FIRST-TIME buyer. `reconcileSubscription`
+ * answers `unknown` for a null id, `unknown` is not `absent`, so the key was
+ * marked indeterminate and closed forever. The browser holds one key for the
+ * whole mounted form, so the customer's second press hit the replay branch and
+ * was told to stop and contact MAZJ about a booking that had never existed.
+ *
+ * ⚠️ That reconcile call runs only AFTER a booking write already returned
+ * `upstream_unavailable`, i.e. immediately after Rekaz proved it is unwell, and
+ * it is a second call to the same upstream under the same ceiling. It is the
+ * most likely moment in the whole flow for a lookup to fail, not an edge case.
+ *
+ * The log line is the only evidence separating the two afterwards, which is why
+ * it carries `phase`: the same failure means different things at the two call
+ * sites and a human reading the trail needs to know which one they are looking
+ * at.
+ *
+ * `CustomerMatch` already carries three of the four answers, `ambiguous`
+ * included, so this only ADDS the one the transport layer cannot express.
+ * Restating the other three here would be a second copy of a vocabulary that
+ * belongs to `rekaz/booking.ts`, free to drift.
  */
-async function lookupCustomerId(mobile: string): Promise<string | null> {
+type CustomerLookup = CustomerMatch | { kind: "unavailable"; reason: string };
+
+async function lookupCustomer(
+  mobile: string,
+  phase: "pre_write" | "reconcile"
+): Promise<CustomerLookup> {
   const found = await findCustomerByMobile(mobile);
 
-  if (found.ok) return found.value?.id ?? null;
+  if (found.ok) return found.value;
 
-  // 🔴 A FAILED lookup is not the same as "no such customer", and collapsing the
-  // two silently is how a recoverable timeout becomes a support call.
-  //
-  // This runs only after a booking write already returned `upstream_unavailable`,
-  // so Rekaz has just proven it is unwell, and this is a second call to the same
-  // upstream under the same ceiling. It is the MOST likely moment for the lookup
-  // itself to fail. Returning null there tells `reconcileSubscription` there is
-  // nothing to search by, it answers `unknown`, and the key is closed
-  // permanently: the customer is told to contact MAZJ before trying again, for a
-  // booking that very likely never existed.
-  //
-  // Still null, because the caller has no better move than to reconcile without
-  // an id. What changes is that it is no longer SILENT: this line is the only
-  // evidence distinguishing "we asked and there is no such customer" from "we
-  // could not ask", and those lead to opposite conclusions when a human reads the
-  // trail after a customer complains.
   log.warn("booking.customer_lookup_failed", {
+    phase,
     reason: found.error.code,
     submitterHash: hashIdentifier(mobile, env().IP_HASH_SALT, "mobile"),
   });
-  return null;
+  return { kind: "unavailable", reason: found.error.code };
+}
+
+/**
+ * Did the subscription we just attempted actually get created?
+ *
+ * `reconcileSubscription` needs a `customerId`, which a first-time buyer does
+ * not have on our side: the write itself was going to create the customer. So
+ * the customer is looked up again, and which of the three answers comes back
+ * decides everything.
+ *
+ * 🔴 CONFIRMED ABSENT IS A REAL ANSWER, and it is the one that rescues the
+ * common case. A subscription created from `customerDetails` would necessarily
+ * have created the customer too, so no customer means no subscription: the write
+ * did not land, the key is safe to release, and the visitor simply tries again.
+ * Reporting `unknown` there, which is what a null id produced, closed the key
+ * permanently and sent somebody who had never been booked to "contact us".
+ *
+ * ⚠️ That rests entirely on "a subscription cannot exist without its customer",
+ * which is the one claim here with real money behind it and no way to test it
+ * against Rekaz without writing to the live tenant. The converse trap is
+ * recorded in `reconcileSubscription`'s own doc: a customer EXISTING proves
+ * nothing, because the write creates the customer first. Only this direction is
+ * sound.
+ */
+async function reconcileSubscriptionForMobile(
+  mobile: string,
+  customerId: string | undefined,
+  startAt: string
+): Promise<Result<Reconciled, AppError>> {
+  if (customerId) return reconcileSubscription({ customerId, startAt });
+
+  const lookup = await lookupCustomer(mobile, "reconcile");
+
+  if (lookup.kind === "found") {
+    return reconcileSubscription({ customerId: lookup.customer.id, startAt });
+  }
+
+  if (lookup.kind === "none") return ok({ outcome: "absent" });
+
+  // Either we could not ask (`unavailable`) or two records share the number
+  // (`ambiguous`), and neither permits a conclusion: searching one of two
+  // customers can prove a subscription exists but never that it does not. The
+  // key is held and a human looks. This is the outcome the branch above exists
+  // to stop being the ONLY outcome.
+  return ok({ outcome: "unknown" });
 }
 
 /**
@@ -844,23 +1303,76 @@ async function resolveProductAndPrice(
 }
 
 /**
- * The branch to bill against.
+ * Narrows the submitted custom fields to what the product actually declares.
  *
- * ⚠️ Falls back to the tenant's only branch when the product names none. The
- * events hall carries an empty `branchIds` while the other three name the
- * branch, so reading it straight off the product would break the single most
- * valuable product in the catalog.
+ * 🔴 THREE JOBS, and the browser was doing none of them.
+ *
+ * **Only declared keys survive.** The Server Action accepts any `cf:`-prefixed
+ * form key, so an undeclared one used to ride into the Rekaz item untouched.
+ * Unknown keys are DROPPED rather than refused: our own form cannot produce one,
+ * so a refusal would only ever fire on a crafted post, and dropping keeps a
+ * dashboard edit from breaking a live booking.
+ *
+ * **Values are cleaned and bounded**, the same treatment the name already gets.
+ * A control character here reaches Postgres as `unsupported Unicode escape
+ * sequence`, which this codebase maps to `upstream_unavailable`: a 503 blaming
+ * our own database for a stranger's input. See `domain/text.ts`.
+ *
+ * **`isRequired` is enforced HERE.** It was a client attribute only, so the
+ * browser's `required` was the entire enforcement and a crafted post skipped it.
+ * The events hall declares two required fields; omitting either returns a Rekaz
+ * 400, which becomes `internal` and reads to the visitor as our failure rather
+ * than as a field they forgot.
+ *
+ * 🔴 A FILE FIELD IS SKIPPED ENTIRELY, INCLUDING ITS `isRequired`. Rekaz
+ * publishes no upload endpoint, so this form cannot collect one at all, and
+ * `components/booking/BookingFlow.tsx` does not render it. Enforcing it here
+ * would refuse every events-hall booking on OUR side rather than theirs. Today
+ * the tenant's only file field is optional (`docs/rekaz-api-findings.md`), so
+ * this is a guard against somebody ticking a box in the Rekaz dashboard, not a
+ * live workaround. `booking.customFields.test.ts` pins it with a file field
+ * deliberately marked required.
+ *
+ * ⚠️ The mirror of that exemption: if the dashboard ever marks a required field
+ * of any OTHER type, this refuses every booking for that product naming a
+ * control the visitor cannot see. That is the correct alarm, and the fix is to
+ * render the field, not to widen the exemption.
  */
-async function resolveBranchId(
-  product: RekazProduct
-): Promise<Result<string, AppError>> {
-  const fromProduct = product.branchIds?.[0];
-  if (fromProduct) return ok(fromProduct);
+function validateCustomFields(
+  product: RekazProduct,
+  submitted: Record<string, string> | undefined
+): Result<Record<string, string>, AppError> {
+  const clean: Record<string, string> = {};
 
-  const branches = await listBranches();
-  if (!branches.ok) return branches;
+  for (const field of product.customFields ?? []) {
+    if (field.type === REKAZ_FILE_FIELD) continue;
 
-  const only = branches.value[0]?.id;
-  if (!only) return err(errors.internal("Rekaz returned no branches"));
-  return ok(only);
+    // Keyed by `name`, which is the GUID Rekaz expects back, NOT by `id`. They
+    // differ, and sending the wrong one produces a field Rekaz silently ignores.
+    const value = cleanFreeText(
+      submitted?.[field.name] ?? "",
+      MAX_CUSTOM_FIELD_LENGTH
+    );
+
+    if (!value) {
+      if (field.isRequired) {
+        // Named as the form input names it (`cf:<guid>`), so the page can point
+        // at the control the visitor actually has to fix.
+        return err(
+          errors.validation("Please complete every field.", {
+            [`cf:${field.name}`]: "required",
+          })
+        );
+      }
+      continue;
+    }
+
+    clean[field.name] = value;
+  }
+
+  return ok(clean);
 }
+
+// `resolveBranchId` moved to `server/rekaz/catalog.ts` on 2026-07-28, when event
+// tickets became a second caller. Its behaviour is unchanged; see the comment
+// there for why the events hall forces the fallback.

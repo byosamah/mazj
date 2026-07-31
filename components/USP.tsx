@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import Reveal from "./Reveal";
 
@@ -51,8 +52,18 @@ export default function USP() {
                     section, not the picture, so it described nothing and simply
                     repeated visible text. The statement next to it carries the
                     meaning; the photo is decorative. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={row.image} alt="" className="h-full w-full object-cover" />
+                {/* The three USP photos are the site's worst oversizing case:
+                    1066x1333 source files painted into a 230px box on a phone,
+                    measured at 182 KB wasted on `usp-control` alone. `sizes`
+                    names the real box at each breakpoint so the 390px srcset
+                    candidate is the one a phone takes. */}
+                <Image
+                  src={row.image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 355px, 230px"
+                  className="object-cover"
+                />
               </div>
             </div>
 

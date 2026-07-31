@@ -75,11 +75,123 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * Allow next/image to optimize the event posters, which are the ONE image
+ * source on this site that is not a file in `public/`.
+ *
+ * Posters are uploaded through `/admin/events` into Supabase Storage and served
+ * from the project's own `*.supabase.co` host, so the pattern is derived from
+ * `NEXT_PUBLIC_SUPABASE_URL` rather than hardcoded: the project moved region
+ * once already (Tokyo to Frankfurt, which changed the ref), and a stale literal
+ * here would fail as an unoptimizable-host error at request time, on the one
+ * route nobody checks after a migration.
+ *
+ * Returns an empty list when the variable is unreadable. That is the safe
+ * direction: an unset Supabase URL means the events routes cannot load their
+ * data at all, so a missing image pattern is not the failure anyone would be
+ * chasing, and an empty list keeps the build itself valid.
+ */
+function supabaseImagePatterns() {
+  try {
+    const {hostname} = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+    if (!hostname) return [];
+    return [{protocol: "https", hostname, pathname: "/storage/v1/object/public/**"}];
+  } catch {
+    return [];
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  /**
+   * Image optimization.
+   *
+   * The site shipped ZERO next/image call sites: every photo was a raw <img>
+   * pointing at the full-size JPEG in public/. Measured on the landing page at
+   * a 390px viewport, that cost 566 KB of pure oversizing on top of the format
+   * penalty — `usp-control.jpg` alone is a 1066x1333 file painted into a
+   * 403x503 box. A phone downloaded the desktop asset, at desktop dimensions,
+   * in a 2001 format, on every route.
+   *
+   * `formats` is ordered by preference and AVIF is first on purpose: it lands
+   * roughly 30% under WebP on these photographs, and any browser that cannot
+   * read it simply negotiates the next entry. Nothing is lost on old clients,
+   * which fall all the way back to the original JPEG.
+   *
+   * `deviceSizes` adds 390 and 1440 to Next's defaults. 390 is the iPhone
+   * logical width and by far the commonest real viewport here; without it the
+   * smallest candidate is 640, i.e. every phone over-fetches by ~2.7x in area.
+   * 1440 matches the design system's own desktop breakpoint. 2048 and 3840 are
+   * dropped: the widest any image renders is the 1400px content column, so
+   * those two only ever generate candidates nothing requests.
+   */
+  images: {
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [390, 640, 750, 828, 1080, 1200, 1440, 1920],
+    imageSizes: [64, 96, 128, 256, 384],
+    remotePatterns: supabaseImagePatterns(),
+
+    /**
+     * How long an OPTIMIZED variant is cached, which is a different clock from
+     * the source file's own header above. The default is 4 hours, measured on
+     * the served response as `max-age=14400`. That is tuned for images that
+     * change behind a stable URL; here the sources are files in `public/` that
+     * are re-cut a few times a year, so re-deriving every AVIF four times a day
+     * is work nobody asked for. 30 days matches the media header above so the
+     * two layers expire together rather than at unrelated moments.
+     */
+    minimumCacheTTL: 2592000,
+  },
+
   async headers() {
-    return [{source: "/(.*)", headers: securityHeaders}];
+    return [
+      {source: "/(.*)", headers: securityHeaders},
+
+      /**
+       * 🔴 EVERYTHING IN `public/` SHIPPED `Cache-Control: public, max-age=0`.
+       *
+       * That is Next's default for the public directory and it is easy to miss,
+       * because `/_next/static/**` (the hashed build output) is separately given
+       * a year of `immutable` and looks after itself. Measured on a production
+       * `next start`: the fonts, the 3.2 MB hero video, every photograph and
+       * every logo all came back `max-age=0`, so a returning visitor
+       * revalidated the lot on every single navigation. On this site that is the
+       * heaviest bytes on the page being re-fetched by the people most likely to
+       * come back.
+       *
+       * The values below are split by how stable each kind of file actually is,
+       * rather than given one blanket number:
+       *
+       * FONTS get a year, `immutable`. A woff2 here is a fixed artifact: the
+       * four Thmanyah weights have not changed since they were added, and they
+       * are the assets most worth holding, since two of them are now preloaded
+       * on every route. ⚠️ `immutable` means a client will NOT re-check for a
+       * year, so **replacing a font requires renaming the file.** Editing
+       * `thmanyah-sans-400.woff2` in place would leave returning visitors on the
+       * old face until the cache expired.
+       *
+       * MEDIA gets 30 days with revalidation, deliberately NOT `immutable`.
+       * These filenames are not content-hashed either, but unlike the fonts they
+       * do get re-cut — `mazj-hero.mp4` was re-encoded in place during this very
+       * pass, and `location-map.png` was restyled the week before. 30 days
+       * captures essentially all of the repeat-visit benefit while keeping a
+       * bounded window in which a re-cut asset reaches everyone, and
+       * `stale-while-revalidate` means even that window is served instantly from
+       * cache while the new copy is fetched behind it.
+       */
+      {
+        source: "/fonts/:path*",
+        headers: [{key: "Cache-Control", value: "public, max-age=31536000, immutable"}],
+      },
+      {
+        source: "/:dir(videos|images|logos|payments|og)/:path*",
+        headers: [
+          {key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400"},
+        ],
+      },
+    ];
   },
   // /pricing was merged into /spaces (the six mazj.sa products now live there,
   // grouped by commitment). Permanent so the old URL stops being indexed.

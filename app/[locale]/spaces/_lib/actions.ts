@@ -53,6 +53,23 @@ export type BookingFormState =
     }
   | { status: "ready"; paymentLink: string };
 
+/**
+ * The booking outcomes that travel as `conflict` but must not read as "that
+ * slot just went".
+ *
+ * A table rather than a chain of ternaries so the code names are greppable
+ * against the `Booking.error.*` keys in `messages/{en,ar}.json`. Typed with an
+ * explicit `undefined` in the value so the `??` fallback below is honest under
+ * either setting of `noUncheckedIndexedAccess`.
+ *
+ * 🔴 NOT exported. This file is `"use server"`, so every export becomes a
+ * publicly callable Server Action.
+ */
+const BOOKING_STATE_CODES: Record<string, string | undefined> = {
+  in_flight: "booking_in_flight",
+  unconfirmed: "booking_unconfirmed",
+};
+
 export async function submitBooking(
   _previous: BookingFormState,
   formData: FormData
@@ -92,12 +109,33 @@ export async function submitBooking(
     // copy: "that time was just taken" and "you ARE booked, ring us" are both
     // `conflict`, and telling a booked customer to pick another slot would be
     // the worst possible advice.
-    const reference = result.error.fields?.reference;
+    const fields = result.error.fields;
+    const reference = fields?.reference;
+
+    // 🔴 The same trap, one step less obvious. Four MORE outcomes arrive as
+    // `conflict` and not one of them is "that slot just went": a first attempt
+    // still in flight, a write we dispatched and could not confirm, a stored
+    // result we could not read back, and a replay of a key closed as
+    // indeterminate. All of them used to render `error.conflict`, i.e. "That
+    // time was just taken. Please choose another.", which invites a customer
+    // whose booking may ALREADY EXIST to buy the room a second time. On the open
+    // desk and the private office, which have no time slot at all, it is not
+    // even a sentence about anything on their screen.
+    //
+    // The service marks them in `fields.booking`; this is where that becomes a
+    // code the page has copy for.
+    const stateCode = BOOKING_STATE_CODES[fields?.booking ?? ""];
 
     return {
       status: "error",
-      code: reference ? "booking_exists" : result.error.code,
-      field: result.error.fields ? Object.keys(result.error.fields)[0] : undefined,
+      code: reference ? "booking_exists" : (stateCode ?? result.error.code),
+      // Only a real validation failure names a form control. `reference` and
+      // `booking` ride in the same bag, and reporting either as "the field that
+      // was wrong" would point the form at an input that does not exist.
+      field:
+        result.error.code === "validation_failed" && fields
+          ? Object.keys(fields)[0]
+          : undefined,
       ...(reference ? { reference } : {}),
     };
   }
