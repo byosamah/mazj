@@ -211,33 +211,53 @@ const nextConfig = {
       {source: "/:locale(en|ar)/community", destination: "/:locale/about", permanent: true},
 
       // ---------------------------------------------------------------------
-      // The legacy Rekaz storefront paths.
+      // 🔴 TEMPORARY, 2026-08-01: THE FOUR BOOKING ROUTES ARE SENT OUT TO
+      // mazj.sa. Owner decision, until Rekaz fix their API. Full reasoning in
+      // `lib/links.ts` under `bookingUrl()`.
       //
-      // 🔴 These only matter once `www.mazj.sa` points at this app, and then
-      // they matter enormously: until 2026-07-27 they WERE the store, so every
-      // QR code, ad and shared link MAZJ has ever published points here. Without
-      // these lines the domain move turns all of them into 404s on the revenue
-      // path.
+      // Every Book control on the site already links straight to the store, so
+      // these rules exist for the traffic a link change cannot reach: a
+      // bookmark, a shared URL, a search result, anything printed. Without them
+      // those visitors still land on the live Rekaz flow, which is the exact
+      // path this change exists to close.
       //
-      // ⚠️ Each path exists in TWO shapes, and both are needed.
-      // `mazj.sa/subscription/<slug>` answers 308 and redirects to
-      // `mazj.sa/ar/subscription/<slug>`, so real traffic arrives on both. The
-      // locale-prefixed form is the dangerous one: `/ar/subscription/...` looks
-      // like one of OUR locale routes, so without an explicit rule it sails past
-      // next-intl into the `[...rest]` catch-all and renders a branded 404,
-      // which is harder to notice than a plain one.
+      // 🔴 `permanent: false` (307), NOT 308, and this is the single most
+      // consequential word in the block. A permanent redirect is cached by the
+      // browser and by Google indefinitely, so it would SURVIVE THE REVERT:
+      // customers would keep being thrown out to mazj.sa long after on-site
+      // booking came back, and nothing we deploy could call them home. A
+      // temporary move must be declared temporary.
       //
-      // Source of truth for the mapping is `LEGACY_STORE_PATHS` in lib/links.ts.
-      {source: "/subscription/adwyh-almsahh-almshtrkh", destination: "/ar/spaces/coworking/book", permanent: true},
-      {source: "/subscription/private-office", destination: "/ar/spaces/private-office/book", permanent: true},
-      {source: "/reservation/ghrfh-alajtmaaat-almlqa", destination: "/ar/spaces/meeting-room/book", permanent: true},
-      {source: "/reservation/qaah-alfaalyat-almaarj", destination: "/ar/spaces/event-hall/book", permanent: true},
+      // 🔴 THE EIGHT `LEGACY_STORE_PATHS` RULES THAT USED TO SIT HERE WERE
+      // DELETED, AND MUST NOT COME BACK WHILE THESE EXIST. They pointed the
+      // other way (mazj.sa store path → our `/book` page). Holding both
+      // directions between the same two URLs is an infinite bounce the day this
+      // app serves `mazj.sa`: their rule sends the buyer in, this one sends them
+      // straight back out, and the browser gives up with
+      // ERR_TOO_MANY_REDIRECTS on the revenue path. They are in git, on
+      // `feature/onsite-booking`, and they come back in the same commit that
+      // takes these away. One direction at a time, always.
+      //
+      // ⚠️ The bare, locale-less form is listed separately and defaults to
+      // `/en`, matching `/pricing` above. `redirects()` runs BEFORE middleware
+      // in Next's routing order, so next-intl never gets to add a prefix first
+      // and a rule for the prefixed shape alone would miss these entirely.
+      //
+      // ⚠️ The origin is the bare host. `www.mazj.sa` serves the same site from
+      // the same addresses but 301s to this one, which would put a third hop on
+      // the last click before payment. Verified live 2026-08-01.
+      {source: "/spaces/coworking/book", destination: "https://mazj.sa/en/subscription/adwyh-almsahh-almshtrkh", permanent: false},
+      {source: "/spaces/private-office/book", destination: "https://mazj.sa/en/subscription/private-office", permanent: false},
+      {source: "/spaces/meeting-room/book", destination: "https://mazj.sa/en/reservation/ghrfh-alajtmaaat-almlqa", permanent: false},
+      {source: "/spaces/event-hall/book", destination: "https://mazj.sa/en/reservation/qaah-alfaalyat-almaarj", permanent: false},
 
-      // The locale-prefixed forms keep whichever locale the visitor arrived on.
-      {source: "/:locale(en|ar)/subscription/adwyh-almsahh-almshtrkh", destination: "/:locale/spaces/coworking/book", permanent: true},
-      {source: "/:locale(en|ar)/subscription/private-office", destination: "/:locale/spaces/private-office/book", permanent: true},
-      {source: "/:locale(en|ar)/reservation/ghrfh-alajtmaaat-almlqa", destination: "/:locale/spaces/meeting-room/book", permanent: true},
-      {source: "/:locale(en|ar)/reservation/qaah-alfaalyat-almaarj", destination: "/:locale/spaces/event-hall/book", permanent: true},
+      // The locale-prefixed forms hand the visitor to the store in the language
+      // they were already reading. `:locale` interpolates into an absolute
+      // destination, so `/ar/...` here lands on `mazj.sa/ar/...` there.
+      {source: "/:locale(en|ar)/spaces/coworking/book", destination: "https://mazj.sa/:locale/subscription/adwyh-almsahh-almshtrkh", permanent: false},
+      {source: "/:locale(en|ar)/spaces/private-office/book", destination: "https://mazj.sa/:locale/subscription/private-office", permanent: false},
+      {source: "/:locale(en|ar)/spaces/meeting-room/book", destination: "https://mazj.sa/:locale/reservation/ghrfh-alajtmaaat-almlqa", permanent: false},
+      {source: "/:locale(en|ar)/spaces/event-hall/book", destination: "https://mazj.sa/:locale/reservation/qaah-alfaalyat-almaarj", permanent: false},
     ];
   },
 };

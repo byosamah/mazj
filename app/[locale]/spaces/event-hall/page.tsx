@@ -2,18 +2,19 @@ import type {Metadata} from "next";
 import {setRequestLocale} from "next-intl/server";
 import {pageMetadata} from "@/lib/metadata";
 import SpaceBreadcrumbs from "@/components/SpaceBreadcrumbs";
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import PageIntro from "@/components/PageIntro";
 import SpaceDetail from "@/components/SpaceDetail";
 import SpacesGrid from "@/components/SpacesGrid";
 import LocationHours from "@/components/LocationHours";
 import Footer from "@/components/Footer";
-import {BOOKING} from "@/lib/links";
+import {bookingUrl} from "@/lib/links";
 
 function Content() {
   const t = useTranslations("SpaceEventHall");
   const ts = useTranslations("Spaces");
   const tf = useTranslations("Faq");
+  const locale = useLocale();
   const includes = t.raw("includes") as string[];
   const facts = t.raw("facts") as Array<{label: string; value: string}>;
 
@@ -28,7 +29,7 @@ function Content() {
         includesTitle={t("includesTitle")}
         includes={includes}
         ctas={[
-          {label: t("ctaBook"), href: BOOKING.event},
+          {label: t("ctaBook"), href: bookingUrl("event", locale)},
           {label: t("ctaEnquire"), href: "/contact", variant: "light"},
         ]}
         aboutTitle={t("aboutTitle")}

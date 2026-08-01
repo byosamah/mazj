@@ -1,8 +1,8 @@
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import CtaButton from "./CtaButton";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
-import {BOOKING} from "@/lib/links";
+import {bookingUrl} from "@/lib/links";
 
 /**
  * Closing invitation. Deliberately the SIMPLE, type-led counterpart to the
@@ -14,6 +14,7 @@ import {BOOKING} from "@/lib/links";
  */
 export default function StepInto() {
   const t = useTranslations("StepInto");
+  const locale = useLocale();
 
   return (
     <section className="relative w-full bg-purple px-6 py-28 lg:py-40">
@@ -34,7 +35,7 @@ export default function StepInto() {
               {t("qualifyCta")}
             </CtaButton>
             <CtaButton
-              href={BOOKING.sharedSeat}
+              href={bookingUrl("sharedSeat", locale)}
               variant="light"
               className="!border-purple-dark/40 [--cta-fg:#321f61] [--cta-sweep:#321f61] [--cta-fg-hover:#c8b0ff]"
             >

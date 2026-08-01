@@ -1021,10 +1021,31 @@ because the startups offer had nowhere to send anyone; now it goes to
 `/startups`, which explains the offer and takes a real application. The
 `Founding.ctaMsg` key was deleted from both message files in the same change.
 The offer's TERMS are still told in person, which is a copy rule (`TONE.md` §6),
-not a reason for the button to open a chat. ⚠️ Booking is no longer an outbound link at all:
-`BOOKING.*` became on-site `/spaces/<space>/book` paths on 2026-07-27 and only
-the card step leaves, to `platform.rekaz.io` (root `CLAUDE.md`). This line said
-"still go to mazj.sa" until 2026-07-28.
+not a reason for the button to open a chat.
+
+🔴 **BOOKING IS AN OUTBOUND LINK AGAIN, TEMPORARILY, SINCE 2026-08-01, AND THIS
+PARAGRAPH HAS NOW FLIPPED THREE TIMES. Check the code, not your memory of it.**
+Owner decision, until Rekaz fix their API: every Book control calls
+`bookingUrl(space, locale)` from `lib/links.ts` and opens
+`https://mazj.sa/<locale>/…` in a NEW TAB, and the four `/spaces/<space>/book`
+routes 307 out to the same pages. Full reasoning in root `CLAUDE.md` (launch
+item 1) and the design record it links.
+
+⚠️ **Two component-level consequences.** `CtaButton` needs no change, because it
+already opens any `http(s)` href in a new tab, so six of the seven call sites
+changed by swapping a value. **`Hero.tsx` is the exception**: its pill is a
+hand-written control, not a `CtaButton`, so it carries `target="_blank"` and
+`rel="noopener noreferrer"` itself. And `FACILITIES`, `CARDS` and `OFFERS` now
+hold a `space` KEY rather than a ready-made `href`, because a store URL depends
+on the visitor's locale and a module-scope constant cannot know it.
+
+⚠️ **The paragraph this replaced said the opposite and was true when written:**
+`BOOKING.*` became on-site `/spaces/<space>/book` paths on 2026-07-27, only the
+card step left (to `platform.rekaz.io`), and the line before THAT said "still go
+to mazj.sa" until 2026-07-28. The stable rule under all three states is the one
+in `Hero.tsx`'s own comment: **the markup must match where the href points.** A
+same-tab `Link` to an absolute URL, or a new-tab `<a>` to a locale-less internal
+path, has been shipped here once each.
 
 **Why `/about` earned the WhatsApp exception, and the test that grants one.** A
 tour is the one thing on this site that **cannot be self-served**: there is no

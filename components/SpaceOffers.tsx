@@ -1,10 +1,10 @@
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
 import Reveal from "./Reveal";
 import WordReveal from "./WordReveal";
 import MediaFrame from "./MediaFrame";
 import CtaButton from "./CtaButton";
-import {BOOKING} from "@/lib/links";
+import {bookingUrl} from "@/lib/links";
 import {waLink} from "@/lib/contact";
 
 /**
@@ -21,18 +21,25 @@ import {waLink} from "@/lib/contact";
  *   3. Media runs at the source frames' native 3:2, so object-cover stops
  *      trimming the sides of every product shot.
  *
- * Each offer maps 1:1 to a BOOKING url; the four detail pages are the deeper
- * read behind each. Prices never appear here, mazj.sa shows the live one.
+ * Each offer maps 1:1 to a bookable product; the four detail pages are the
+ * deeper read behind each. Prices never appear here, mazj.sa shows the live one.
+ *
+ * ⚠️ **`space` is separate from `id` and cannot be folded into it.** `id` keys
+ * this section's own i18n copy and `eventHall` there is `event` in
+ * `lib/links.ts`, so one field cannot serve both. It replaced a ready-made
+ * `href` on 2026-08-01, when booking went back out to mazj.sa and the
+ * destination started depending on the visitor's locale.
  */
 const OFFERS = [
-  {id: "sharedSeat", href: BOOKING.sharedSeat, detailHref: "/spaces/coworking", img: "/images/spaces/membership.jpg"},
-  {id: "privateOffice", href: BOOKING.privateOffice, detailHref: "/spaces/private-office", img: "/images/spaces/office-day.jpg"},
-  {id: "meeting", href: BOOKING.meeting, detailHref: "/spaces/meeting-room", img: "/images/spaces/meeting.jpg"},
-  {id: "eventHall", href: BOOKING.event, detailHref: "/spaces/event-hall", img: "/images/spaces/event.jpg"},
+  {id: "sharedSeat", space: "sharedSeat", detailHref: "/spaces/coworking", img: "/images/spaces/membership.jpg"},
+  {id: "privateOffice", space: "privateOffice", detailHref: "/spaces/private-office", img: "/images/spaces/office-day.jpg"},
+  {id: "meeting", space: "meeting", detailHref: "/spaces/meeting-room", img: "/images/spaces/meeting.jpg"},
+  {id: "eventHall", space: "event", detailHref: "/spaces/event-hall", img: "/images/spaces/event.jpg"},
 ] as const;
 
 export default function SpaceOffers() {
   const t = useTranslations("SpacesPage");
+  const locale = useLocale();
 
   return (
     <section className="relative w-full bg-beige px-6 py-24 lg:px-10 lg:py-32">
@@ -103,7 +110,7 @@ export default function SpaceOffers() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2">
-                    <CtaButton href={offer.href} variant="dark">
+                    <CtaButton href={bookingUrl(offer.space, locale)} variant="dark">
                       {t("bookCta")}
                     </CtaButton>
                     {/* `active:scale-[0.96]` compiles to transform, so transform

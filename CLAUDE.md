@@ -181,6 +181,36 @@ at Vercel.**
    next-intl's locale redirect, then the `[...rest]` catch-all, and **404**.
    Verified locally on all four.
 
+   🔴 **SUSPENDED 2026-08-01, AND `main` SHIPS THE SUSPENSION. Read this before
+   you believe the paragraph under it.** Owner decision: Rekaz's API is not fit
+   to take bookings, so until they fix it **nobody reaches the on-site flow**.
+   Every Book control links out to the product's own page on the mazj.sa
+   storefront in a new tab, and the four `/spaces/<space>/book` routes **307**
+   out to the same pages so a bookmark or a shared link cannot get in either.
+   Design record:
+   [`docs/superpowers/specs/2026-08-01-booking-linkout-to-mazj-sa-design.md`](./docs/superpowers/specs/2026-08-01-booking-linkout-to-mazj-sa-design.md).
+
+   Nothing was deleted. Every booking file is untouched on disk and today's
+   pre-change `main` is parked verbatim on the branch **`feature/onsite-booking`**,
+   so restoring it is a revert rather than a rewrite. The three facts that bite:
+
+   - 🔴 **The eight `LEGACY_STORE_PATHS` redirects were DELETED in the same
+     commit, and must stay deleted while the outbound ones exist.** Both
+     directions between the same two URLs is `ERR_TOO_MANY_REDIRECTS` on the
+     revenue path the day this app serves `mazj.sa`. Restoring them is correct
+     only in the commit that removes the outbound rules.
+     `test/booking-links.test.ts` asserts their absence.
+   - 🔴 **The outbound rules are `permanent: false` (307) on purpose.** A 308
+     would be cached by browsers and Google indefinitely and would **survive the
+     revert**, so customers would keep being thrown to mazj.sa after on-site
+     booking returned.
+   - 🔴 **Reverting the code without reverting `test/booking-links.test.ts`
+     leaves a suite that fails green**, still asserting booking links leave the
+     site.
+
+   Everything from here to the end of this item describes how the site worked
+   from 2026-07-27 until 2026-08-01, and will again.
+
    ✅ **RESOLVED AND BUILT, 2026-07-27.** Booking now happens on this site at
    `/spaces/<space>/book` for all four products, and the legacy store paths 308
    to their replacements (each in a bare AND a locale-prefixed shape, since

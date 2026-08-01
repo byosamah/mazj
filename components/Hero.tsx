@@ -3,8 +3,7 @@
 import {useEffect, useId, useLayoutEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {useLocale, useTranslations} from "next-intl";
-import {Link} from "@/i18n/navigation";
-import {BOOKING} from "@/lib/links";
+import {bookingUrl} from "@/lib/links";
 import LogoLoop from "./LogoLoop";
 import AmbientVideo from "./motion/AmbientVideo";
 import {useIsDesktop, usePrefersReducedMotion} from "./useMediaQuery";
@@ -27,7 +26,10 @@ const PANEL_MIN_H = 140; // floor: below this we stop clamping and just scroll
  * MAZJ's four spaces, ordered as the dropdown lists them.
  * `id` keys the localized label/sub/name under the SpaceFinder namespace, and
  * matches `SpacesGrid`'s own ids so the hero and the grid share one vocabulary.
- * `href` is the internal `/spaces/<space>/book` path (see `lib/links.ts`).
+ * `space` names the product in `lib/links.ts`; `bookingUrl(space, locale)` turns
+ * it into this visitor's buy page. It was a ready-made `href` until 2026-08-01,
+ * when booking went back out to mazj.sa and the destination started depending
+ * on the locale, which a module-scope constant cannot know.
  * `img` is the photo that crossfades into the hero window when picked.
  * These are config, not display copy — the visible strings come from i18n.
  *
@@ -52,10 +54,10 @@ const PANEL_MIN_H = 140; // floor: below this we stop clamping and just scroll
  * `SpaceOffers` and on the private-office page: do not delete them.
  */
 const FACILITIES = [
-  {id: "openDesk", href: BOOKING.sharedSeat, img: "/images/spaces/day-desk.jpg"},
-  {id: "privateOffice", href: BOOKING.privateOffice, img: "/images/spaces/office-day.jpg"},
-  {id: "meetingRoom", href: BOOKING.meeting, img: "/images/spaces/meeting.jpg"},
-  {id: "eventHall", href: BOOKING.event, img: "/images/spaces/event.jpg"},
+  {id: "openDesk", space: "sharedSeat", img: "/images/spaces/day-desk.jpg"},
+  {id: "privateOffice", space: "privateOffice", img: "/images/spaces/office-day.jpg"},
+  {id: "meetingRoom", space: "meeting", img: "/images/spaces/meeting.jpg"},
+  {id: "eventHall", space: "event", img: "/images/spaces/event.jpg"},
 ] as const;
 
 // 1×1 transparent gif — the crossfade buffers start empty so the orange video
@@ -108,7 +110,10 @@ const IconPin = () => (
 export default function Hero() {
   const t = useTranslations("Hero");
   const tf = useTranslations("SpaceFinder");
-  const rtl = useLocale() === "ar";
+  // The locale itself, not just the RTL boolean derived from it: since
+  // 2026-08-01 the CTA links out to mazj.sa, whose URLs carry `/en` or `/ar`.
+  const locale = useLocale();
+  const rtl = locale === "ar";
   // False on the server and on the first hydrating render — see useMediaQuery.
   // Used ONLY to skip fetching desktop-only media, never to gate layout.
   const isDesktop = useIsDesktop();
@@ -602,25 +607,35 @@ export default function Hero() {
                     </span>
                   </button>
                 ) : (
-                  // 🔴 A locale-aware `Link`, in the SAME TAB. This was a raw
-                  // `<a target="_blank" rel="noopener noreferrer">` until
-                  // 2026-07-29, which was correct only while `BOOKING` held
-                  // mazj.sa URLs. Since 2026-07-27 these are internal paths, so
-                  // the old markup opened a new tab on a path carrying NO locale
-                  // prefix: `/spaces/coworking/book` 307s to `/en/...` on a bare
-                  // request (verified), and an Arabic visitor only landed back in
-                  // Arabic because next-intl happened to read their NEXT_LOCALE
-                  // cookie. `lib/links.ts` says so in its own header: booking is
-                  // part of the journey, not a departure from it.
-                  <Link
-                    href={FACILITIES[selected].href}
+                  // 🔴 A raw `<a target="_blank">` again as of 2026-08-01, and
+                  // the history here is a loop worth reading before changing it
+                  // a third time. It was exactly this until 2026-07-29, then a
+                  // locale-aware same-tab `Link` while booking lived on-site,
+                  // and it is this again now that booking has been sent back out
+                  // to mazj.sa. The rule underneath all three states is the
+                  // same: the markup must match where the href actually points.
+                  // A `Link` to an absolute mazj.sa URL would route it through
+                  // next-intl's locale prefixer, and a same-tab jump would take
+                  // the visitor off the site at the moment they decided to buy.
+                  //
+                  // ⚠️ `rel="noopener noreferrer"` is not decoration on a
+                  // `target="_blank"`: without `noopener` the opened store page
+                  // gets a live `window.opener` handle back into this tab.
+                  //
+                  // 🔴 The locale MUST be written into the URL. A locale-less
+                  // `mazj.sa/subscription/<slug>` answers 308 to `/ar/...`, so
+                  // an English buyer would land in Arabic on the buy page.
+                  <a
+                    href={bookingUrl(FACILITIES[selected].space, locale)}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="qualify-pill-btn font-sans"
                   >
                     <span className="qualify-pill-btn-overlay" aria-hidden="true" />
                     <span className="qualify-pill-btn-label">
                       {ctaLabel}
                     </span>
-                  </Link>
+                  </a>
                 )}
               </div>
 

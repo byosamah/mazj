@@ -1,21 +1,26 @@
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
 import Reveal from "./Reveal";
 import MediaFrame from "./MediaFrame";
 import CtaButton from "./CtaButton";
-import {BOOKING} from "@/lib/links";
+import {bookingUrl} from "@/lib/links";
 
 /**
  * The four bookable products as cards: photo, name, capacity, one-line
  * "includes", and a CTA. On the landing the CTA books straight on mazj.sa;
  * with `detail`, it links to each space's own page instead (used on /spaces).
  * Prices intentionally never appear here; mazj.sa shows the live price.
+ *
+ * ⚠️ **`space` replaced a ready-made `href` on 2026-08-01**, because the
+ * destination is no longer a bare path: booking went back out to mazj.sa and a
+ * store URL carries the visitor's locale, which a module-scope constant cannot
+ * know. See `bookingUrl()` in `lib/links.ts`.
  */
 const CARDS = [
-  {id: "openDesk", href: BOOKING.sharedSeat, detailHref: "/spaces/coworking", img: "/images/spaces/day-desk.jpg"},
-  {id: "privateOffice", href: BOOKING.privateOffice, detailHref: "/spaces/private-office", img: "/images/spaces/office-day.jpg"},
-  {id: "meetingRoom", href: BOOKING.meeting, detailHref: "/spaces/meeting-room", img: "/images/spaces/meeting.jpg"},
-  {id: "eventHall", href: BOOKING.event, detailHref: "/spaces/event-hall", img: "/images/spaces/event.jpg"},
+  {id: "openDesk", space: "sharedSeat", detailHref: "/spaces/coworking", img: "/images/spaces/day-desk.jpg"},
+  {id: "privateOffice", space: "privateOffice", detailHref: "/spaces/private-office", img: "/images/spaces/office-day.jpg"},
+  {id: "meetingRoom", space: "meeting", detailHref: "/spaces/meeting-room", img: "/images/spaces/meeting.jpg"},
+  {id: "eventHall", space: "event", detailHref: "/spaces/event-hall", img: "/images/spaces/event.jpg"},
 ] as const;
 
 export default function SpacesGrid({
@@ -34,6 +39,7 @@ export default function SpacesGrid({
   surface?: string;
 }) {
   const t = useTranslations("Spaces");
+  const locale = useLocale();
   const cards = exclude ? CARDS.filter((c) => c.id !== exclude) : CARDS;
 
   return (
@@ -106,7 +112,7 @@ export default function SpacesGrid({
                     visible label stays a subset of the accessible name (WCAG
                     2.5.3 holds, and voice control still matches "Book"). */}
                 <div className="mt-auto pt-4">
-                  <CtaButton href={detail ? card.detailHref : card.href} variant="dark">
+                  <CtaButton href={detail ? card.detailHref : bookingUrl(card.space, locale)} variant="dark">
                     {detail ? (
                       <>
                         <span aria-hidden="true">{t("viewCta")}</span>
