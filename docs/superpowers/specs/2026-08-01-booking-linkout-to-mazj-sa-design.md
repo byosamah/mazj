@@ -239,11 +239,79 @@ copy implies flexibility against the store's no-refund policy. It does not.
 `TermsPage.sections[4]` says it again. The agent had read only the space page's
 own FAQ.
 
-**Still genuinely unverified** (completeness critic): nobody has clicked past a
-product page. Variant → cart → slot picker → customer form → payment is
-untested, and for the two reservation products the availability call happens
-client-side, so a 200 cannot reveal a broken slot endpoint. Cheapest closure is
-one click-through per product stopping at the payment page.
+### The checkout walkthrough, 2026-08-01
+
+Four agents drove the live store in a real browser, one product each, both
+locales, **deliberately stopping before any server write**. 🔴 `wroteAnything`
+came back **false** on all four: no form submitted, no order or reservation
+created, no card entered.
+
+⚠️ **One honest caveat:** the storefront fires `POST /api/app/cart/new-cart` by
+itself on every page load, 1 to 3 times, before anyone clicks. That happens to
+any member of the public opening the page. It leaves empty anonymous carts with
+no product, no date and no customer. Nothing holds a room.
+
+**Result: the buy path is healthy up to the last click, and about 30 API calls
+across four products and two locales returned zero failures.**
+
+🔴 **The premise this test was built on was WRONG, in the useful direction.** The
+worry was a lazily-fetched availability call a healthy page could hide. It is not
+lazy: `GET /api/app/reservation-v2/availabilities` fires on plain **page load**
+and returns a whole month. So the earlier "page returns 200" evidence was
+stronger than anyone credited, and picking a date fires no request at all.
+
+- Meeting room: **276 real bookable hours across 23 days**, all free, 110 SAR,
+  Sun-Thu 09:00-21:00, Fri/Sat correctly absent.
+- Events hall: **373 slots**, all free.
+- Both subscription products have a Start Date control that fires **zero**
+  network calls and applies **no** availability or capacity gating.
+- Arabic is a real mirror on all four: RTL, Arabic month names, correctly
+  Gregorian (no Hijri leak).
+
+### 🔴 Store-side defects found by the walkthrough
+
+Ranked by money. Re-derived independently where numeric, per this repo's rule.
+
+1. 🔴 **NOTHING IS BOOKABLE AFTER 31 DECEMBER 2026.** Measured month by month
+   against the availabilities endpoint, both rooms: Aug 276/373, Sep 288/386,
+   Oct 276/390, Nov 276/392, Dec 276/379, then **Jan 2027 onward returns zero**,
+   confirmed through Jun 2027. That is a five-month horizon as of today and it
+   shrinks by one month every month. Anyone planning an event further out is
+   told there is nothing. Almost certainly a Rekaz calendar setting.
+2. 🔴 **An English buyer cannot book the events hall.** After picking a time, a
+   required three-question form appears whose labels are **Arabic only**
+   (`وصف الفعالية`, plus a commercial-registration upload) while the chrome
+   around it is English. Verified by eye in
+   `scratchpad/checkout/event-en-05-slot-picked.png`. This is the highest-value
+   product on the store (690-1,550 SAR).
+3. 🔴 **Both instalment options run on bad credentials.** Tabby's quote is sent
+   with `pk_test_…` on the live store and Tamara logs `Invalid public key` on
+   **every** page load, while both are advertised in large type on every
+   product. Split payment is a major conversion lever in Saudi.
+4. ⚠️ **A failed add-to-cart discards everything** (date, time, typed answers)
+   and returns the buyer to step one showing English "An error occurred" even on
+   the Arabic site. One network blip is one lost sale with no retry.
+5. ⚠️ **`mazj.sa` soft-404s: HTTP 200 on every nonexistent URL**, serving a 404
+   page inside a success response. Independently confirmed on `/en/cart`,
+   `/en/checkout` and two nonsense paths. Matters at the domain move: Google can
+   index unlimited junk.
+6. ⚠️ No money attached: the pricing call ships custom-field answers as the
+   literal string `[object Object]`; the calendar covers the first two variant
+   cards while open; Arabic weekday headers collide as `خميسجمعة`.
+
+✅ **Useful for the launch plan:** the storefront makes **no** calls to
+`mazj.sa` at all. Every request goes to `platform.rekaz.io`, the same host our
+own code already uses. So pointing `mazj.sa` at Vercel breaks the store's
+**pages**, not its data layer. That is the blocker already recorded in root
+`CLAUDE.md` launch item 4, not a new one.
+
+**Still unverified, and it cannot be closed for free:** the customer form, order
+creation and the payment hand-off. On all four products "add to cart" is a
+server write (`POST /api/app/cart/cart-items/<cartId>` carrying the date and
+time), and `/cart`, `/checkout` and `/orders` all render "page not found", so
+the form only exists after that write. Closing it costs exactly one deliberate
+throwaway booking on the live calendar, cancelled by hand, and needs the owner's
+say-so.
 
 ## Undoing this
 
