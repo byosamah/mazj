@@ -19,7 +19,7 @@ export default function LocationHours({surface = "bg-beige"}: {surface?: string}
   const rows: Array<{label: string; value: string; href?: string}> = [
     {label: t("addressLabel"), value: t("address")},
     {label: t("staffedLabel"), value: t("staffedValue")},
-    {label: t("membersLabel"), value: t("membersValue")},
+    {label: t("subscribersLabel"), value: t("subscribersValue")},
     {label: t("whatsappLabel"), value: t("whatsappValue"), href: waLink(t("whatsappMsg"))},
   ];
 
@@ -37,8 +37,8 @@ export default function LocationHours({surface = "bg-beige"}: {surface?: string}
           <p className="max-w-[52ch] text-pretty text-15 leading-relaxed text-muted lg:text-16">
             {t("blurb")}
           </p>
-          {/* Address + WhatsApp span the row; staffed/members pair up beneath —
-              a composed 2-up grid rather than a flat single-column list. */}
+          {/* Address + WhatsApp span the row; staffed/subscribers pair up
+              beneath: a composed 2-up grid, not a flat single-column list. */}
           <dl className="mt-2 grid grid-cols-1 gap-x-10 gap-y-5 sm:grid-cols-2">
             {rows.map((row, i) => (
               <div

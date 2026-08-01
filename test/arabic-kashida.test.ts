@@ -120,7 +120,7 @@ const DECORATIVE: Record<string, { level: "locked" | "h1" | "section"; runs: num
   "AboutPage.title": { level: "h1", runs: [5] }, //        المقـــــصد     (after ق)
   "SpacesPage.title": { level: "h1", runs: [5] }, //       المساحـــــات   (after ح)
   "SpaceCoworking.title": { level: "h1", runs: [5] }, //   المشتـــــرك    (after ت)
-  "SpaceOffice.title": { level: "h1", runs: [5] }, //      تركيـــــزك     (after ي)
+  "SpaceOffice.title": { level: "h1", runs: [5] }, //      شئـــــت        (after ئ)
   "SpaceMeeting.title": { level: "h1", runs: [5] }, //     الاجتمـــــاعات (after م)
   "SpaceEventHall.title": { level: "h1", runs: [5] }, //   الفعـــــاليات  (after ع)
   "EventsPage.title": { level: "h1", runs: [5] }, //       حـــــدث        (after ح)

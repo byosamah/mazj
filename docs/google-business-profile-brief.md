@@ -17,8 +17,8 @@ It is also the **upstream fix for the wrong rating.** Third-party directories (c
 | Address (AR) | برج الحياة، شارع زيد بن الخطاب، العليا، الخُبر |
 | Region / country | Eastern Province, Saudi Arabia |
 | Geo pin | 26.302126, 50.176999 (must match the Maps pin exactly) |
-| Staffed hours | Sunday–Thursday, 09:00–21:00 |
-| Member access | 24/7 by fingerprint (state in description, **not** as opening hours) |
+| Staffed hours | Sunday–Thursday, 09:00–**17:00** (corrected 2026-07-31; this brief said 21:00 and that was never right) |
+| Subscriber access | 24/7 by QR code or access card, for space subscribers (state in description, **not** as opening hours) |
 | Phone (WhatsApp) | +966 53 460 0488 |
 | VAT (ZATCA) | 310240548700003 |
 | Booking / prices | mazj.sa (live prices live there — never post a price on the GBP) |
@@ -41,16 +41,18 @@ Secondary categories are how one listing shows up for four different intents. Ad
 ## 2. Name and description
 
 - **Name:** `MAZJ` only. Do **not** keyword-stuff it to `MAZJ Coworking Space Al-Khobar` — that violates Google's naming guidelines and risks suspension. The category carries the keyword, not the name.
-- **Description (750 chars, bilingual):** write the Arabic **natively**, not as a translation of the English. Lead with what + where, name the four spaces and the two rooms, state staffed hours and 24/7 member access. Draft:
+- **Description (750 chars, bilingual):** write the Arabic **natively**, not as a translation of the English. Lead with what + where, name the four spaces and the two rooms, state staffed hours and 24/7 subscriber access. Draft:
 
-  > **EN:** MAZJ is a coworking space in Al-Khobar's Life Tower (Al-Olaya), for the Eastern Province's founders, freelancers and teams. Open desks in the shared space, private offices, the Al-Malqa meeting room (up to 6, by the hour) and the Al-Ma'arij events hall (up to 30). Free drinks, fast Wi-Fi, staffed Sunday–Thursday 9am–9pm, with 24/7 fingerprint access for members. Book any space on mazj.sa.
+  > **EN:** MAZJ is a coworking space in Al-Khobar's Life Tower (Al-Olaya), for the Eastern Province's founders, freelancers and teams. Open desks in the shared space, private offices, the Al-Malqa meeting room (up to 6, by the hour) and the Al-Ma'arij events hall (up to 30). Free drinks, fast Wi-Fi, staffed Sunday–Thursday 9am–5pm, with 24/7 access for space subscribers. Book any space on mazj.sa.
 
-  > **AR:** مزج مساحة عمل مشتركة في برج الحياة بالخُبر (حي العليا)، لروّاد الأعمال والمستقلّين والفرق في المنطقة الشرقية. مكاتب مرنة في المساحة المشتركة، ومكاتب خاصة، وغرفة اجتماعات الملقى (حتى 6، بالساعة)، وقاعة فعاليات المعارج (حتى 30). مشروبات مجانية وإنترنت سريع، بحضور من الأحد إلى الخميس 9 صباحاً–9 مساءً، ودخول بالبصمة على مدار الساعة للأعضاء. احجز أي مساحة عبر mazj.sa.
+  > **AR:** مزج مساحة عمل مشتركة في برج الحياة بالخُبر (حي العليا)، لروّاد الأعمال والمستقلّين والفرق في المنطقة الشرقية. مكاتب مرنة في المساحة المشتركة، ومكاتب خاصة، وغرفة اجتماعات الملقى (حتى 6، بالساعة)، وقاعة فعاليات المعارج (حتى 30). مشروبات مجانية وإنترنت سريع، بحضور من الأحد إلى الخميس 9 صباحاً–5 مساءً، ودخول على مدار الساعة لمشتركي المساحة. احجز أي مساحة عبر mazj.sa.
 
 ## 3. Hours
 
-- Set regular hours to **Sunday–Thursday, 09:00–21:00**. Leave Friday/Saturday as set by ops.
-- Put "24/7 fingerprint access for members" in the **description**, never as opening hours — marking the listing "Open 24 hours" would mislead a walk-in during unstaffed hours and is factually wrong for a day-pass visitor.
+- Set regular hours to **Sunday–Thursday, 09:00–17:00**. Leave Friday/Saturday as set by ops.
+- 🔴 **This brief said 21:00 until 2026-07-31 and the site said the same thing.** The team is in the space 9 to 5. If the listing was already published with the old figure, fixing it here is not enough: change it on the live profile too, because a wrong closing time on Google sends a walk-in to a locked door.
+- Put "24/7 access for space subscribers" in the **description**, never as opening hours: marking the listing "Open 24 hours" would mislead a walk-in during unstaffed hours and is factually wrong for a day-pass visitor.
+- ⚠️ **Never write "fingerprint" or "biometric" here.** Access is a QR code or an access card. This brief said fingerprint until 2026-07-31, three months after the word was stripped site-wide, because biometric data is PDPL-sensitive and implies a controller registration MAZJ avoids.
 
 ## 4. Products (link each to its real booking URL)
 
@@ -82,7 +84,7 @@ Post the real questions from the site's FAQ as owner-answered Q&A. These are the
 - "Is there a day pass for coworking in Al-Khobar?"
 - "Is there an hourly meeting room here?" (→ Al-Malqa, by the hour)
 - "Can I run a 30-person workshop here?" (→ Al-Ma'arij)
-- "Do members get 24/7 access?"
+- "Do space subscribers get 24/7 access?"
 - "Where exactly is MAZJ / which floor?"
 
 Seed each in **both** Arabic and English.

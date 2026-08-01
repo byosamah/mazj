@@ -464,19 +464,26 @@ export default function Hero() {
             driven by `chipBase`, so the trio always reflects the selected
             facility's real features (capacity · amenity · access) from mazj.sa,
             with a brand-level default before a space is chosen. */}
+        {/* Access on top, amenity beneath (owner swap, 2026-07-31). The two
+            boxes are geometrically identical (`.sf-chip-tl` / `.sf-chip-bl` both
+            sit at `inset-inline-start: 2px`, one above the square and one below,
+            neither width-constrained), so only the CONTENT moved. The icon
+            travels with its own chip: clock belongs to access, check to the
+            amenity. `.sf-chip-r` is untouched, and it is the only one with a
+            copy budget (~93px at vw1024, `white-space: nowrap`). */}
         <div data-fx="chip" className="sf-chip sf-chip-tl">
-          <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
-            <IconCheck />
-            <span>{tf(`${chipBase}.feature.label`)}</span>
-          </p>
-          <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.feature.value`)}</p>
-        </div>
-        <div data-fx="chip" className="sf-chip sf-chip-bl">
           <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
             <IconClock />
             <span>{tf(`${chipBase}.access.label`)}</span>
           </p>
           <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.access.value`)}</p>
+        </div>
+        <div data-fx="chip" className="sf-chip sf-chip-bl">
+          <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">
+            <IconCheck />
+            <span>{tf(`${chipBase}.feature.label`)}</span>
+          </p>
+          <p className="eyebrow mt-0.5 text-12 font-medium tabular-nums">{tf(`${chipBase}.feature.value`)}</p>
         </div>
         <div data-fx="chip" className="sf-chip sf-chip-r">
           <p className="eyebrow flex items-center gap-1.5 text-12 text-beige/80">

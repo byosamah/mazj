@@ -646,11 +646,12 @@ every returning customer on both flows, with the failure surfacing as the generi
 contract and explains it.
 
 The risk is real and is NOT closed: the form is public, the number is unverified,
-so anyone who knows a member's mobile can book against their account. It cannot
-be closed here. It needs proof of possession, and Rekaz exposes no OTP primitive
-(REK-029 in `docs/MAZJ-Rekaz-API-Report.pdf`). What mitigates it instead: the
-per-mobile rate limit, the audit trail (`originHash` + `submitterHash`), and the
-fact that a matched account never receives the submitter's name or email.
+so anyone who knows a returning customer's mobile can book against their
+account. It cannot be closed here. It needs proof of possession, and Rekaz
+exposes no OTP primitive (REK-029 in `docs/MAZJ-Rekaz-API-Report.pdf`). What
+mitigates it instead: the per-mobile rate limit, the audit trail
+(`originHash` + `submitterHash`), and the fact that a matched account never
+receives the submitter's name or email.
 
 ## The admin's three access gates
 

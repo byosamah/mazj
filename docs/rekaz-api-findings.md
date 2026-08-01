@@ -247,17 +247,30 @@ defect worth Rekaz fixing, because a merchant who computed VAT from
 `priceWithTax` would bill zero tax, and in Saudi Arabia that is a ZATCA
 compliance problem rather than a display bug. It needs nothing on our side.
 
-**Opening hours, as the API reports them:**
+**Bookable windows, as the API reports them.** 🔴 **These are REKAZ BOOKING
+WINDOWS, not MAZJ's staffed hours, and since 2026-07-31 the two no longer look
+alike.** The team is in the space **09:00 to 17:00** (owner correction; the site
+said "9 to 9" until that date and it was never right), while Rekaz still offers
+slots to 21:00 in the meeting room and to midnight in the events hall. Do not
+"correct" either figure against the other: the numbers below live in Rekaz's
+dashboard and can only be changed there, and MAZJ's staffed hours live in
+`Location.staffedValue` in `messages/*.json` and in `lib/schema.ts`'s
+`openingHoursSpecification`.
 
 | Product | Slots/day | UTC window | Riyadh (UTC+3) |
 |---|---|---|---|
 | غرفة الاجتماعات | 12 | 06:00-18:00 | 09:00-21:00 |
 | قاعة الفعاليات | 14 | 07:00-21:00 | 10:00-24:00 |
 
+⚠️ **A room bookable four hours past the last staffed hour is an operations
+question, not a defect in this repo.** Raise it with whoever runs the Rekaz
+dashboard rather than editing anything here.
+
 **Friday and Saturday return no slots at all.** Confirmed across three
 consecutive weeks: `2026-07-31`, `08-01`, `08-07`, `08-08`, `08-14`, `08-15` are
-absent from the response entirely. Sunday to Thursday, which matches the
-staffed hours in `CLAUDE.md`.
+absent from the response entirely. Sunday to Thursday, so the DAYS still match
+the staffed days in `CLAUDE.md`. The HOURS no longer do, per the paragraph
+above.
 
 🔴 **The date range is padded, not honoured exactly.** Requesting
 `StartDate=2026-07-28 & EndDate=2026-07-29` returned slots for the 27th, 28th

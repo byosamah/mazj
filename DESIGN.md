@@ -226,12 +226,13 @@ components:
 ## Overview
 
 MAZJ (مزج) is a single coworking building in Al Khobar, Saudi Arabia, and its
-site is built to feel like the building: warm, calm, staffed, and specific to
+site is built to feel like the building: warm, worked-in, staffed, and specific to
 one place. The house style is **warm editorial minimalism**. A cream canvas
 carries near-black text, structure comes from hairlines rather than cards, and
-the emotional register is welcome rather than hustle. Photography of the real
-rooms and the real members does the persuading; the interface stays quiet
-around it.
+the emotional register is welcome rather than hustle, and welcome
+includes the people already in the room. Photography of the real
+rooms and the real people who use them does the persuading; the interface stays
+quiet around it.
 
 The audience is founders, freelancers, and small teams in the Eastern Province,
 reading in Arabic first and English second. Both languages are first-class:
@@ -594,11 +595,19 @@ established, so there is no existing style to match. If one is introduced it is 
 new brand decision, made deliberately and then recorded in this section, rather
 than a look inherited from a template or a stock library.
 
-- **Photography** is the primary visual language: real interiors and real
-  members of one specific building, shot in warm daylight with a low-saturation,
+- **Photography** is the primary visual language: real interiors and the real
+  people of one specific building, shot in warm daylight with a low-saturation,
   warm-neutral grade that agrees with the cream canvas. Rooms read as occupied
-  and calm, never as empty architectural showpieces and never as stock
-  photography. Aspect ratios are portrait 4:5 for margin media, 3:2 for cards,
+  and in use, never as empty architectural showpieces and never as stock
+  photography. People may be in frame, mid-conversation or mid-workshop; a
+  room with nobody in it reads as a room nobody chose. 🔴 Never brief a
+  photograph as "calm" (owner ruling 2026-07-31): quiet is not a value MAZJ
+  sells, and this line is why the site FELT silent while the copy barely said
+  so. See `TONE.md` §3.4.
+  ⚠️ This bans an atmosphere BRIEF, not the word: `calm` and `quiet`
+  survive elsewhere in this file as LAYOUT and UI-restraint terms (interface
+  restraint, typographic measure, textures). Audited line by line 2026-07-31;
+  do not sweep them. Aspect ratios are portrait 4:5 for margin media, 3:2 for cards,
   1:1 for the hero window, and 4:3 as the general default.
 - **Video** carries the ambient mood: a hero loop, a dune texture in the footer,
   and a small crop looping inside the header button. Loops must be seamless
@@ -801,4 +810,4 @@ forgotten:
   from the element's own rectangle when a pseudo-element carries the hit pad.
 - **Do** let sections breathe at 96px to 128px and let statements stay short.
   **Don't** fill empty space with ornament or an icon set; emptiness is the
-  brand's calm.
+  brand's restraint.

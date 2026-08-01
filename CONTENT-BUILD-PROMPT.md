@@ -3,6 +3,21 @@
 > Run this inside the `mazj` repo. It upgrades the landing page content and adds
 > minimal new pages, WITHOUT changing the visual design.
 
+> 🔴 **HISTORICAL. This was a one-shot build prompt and it is no longer
+> maintained. Do not treat its "Known data" block as current.** Two of its facts
+> were live bugs the site later had to fix: the Google rating below says 5.0 and
+> the real one is **4.7**, and the mazj.sa store URLs are the pre-2026-07-27
+> booking model (booking is on-site now, see `lib/links.ts`). The hours and
+> access lines were corrected in place on 2026-07-31 so a future session cannot
+> copy the old ones back out. ⚠️ **The word "membership" survives below in five
+> places (the store-URL list and Tasks A1, A9, B) and must NOT be copied into
+> copy.** Owner ruling 2026-07-31: "member" and "membership" are reserved for a
+> future, unlaunched product, so the person is a **space subscriber**
+> (`مشترك المساحة`) and the plan is a **subscription** (`الاشتراك الشهري`).
+> Both English words now appear in zero strings in `messages/*.json`, as do
+> `عضو` / `الأعضاء` / `عضوية`. **Sources of truth: `CLAUDE.md` for facts,
+> `TONE.md` for voice, `messages/*.json` for the copy itself.**
+
 ---
 
 You are working in the MAZJ coworking website (Next.js 16, next-intl, Tailwind, GSAP),
@@ -53,7 +68,7 @@ bilingual: Arabic (primary, RTL) and English. Your job is a CONTENT build, not a
 
 ## Known data (use verbatim; do not invent what is missing)
 - Location: Life Tower (برج الحياة), Zaid Ibn Alkhattab St, Al-Olaya, Al-Khobar.
-- Hours: staffed Sun to Thu, 9am to 9pm. Members enter 24/7 by fingerprint.
+- Hours: staffed Sun to Thu, 9am to 5pm. Space subscribers enter 24/7 by QR code or access card.
 - Socials: X https://twitter.com/mazjorg · Instagram https://www.instagram.com/mazjorg ·
   LinkedIn https://www.linkedin.com/company/mazj-مزج
 - ZATCA tax number: 310240548700003.

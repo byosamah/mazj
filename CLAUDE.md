@@ -34,6 +34,13 @@ it, and only put it here if it genuinely bites everywhere.
 `DESIGN.md` = how it LOOKS. `TONE.md` = how it SOUNDS. The `CLAUDE.md` files =
 how it is BUILT (mechanics, gotchas, verification recipes).
 
+🔴 **A "the site FEELS wrong" complaint usually lives in `DESIGN.md`, not
+`TONE.md`.** Retiring "quiet" as a value (owner ruling 2026-07-31): the word
+appeared **once** per message file, while `DESIGN.md` briefed every photograph
+"Rooms read as occupied **and calm**". The picture was selling the feeling the
+copy never wrote down, so a copy-only audit would have reported the site clean.
+**Audit the art direction before the strings.**
+
 ## Project
 
 **MAZJ (مزج)** is a bilingual (English + Arabic) marketing site built with
@@ -109,11 +116,24 @@ to 7.8s page assembly. **Do not reintroduce a Rekaz tile "for reference".**
 - The Google rating is **4.7** with few reviews, **not 5.0**. A hardcoded `5.0`
   in the hero trustLine and in Proof was a real shipped bug. Don't put a rating
   claim in the hero or Proof at all; lead with legitimacy signals (address,
-  staffed hours, 24/7 member access, VAT).
-- Space access is QR code / card via Rekaz, **non-biometric**. "24/7" is
-  **members only**; the team is staffed Sun-Thu 9-9. 🔴 Never re-introduce
-  "fingerprint" or biometric copy (stripped site-wide 2026-07-23: biometric data
-  is PDPL-sensitive and implies a controller registration MAZJ avoids).
+  staffed hours, 24/7 subscriber access, VAT).
+- 🔴 **The team is in the space Sun-Thu, 9am to 5pm. NOT 9 to 9** (owner
+  correction 2026-07-31; the wrong figure had reached 14 strings per language
+  and `lib/schema.ts`'s `openingHoursSpecification`, which is the copy Google
+  reads). "24/7" belongs to **space subscribers**, never to walk-ins.
+- 🔴 **"Member" is reserved for a product that does not exist yet.** Owner
+  ruling 2026-07-31: membership will be a bigger thing than a desk, of which a
+  space subscription may only be one part, so the space plan is a
+  **subscription** and the person on it is a **space subscriber** /
+  `مشترك المساحة`. `عضو` / `عضوية` appear in **zero** strings in either message
+  file as of that date. Don't reintroduce either, and don't rename the
+  `Founding` namespace or `FoundingBand.tsx` on the strength of it: those hold
+  the startups offer and are a naming leftover. The founding-15 offer itself is
+  dead site-wide (same ruling), FAQ item deleted rather than reworded.
+- Space access is QR code / card via Rekaz, **non-biometric**. 🔴 Never
+  re-introduce "fingerprint" or biometric copy (stripped site-wide 2026-07-23:
+  biometric data is PDPL-sensitive and implies a controller registration MAZJ
+  avoids).
 
 **Three MAZJ web properties exist.** This marketing site (unlaunched), **mazj.sa**
 (the Rekaz booking store, live prices and checkout), and **mazj.org** (a stale
@@ -289,7 +309,7 @@ first deploy had to be a manual `vercel --prod`.
 | `npm start` | Serve the production build |
 | `npm run lint` / `lint:fix` | ESLint 9 flat config (`eslint.config.mjs`, `eslint-config-next/core-web-vitals`). Next 16 removed `next lint`; the script is plain `eslint .`. Currently exits 0 (the long-standing `react-hooks/set-state-in-effect` error in `Hero.tsx` is fixed), so any error you see is yours. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` / `test:watch` | Vitest. 294 tests: 11 RLS integration tests plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. 🔴 Needs the sandbox OFF, see below. |
+| `npm run test` / `test:watch` | Vitest. 11 RLS plus 12 Rekaz integration tests against the LIVE production tenant (read-only), all of which skip without credentials. (No total quoted here on purpose: this row read `294` while the suite ran **572**.) 🔴 The Rekaz ones pin tenant **DATA**, not just response shapes: one asserts a product slugged `faalyh-tjrybyh` is still sold, so the owner renaming it in Rekaz's dashboard turns `verify` red with **no code change**. Run `npm run check:rekaz` to tell a dead credential from moved data before debugging your own diff. 🔴 Needs the sandbox OFF, see below. |
 | `npm run verify` | lint + typecheck + test, the pre-commit sweep |
 | `npm run check:env` | Validates backend config without starting the app |
 | `npm run check:rekaz` | One live GET `/branches`: proves the Rekaz credential actually works. 🔴 `check:env` only length-checks it, so it passes on a dead key. Sandbox OFF. |
@@ -396,6 +416,12 @@ meeting room = الملقى, events hall = المعارج. Before writing new AR
 python `json.dump(d, f, indent=2, ensure_ascii=False)` + trailing `\n`, so insert
 many keys programmatically (assert each replacement hits exactly once), then
 re-verify leaf-key path parity.
+⚠️ **Two traps in that assert-once loop, and each costs a whole failed run.** A
+SHORT value COLLIDES: `"private"` hit **27** times as a bare substring, so anchor
+it to its key and search the literal `"protectSurtitle": "private"`. But a
+key-anchored fragment must NOT go through `json.dumps(...)[1:-1]` the way a value
+does, or it escapes the quotes and matches **0**. Escape values; pass
+key-anchored fragments raw.
 
 **Verifying copy:**
 
@@ -416,6 +442,28 @@ re-verify leaf-key path parity.
 - **`grep` mangles Arabic in this shell** (matches one term, silently misses
   siblings). Verify Arabic in rendered HTML with `python3 -c` + `str.count`,
   never shell grep.
+- 🔴 **Sweep a banned Arabic word by ROOT, never by whole word: the article
+  FUSES to the noun.** `للأعضاء` does NOT contain `الأعضاء` (its article is
+  `لل`, not `ال`), so the obvious checklist misses it with no error. Measured on
+  HEAD's `ar.json` while retiring `عضو` (2026-07-31): **48** occurrences, of
+  which `{عضو, الأعضاء, عضوية}` catches **39** and MISSES **9** (`للأعضاء` ×6,
+  plus `لأعضاء`, `أعضاء`, `وأعضاؤه`). Sweep the consonant pair instead,
+  `re.findall(r'\S*عض\S*', s)`, and read the distinct forms. ⚠️ Strip trailing
+  punctuation before counting FORMS or that regex reports 20 where there are 12,
+  because `للأعضاء`, `للأعضاء.` and `للأعضاء؟` arrive as three; the OCCURRENCE
+  counts above are unaffected. It also returns unrelated words sharing the
+  letters (`بعض` = "some", 4 here), which is the safe direction to be wrong in.
+  ⚠️ **Write the ROOT into the RULE FILE too, not the surface form.** Banning
+  `نابض` by whole word in `TONE.md` left `تنبض` (a verb form of the same root)
+  live in a third string, caught only by an adversarial pass. A ban you cannot
+  grep is a ban that gets broken, including by the pass that writes it.
+- 🔴 **A before/after sweep must assert the NEW value is PRESENT, not only that
+  the old one is GONE. Zero-of-both means you measured nothing.** A 16-route
+  check reported "0 stale strings" and read as a clean pass; it was fetching a
+  DIFFERENT app on another port (see `.claude.local.md`, which owns that trap),
+  and the only tell was that the replacement strings scored 0 as well. Print
+  both counts per route: a stale-only assertion cannot tell success from an
+  empty page.
 - 🔴 **A multi-word heading NEVER matches a grep of rendered HTML**, the opposite
   failure to the `NextIntlClientProvider` one above. `WordReveal` splits on `\n`
   then on whitespace, so `وتُولد الفرص` ships as two `.wr-word` spans with a tag
@@ -542,6 +590,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
 
 **Tooling**
 
+- ⚠️ **A workflow's `<failures>` block is NOT a count of lost work.** A verify
+  run reported `agents_error: 22` of 60 while its own `log()` showed all **55**
+  findings adjudicated (27 survivors + 28 refuted): the stalled agents were
+  retried. Reconcile against the script's own `log()` before reporting a gap;
+  quoting the failures list would have invented one.
 - ⚠️ **A detached `( cmd1; cmd2 ) &` makes the background-task notification
   LIE.** The launcher returns immediately, the harness reports "completed, exit
   0", and the real work runs on for another 40 minutes. Poll for the artifacts
@@ -722,6 +775,11 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
 - `components/Proof.tsx` and `components/MotionToggle.tsx` are mounted on **no**
   route. Don't spend edits there. See `components/CLAUDE.md` for why MotionToggle
   was unmounted and why it must not be re-added from an audit.
+- **Dead KEYS exist too, and a message file gives no hint.** `Hero.trustLine` has
+  **zero** code references repo-wide (verified 2026-07-31) while both files still
+  carry it: the hero renders the three `SpaceFinder` chips instead. Same for
+  `Proof.legitimacy[*]`, since `Proof` is unmounted. Correcting a fact in either
+  is right, but it ships nothing, so don't cite one as evidence a claim is live.
 - `components/admin/RevealedSecret.tsx` (and its `RevealButton`) joined them on
   2026-07-30: its only caller was `/admin`'s deleted booking lookup. It is kept
   because it is this repo's one correct rendering of a bearer capability, and

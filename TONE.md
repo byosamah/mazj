@@ -19,6 +19,10 @@ The single source of truth for how MAZJ copy sounds and what it may or may not s
 - **Arabic-first, always.** Think and write the **Arabic first**, then derive the English to match its meaning and warmth. Never a literal back-translation; the English must read like a native wrote it.
 - **Register:** فصحى بيضاء حديثة (modern white MSA) warmed with a direct, human Saudi touch. **Between formal and casual.** Address the reader as **أنت**.
 - **Feel:** warm, confident, inviting, a little conversational. Never corporate-stiff, never slangy or heavy dialect, never a markety cliché.
+- 🔴 **Clear, not شاعري. Owner ruling 2026-07-31: "be clear, not شاعري, be simple and minimal creative."** Warmth is not lyricism. A line that asks the reader to decode an image has failed however beautiful it is, and "creative" means an unexpected TRUE thing, never an ornamental one. Simple and minimal is the target in both languages.
+  - ✗ `شاشة تدور نحو طاولة، ورأيٌ يُقال قبل أن يُطلب.` / "A screen turned toward the table, and an opinion offered before it was asked for."
+  - ✓ `أعمالٌ من كل نوع، وناسٌ يعرفون بعضهم.` / "Work of every kind. People who know each other."
+  - Same instinct as the `تتلاقح` rejection in §4 (vivid, but asking to be decoded). The difference is that this one binds the ENGLISH and the sentence STRUCTURE too, not only Arabic word choice.
 
 > Example (hero): `هنا تجد مكانك، وناسك.` / "Find your place. And your people." (belonging and warmth, not the old "Work in good company.")
 
@@ -29,7 +33,7 @@ The single source of truth for how MAZJ copy sounds and what it may or may not s
 
 ---
 
-## 3. The three mandates
+## 3. The mandates
 
 ### 3.1 Positivity: the #1 rule
 Zero negativity. No pain-framing, no "the old way", no listing what is wrong with home, cafés, leases, or working alone. Lead with aspiration, belonging, possibility, community, momentum. **Every line should make the reader want to come.**
@@ -76,6 +80,27 @@ No hook, verb, metaphor, sentence-opening, or phrase repeated across sections. E
 ### 3.3 The belonging + blend thread
 The brand's emotional spine is *a place that is truly yours, among your people* (**مكانك وناسك**), and *work + community blended into one* (**مزج** = blend). Bookend it from the hero to the finale (hero `وناسك` → StepInto `التقِ بناسك`). Let the blend idea recur without repeating the same words.
 
+### 3.4 Two registers, and neither one is named
+
+🔴 **Quiet is NOT a value MAZJ sells. Owner ruling 2026-07-31.** Every coworking space in the Gulf advertises a calm, focused, distraction-free room, so claiming it puts MAZJ in the line-up instead of ahead of it. MAZJ is a creative space for builders, and the locked hero `ونـــــاســـــك` / "And your people" promises that people here talk to each other. The floor has two registers, focus and company, and **both are true at once**. Copy may imply either. Copy may sell neither.
+
+**The method: describe what people DO, never how the air FEELS.** An atmosphere adjective is unfalsifiable and every competitor already owns it. A fact is checkable and cannot be copied by the space one floor down.
+
+- **Focus is expressed as ARCHITECTURE:** a door, a room, a desk that stays yours, an hour you can book. Never as an absence of people. ⚠️ **Rotate the noun.** Architecture defaults to `room` / `غرفة` and §3.2 already flags that root; "a room of your own" reached **4** uses (3 on one page) before this pass cut it back to 3. A floor, a desk, a door, an hour, an address are all architecture too.
+- **Company is expressed as POPULATION:** work of every kind, people who know each other by name, a hall that has gathered people since 2022. Never as a noise level.
+
+- ✗ `حين يحتاج العمل إلى هدوء` / "When the work needs quiet" → ✓ `مكتبٌ خاص في مزج بالخُبر: غرفةٌ تخصّك داخل مساحة العمل المشتركة.` / "A private office at MAZJ in Al-Khobar: a room of your own inside the shared workspace." The reason to buy the room is the room, not the silence in it.
+- ✗ surtitle `خصوصية` / "private" over `مكتب خاص لتركيزك العميق` / "A private office for your deepest work" → ✓ surtitle `استقرار` / "settled" over `مكتبٌ خاص بك، في مكانٍ عامر.` / "Your own office. People right outside." 🔴 **The old pair rendered ONE SCROLL under the hero**, so the landing page promised company and then sold seclusion. The three USP surtitles now read `مرونة` / `استقرار` / `لقاءات` (flexible / settled / gather), which is a product triad rather than a claim about the air.
+- ✗ `المكالمات القصيرة لا بأس بها` ("short calls are not a problem", grudging) → ✓ `المكالمات القصيرة تحدث هنا طوال اليوم` / "Short calls happen here all day." A described behaviour does work no adjective can: it says people talk here without ever saying the room is loud.
+- ✗ `المكالمات التي لا يصح إجراؤها من مكتب مفتوح` → ✓ `المكالمات التي تحتاج غرفةً خاصة بها` / "the calls that want a room of their own". Same fact, minus the reprimand of the floor (§3.1).
+- ⚠️ **The opposite adjective is NOT the fix.** "buzzing", "vibrant", "energetic", `نابض`, `صاخب` are the same defect in a different coat, and they cost the sale: a founder who needs to ship on Tuesday reads "hyper vibes" and books elsewhere. Both registers must survive.
+  - 🔴 **THE PASS THAT WROTE THIS RULE THEN BROKE IT, IN THE SAME EDIT.** `نابض` was live in **2** places and `تنبض` in a third, and one of them (`SpaceOffice.about[0]`) was a string this pass had open: it removed `وحدك` from the Arabic, moved the ENGLISH half of the same clause to the population form ("with people working in it"), and left the Arabic adjective standing. The derived language got the fix and the SOURCE language did not, which inverts §2. Self-review missed all three; an adversarial pass found them.
+  - **So: when you ban a word, sweep it in the same edit, and sweep it by ROOT FRAGMENT, never by whole word** (`ابض` catches `نابض` AND `نابضة`; the Arabic article fuses, so a whole-word check misses silently). Fixed: `Network.eyebrow` ✗ `مجتمعٌ نابض` / "A living community" → ✓ `مجتمع مزج` / "The MAZJ community"; `Faq.groups[1].items[1].a` dropped `تنبض بالحياة` / "lively"; `Faq.groups[0].items[0].a` ✗ `تعيش فيه أجواء المكان على طبيعتها` / "feel the space for yourself" → ✓ `ترى فيه المكان وهو يعمل` / "see the place working" (the literal word for atmosphere, on the landing FAQ). **Now `نبض / ابض / صاخ / أجواء / هدوء / هادئ / سكون / صمت / سكينة / تشتيت` and `quiet / calm / serene / lively / vibrant / buzzing / energetic / distraction` are all 0 in both files.**
+- ⚠️ **Community is not an amenity.** `Steps.step3Body` listed `ومجتمع` / "a community" LAST in a list of Wi-Fi, meeting rooms and coffee. Anything you can list beside Wi-Fi is a thing you are not really selling. Deleted from the list rather than reworded. ⚠️ Note `Steps` is mounted on no route today (`app/[locale]/page.tsx` has it commented out), so that particular fix is pre-emptive rather than shipped; the rule is not.
+- 🔴 **`وحدك` / "alone" accumulates into a seclusion product even when every single use is defensible.** It ran **7×** in `ar.json`, five of them on the private-office surfaces, and no reader meets one in isolation. It is now **2**, both factual and both staying: the refund clause (`محفوظ لك وحدك`) and the startups offer (`نتّفق عليها معك وحدك`). **Count the root, not the sentence.**
+- ⚠️ **"Architecture" cannot mean "say door again": doors are already spent.** `باب` runs **6×** in `ar.json`, all literal. `door` runs **7×** in `en.json` on a word-boundary count, only 4 of them a literal door; ⚠️ a raw substring grep returns **8** because Terms says `indoors`. 🔴 **This pass did NOT reduce either figure, and an earlier draft of this very bullet claimed it did.** `باب` was 6 before and is 6 after. Three supporting private-office strings still lead on the door (`SpaceFinder.cases.privateOffice.chips.feature.value`, `Spaces.cards.privateOffice.includes`, `SpaceOffice.includes[0]`). What the pass actually did was decline to add a FOURTH and route the new copy to a room, a floor or a place. That is a smaller claim, and it is the true one: per the root `CLAUDE.md`, a rationale written from what the copy MEANT rather than from a count is worse than no rationale. The office `h1` keeps `بابٌ تغلقه` as the strongest use. Its second line moved ✗ `على تركيـــــزك` ("closed **on your focus**") → ✓ `متى شئـــــت.` ("whenever you wish"), which re-earns the 5-tatweel swash on `شئـــــت` and is pinned in `test/arabic-kashida.test.ts`.
+- 🔴 **THE PHOTOGRAPH WAS THE BIGGER OFFENDER THAN THE COPY, AND THAT IS THE LESSON.** Measured 2026-07-31: `quiet` appeared **once** in `en.json` (`SpaceOffice.body`) and `هدوء` **once** in `ar.json` (the same key), with `سكون / صمت / سكينة / تشتيت` at **zero** before and after, while `DESIGN.md` instructed every image on the site "Rooms read as occupied **and calm**". A brand can sell a feeling it never writes down. **When a positioning note says the site "feels" like something, audit `DESIGN.md` before you audit the copy.** Fixed the same day; see `DESIGN.md` → Art direction.
+
 ---
 
 ## 4. Arabic naturalness (write for a Saudi ear)
@@ -93,7 +118,8 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
   - ✗ "MAZJ's meeting room at Life Tower in Al-Khobar" → ✓ "MAZJ's meeting room in Al-Khobar"
   - **The address-function rule:** the tower survives only where a real address, directions, or legal registration appears, i.e. the `Location` block, the "where are you?" and parking FAQs, the Privacy + Terms registered address, `/about`'s "One address" chapter, the office page's address paragraph, and `ContactPage.metaTitle`. Twelve keys total. Anywhere else, the locator is `الخُبر`.
   - 🔴 **`Location.address` is load-bearing beyond copy:** `app/[locale]/layout.tsx` feeds it into the JSON-LD `streetAddress` that Google reads for local search, so it must keep the full `برج الحياة، شارع زيد بن الخطاب، العليا، الخُبر` string. Never shorten that one for tone.
-- **Digits:** Western in product and marketing copy (`24/7`, `15%`, `حتى 6`, `9 صباحاً حتى 9 مساءً`). Arabic-Indic (`٢٠٢٥`) only in dated archives (e.g. the events list).
+- **Digits:** Western in product and marketing copy (`24/7`, `15%`, `حتى 6`, `9 صباحاً حتى 5 مساءً`). Arabic-Indic (`٢٠٢٥`) only in dated archives (e.g. the events list).
+  - ⚠️ **That example itself carried the wrong closing time until 2026-07-31** (`9 مساءً`, when the team actually leaves at 5). This bullet is about the numeral SYSTEM, so the FACT inside the example rode along unexamined through every copy pass, and a writer reaching for the settled hours string would have copied it straight out of the standards file. The hours rule and its blast radius live in §6.
   - ⚠️ **A stat row is marketing copy, not an archive.** `/about`'s numbers shipped as `٢٥ / ٣ / ٣٠` sitting directly beside a Western `24/7`, so one row of four figures used two numeral systems. Fixed to `25 / 3 / 30` on 2026-07-28. **Sweep for this, don't read for it:** `re.search(r'[٠-٩]', json.dumps(ns, ensure_ascii=False))` over every namespace returns `EventsPage` (legitimate) and nothing else. It found `AboutPage` as the only violation on the site.
   - Spelled-out numbers in prose (`ستة حول طاولة الملقى`, `تسع مرات`) are NOT affected: the rule bans the Arabic-Indic *glyphs*, not Arabic number words, and prose reads better spelled.
   - 🔴 **Since 2026-07-28 the events numerals are no longer in `messages/ar.json` at all: they are FORMATTED AT RUNTIME**, so the rule is now enforced by which locale tag a formatter is given, and getting that wrong is silent. The split is drawn at REGISTER, not at language, and both halves are deliberate:
@@ -113,7 +139,8 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
   | meeting room | `الملقى` (proper name) · `غرفة الاجتماعات` (generic) | |
   | events hall | `المعارج` | |
   | coworking space | `مساحة عمل مشتركة` | |
-  | membership | `عضوية` | |
+  | the monthly plan | `الاشتراك الشهري` · `اشتراك المساحة` | عضوية |
+  | the person on it | `مشترك المساحة` · pl. `مشتركو/مشتركي المساحة` · short `المشتركين` | عضو · الأعضاء |
   | Life Tower · district · street | `برج الحياة` · `حي العليا` · `شارع زيد بن الخطاب` | (address/directions/legal only, see the locator rule above) |
 
   Before writing new Arabic, `str.count` the existing `ar.json` for the term you are about to use.
@@ -141,7 +168,7 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
 ## 6. Hard constraints (never violate)
 
 - 🔴 **Prices: RELAXED 2026-07-27 (owner ruling). Marketing copy stays money-free; the BOOKING FLOW shows live prices.**
-  - Everything outside `/spaces/*/book` keeps the old rule: no SAR amounts in headings, intros, FAQ answers, space pages or meta. (Membership perks like "15% / 20% off the meeting room" were always allowed and still are.)
+  - Everything outside `/spaces/*/book` keeps the old rule: no SAR amounts in headings, intros, FAQ answers, space pages or meta. (Subscriber perks like "15% / 20% off the meeting room" were always allowed and still are. It read "Membership perks" until 2026-07-31; the discount rule is unchanged, only the word for who gets it, see the reserved-word rule below.)
   - Inside the booking flow, prices are shown, pulled live from the Rekaz API. Nobody enters card details without seeing a total.
   - **Never hardcode a price in copy.** Rekaz rotates price ids when a price is edited, and a number typed into `messages/*.json` goes stale silently. The flow reads them at request time.
 - 🔴 **Booking happens HERE now, not on mazj.sa. Copy must never send people away.**
@@ -156,13 +183,22 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
   - ⚠️ **They hid as list bullets.** Terms and Privacy shipped with 46 `U+2014` characters used as line-start markers, which read as legitimate punctuation and survived every prose read-through. Swept to `•` on 2026-07-27. Grep for the codepoint, do not trust your eyes.
   - ⚠️ **And the FIX over-applied.** A blanket `— ` → `• ` assumed every dash was a bullet; two were parenthetical mid-sentence, so Terms 5 and Privacy 3 shipped reading "a personal digital access credential • a QR code or an access card • issued through our booking system". A punctuation replace needs a POSITION check (line-start only), not just a character match. The Arabic was untouched because it uses comma apposition, which is also the correct English fix.
 - **Never mention biometric / fingerprint.** Access is a **QR code or a card**.
-- **"24/7" is members-only.** Reception is staffed `الأحد إلى الخميس، 9 صباحاً حتى 9 مساءً`. Keep this accurate.
+- 🔴 **THE TEAM IS IN THE SPACE 9 TO 5, NOT 9 TO 9, AND 24/7 BELONGS TO SPACE SUBSCRIBERS.** Owner correction 2026-07-31. Reception is staffed `من الأحد إلى الخميس، من 9 صباحاً حتى 5 مساءً` / "Sunday to Thursday, 9am to 5pm". The wrong closing time had spread to **14 strings per language** plus `lib/schema.ts`, and the schema copy is the dangerous one: it is machine-readable, so Google would have told a walk-in the place was open until 9pm. **Change all three together** (`messages/en.json`, `messages/ar.json`, `openingHoursSpecification.closes`); nothing enforces that they agree.
+- 🔴 **"Member" is RESERVED, and it does not mean "someone with a desk". Owner ruling 2026-07-31.** A membership is a bigger product MAZJ has not launched yet, of which a space subscription may only ever be one part. So the word may not be spent on the space plan in the meantime.
+  - ✗ "24/7 member access" · "the monthly membership" · `دخول الأعضاء` · `العضوية الشهرية`
+  - ✓ "24/7 subscriber access" · "the monthly subscription" · `دخول المشتركين` · `الاشتراك الشهري`
+  - **English runs long/short by room:** `space subscriber` in prose where it is being defined, plain `subscriber` in chips, labels and second mentions. Arabic does the same: `مشتركو المساحة` in prose, `المشتركين` in the hero strip and the finder chips.
+  - ⚠️ **In Arabic the rename collides with its own root.** `اشترك شهرياً لدخول المشتركين` and `اشتراك المساحة المشتركة` both put `شرك` two or three times in one clause, next to `المساحة المشتركة`, which is on nearly every page. Where that happens, **drop the noun instead of swapping it**: ✗ `اشترك شهرياً لدخول الأعضاء 24/7` → ✓ `اشترك شهرياً لدخولٍ على مدار الساعة (24/7)`. The noun was redundant anyway; subscribing monthly is what makes you a subscriber.
+  - ⚠️ **`العضوية` is feminine and `الاشتراك` is masculine**, so every verb and pronoun attached to it moves too: ✗ `أما الاشتراك الشهري فتجعل … وتضيف` → ✓ `أما الاشتراك الشهري فيجعل … ويضيف`. Three sentences needed this and each one reads fine in isolation, so grep the verb, not the noun.
+  - **Legal moved with it** (§6, legal copy is a factual claim): Terms and Privacy now say subscription and space subscriber, because that is what somebody actually bought. `PrivacyPage.sections[5]` also lost `subscriptions and membership`, which had become one thing named twice.
+- 🔴 **The founding-15 offer is DEAD SITE-WIDE. Owner ruling 2026-07-31: "not right, remove it from roots."** The FAQ item that sold it (`Faq.groups[1].items[4]`, "How new is MAZJ?" / `كم عمر مزج؟`) was deleted from both message files, not reworded, and `Steps.subscribeTag` stopped reading `Founding plan` / `خطة المؤسّسين`. **Do not restore "first 15", "founding members", `أول 15 عضواً` or `مزايا التأسيس` anywhere**, and note the FAQ item fed the `/faq` FAQPage JSON-LD, so the claim was being handed to Google too. The `Founding` NAMESPACE and `FoundingBand.tsx` keep their names but hold the startups & builders offer; that is a naming leftover, not a surviving offer.
 - 🔴 **The startups & builders offer is a closed envelope.** Never state its terms, amounts, durations or inclusions, anywhere: not on the landing band, not on `/startups`, and not in the approval email. Its perks are **verifiable facts** (a real address in الخُبر, 24/7 access, the ملقى meeting room), never offer terms. Owner ruling 2026-07-22, reaffirmed 2026-07-28.
   - ⚠️ **It is no longer "a teaser into a WhatsApp conversation".** Since 2026-07-28 the band's CTA opens `/startups`, where the offer is explained and applied for, and the terms arrive in the approval email. The envelope is unchanged; only the route into it is. `Founding.ctaMsg` (the old prefilled WhatsApp message) was deleted from both message files, so a reference to it anywhere is stale.
   - **Say that it is closed rather than being coy about it.** Withholding the terms silently reads as evasion; naming the withholding reads as tailoring. ✓ `لا ننشر تفاصيل العرض هنا، ولا نُخفيها: نرويها كاملةً في رسالة الموافقة` / "We do not publish the terms here, and we are not hiding them: they arrive in full in the approval email."
   - 🔴 **The approval email must say a PERSON applies the offer.** Rekaz has no coupon API, so no code can discount anything anywhere. ✓ "our team applies the offer for you. It is your approval, not a checkout coupon, so there is nothing to type into a payment page." Cut that sentence for brevity and every approved founder hunts for a discount box that does not exist.
   - `test/i18n-parity.test.ts` and `server/email/copy.test.ts` both assert no percentage, no SAR amount and no "discount" reaches the page or the emails, because this is the rule an enthusiastic copy pass is most likely to break.
-- **No rating or stars claim.** Lead with legitimacy signals (address, staffed hours, 24/7 member access, VAT), not reviews. (The real Google rating is 4.7; still do not put a rating in the hero or a proof block.)
+- **No rating or stars claim.** Lead with legitimacy signals (address, staffed hours, 24/7 subscriber access, VAT), not reviews. (The real Google rating is 4.7; still do not put a rating in the hero or a proof block.)
+  - ⚠️ **This line said `24/7 member access` until 2026-07-31, and it is the exact string §6 bans two bullets above.** That is how a reserved word survives its own rename: it hides inside a rule about something ELSE (ratings), where no sweep aimed at the vocabulary thinks to look. When a word is reserved, grep this file too, not only `messages/*.json`.
 - 🔴 **Never state a COUNT of events. Owner ruling, 2026-07-28.** No "42", no "forty-two", no `اثنتان وأربعون`, no "more than 40", no `أكثر من 40`, and no live `{count}` fed from the database. It was removed from all four places it appeared (`EventsPage.intro`, `HostEvent.body`, `SpaceEventHall.about`, `AboutPage.communityBody`) in both locales.
   - ✗ "The hall has hosted forty-two community events since 2022" → ✓ "The hall has been hosting community events since 2022"
   - ✗ `استضافت المعارج أكثر من 40 فعالية منها منذ 2022` → ✓ `كلها أقيمت في المعارج منذ 2022`
@@ -372,6 +408,7 @@ no pass over headings may touch them.
 - [ ] No phrase / hook / verb repeated across sections.
 - [ ] Settled AR vocabulary + `الخُبر` spelling + Western digits.
 - [ ] No prices, no em-dashes, no biometric, no rating, **no event count**; the offer stays a closed envelope.
+- [ ] **No atmosphere adjective in EITHER direction** (§3.4): sweep `هدوء هادئ سكون صمت سكينة تشتيت أجواء` AND `نبض ابض صاخ` by root fragment, plus EN `quiet calm serene lively vibrant buzzing energetic distraction`. Focus must read as architecture, company as population.
 - [ ] Facts, room names, URLs, VAT exact; locked lines untouched.
 - [ ] Both `en.json` and `ar.json` updated; same keys; arrays same length.
 - [ ] CTAs name the outcome.

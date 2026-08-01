@@ -72,18 +72,24 @@ export function localBusinessSchema({
     telephone: `+${WHATSAPP_NUMBER}`,
     vatID: ZATCA_TAX_NUMBER,
     currenciesAccepted: "SAR",
-    // Staffed reception hours. Members hold 24/7 access by QR code or card, but
-    // that is a membership benefit, not a public opening time, so it is NOT
-    // marked up here: `openingHours` means "when can anyone walk in".
+    // Staffed reception hours. Space subscribers hold 24/7 access by QR code or
+    // card, but that is a subscription benefit, not a public opening time, so it
+    // is NOT marked up here: `openingHours` means "when can anyone walk in".
     // (This comment said "fingerprint" until 2026-07-28. Access is not and has
     // never been biometric; biometric data is PDPL-sensitive and the word was
     // stripped site-wide on 2026-07-23. Corrected here so it is not copied.)
+    //
+    // 🔴 `closes` was "21:00" until 2026-07-31 and it was WRONG: the team is in
+    // the space 9 to 5, never 9 to 9. This is the one place the mistake was
+    // machine-readable, so Google would have shown a walk-in "open until 9pm"
+    // and sent them to a locked door for four hours a day. Keep it equal to
+    // `Location.staffedValue` in both message files; nothing enforces that.
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
         dayOfWeek: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
         opens: "09:00",
-        closes: "21:00",
+        closes: "17:00",
       },
     ],
     sameAs: [SOCIALS.instagram, SOCIALS.x, SOCIALS.linkedin],
