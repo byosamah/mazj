@@ -238,6 +238,18 @@ in as many words; if that sentence is ever trimmed for brevity, every approved
 founder goes hunting for a discount box that does not exist. **Do not build
 anything that assumes this code can self-apply at checkout.**
 
+⚠️ **MEASURED 2026-08-01, AND IT MAY CONTRADICT EVERYTHING ABOVE: the live
+checkout renders "Do you have a coupon code?"**, a collapsed accordion above the
+price in mazj.sa's cart drawer (Summary step). What is proven is only that the
+FIELD exists, **not** that coupons can be created or that any code is accepted.
+The two reconcile if the merchant API exposes no coupon endpoint while the
+storefront still redeems ones made in the Rekaz dashboard. 🔴 **Until somebody
+checks that dashboard, do not restate "cannot be redeemed by software anywhere"
+as fact.** It is load-bearing for this feature's email copy (which tells founders
+there is "nothing to type into a payment page") and for the 15% / 20% discounts
+marketing promises in 21 strings. Evidence:
+[`../docs/superpowers/specs/2026-08-01-booking-linkout-to-mazj-sa-design.md`](../docs/superpowers/specs/2026-08-01-booking-linkout-to-mazj-sa-design.md).
+
 🔴 **A DECISION AND ITS EMAIL ARE TWO SEPARATE FACTS.** The decision commits
 first; the mail is attempted after and is never allowed to undo it. A Resend
 outage, an unverified domain or a missing key leaves the approval standing, the
@@ -527,6 +539,19 @@ several places that will otherwise cost you an afternoon. The short version:
   clients it does not recognise (`Python-urllib` is refused, `curl` is not).
   Node's `fetch` default passes today; a runtime upgrade changing it would read
   exactly like an expired credential.
+- **There is a SECOND, credential-free Rekaz surface: the storefront's own.**
+  `platform.rekaz.io/api/app/*` takes a `__tenant` header and **no bearer**, and
+  is what mazj.sa's pages call. Useful read-only:
+  `/api/app/product/product/<slug>` and
+  `/api/app/reservation-v2/availabilities?PriceId=…&StartDate=M/D/YYYY&EndDate=…&MinQuantity=1&MinProvidersCount=1`.
+  The second measures the real booking horizon in one call; that is how
+  **bookings were found to stop dead after 31 Dec 2026** (Aug-Dec 2026 healthy,
+  Jan 2027 onward returns zero slots for both rooms).
+- **A Rekaz cart holds NOTHING.** Measured before/after on 2026-08-01: adding a
+  room slot to a cart left all 276 December slots available and the carted slot
+  still at `availableReservationsCount: 1`, zero slots changed. ⚠️ The storefront
+  also fires `POST /api/app/cart/new-cart` **1-3 times on every page load**,
+  before any click, so cart counts are not a funnel metric.
 - 🔴 **The credential is ADMIN-SCOPE.** `GET /customers` returns MAZJ's entire
   customer list: 287 people, with names, mobiles and email addresses. Same blast
   radius as `SUPABASE_SECRET_KEY`, same handling.
