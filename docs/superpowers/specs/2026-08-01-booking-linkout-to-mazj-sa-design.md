@@ -34,6 +34,36 @@ on-site booking stack (`app/[locale]/spaces/*/book/`, `components/booking/`,
    **Arabic product names**, because Rekaz holds no English content for this
    tenant. That is upstream, not caused by this change.
 
+### 🔴 Correction, same day: "zero copy changes" was a DEFECT, not a virtue
+
+The first version of this record listed "no copy changes, no message files
+edited" as a benefit. That was wrong, and an adversarial verification pass caught
+it. Moving booking off-site **falsified copy that was true that morning**, most
+sharply `SpaceOffice.faq[3].a`: *"You book and pay right here"* / *"تحجز وتدفع من
+هنا"*, sitting on the very page whose button now leaves the site.
+
+`TONE.md` had already recorded this exact trap in the OPPOSITE direction on
+2026-07-27 (links moved on-site while buttons still read "Book on mazj.sa"). It
+has now happened twice, in mirror image, so it is recorded there as a law rather
+than an incident: **changing a link does not change the sentence around it, in
+either direction.**
+
+Fixed the same day, owner decision "the flatly false ones only": two keys ×
+two languages, all four **pure deletions** per `TONE.md`'s standing rule that the
+location is simply deleted rather than reworded.
+
+| key | was | now |
+|---|---|---|
+| `SpaceOffice.faq[3].a` | "You book and pay **right here**, by card or split payments…" | "You book and pay by card, or split payments…" |
+| `SpacesPage.intro` | "…and finish your booking **right here**." | "…and finish your booking." |
+
+⚠️ **Roughly seven more strings per language still over-claim and were
+deliberately left** (same owner decision). They stretch rather than lie: two
+"booked right here" day-pass answers, three "the live price is shown as you
+book" lines, and `TermsPage.sections[3]` / `PrivacyPage.sections[1]` saying
+spaces are booked "on our website". 🔴 The last two are LEGAL copy and must be
+re-read before any launch.
+
 **Explicitly NOT done, owner amendment:** `lib/schema.ts` is unchanged. The
 JSON-LD `Offer` urls still name the on-site `/spaces/<space>/book` page rather
 than the store. Those URLs now 307 outward, so the structured data resolves to
@@ -156,6 +186,64 @@ pre-change version is on `feature/onsite-booking`.
   tell success from an empty page.
 - **Hero pill verified in a browser**, because its `<a>` only exists after a
   client-side selection and static HTML cannot see it.
+
+## Post-deploy verification: are the destinations actually right?
+
+A 200 proves a page exists, not that it sells the right thing. Closed 2026-08-01
+with 16 live fetches plus a 13-agent adversarial pass (4 matchers, 8 refuters on
+two lenses each, 1 completeness critic).
+
+**Result: 4/4 products matched, high confidence, 0 of 8 adversaries refuted.**
+The strongest evidence was not name-matching:
+
+- The meeting room's Rekaz product id in the storefront's own payload
+  (`3a14b646-4fa3-7c31-ddce-d7302c01403f`) is **byte-identical** to the id
+  recorded in `docs/rekaz-api-findings.md` from live API probes.
+- The store's coworking featured image correlates with our
+  `public/images/spaces/day-desk.jpg` at Pearson **1.000** (four controls scored
+  −0.149 to 0.012). Same photograph, so same room.
+
+**`www.mazj.sa` is equivalent and slower.** All 8 paths on both hosts answer 200;
+`www` 301s to the bare host in exactly 1 hop and returns **byte-identical**
+response sizes. Its TLS cert's SAN covers both names (the bare cert covers only
+`mazj.sa`). Hence the bare host in `STORE_ORIGIN`.
+
+⚠️ **The JSON-LD `price` is ONE VARIANT, not the price.** Coworking publishes
+`10080.00` (the annual) while the page's entry rate is 90/day; the private office
+publishes `510.00` against 170/day. Never quote a store JSON-LD figure as "the
+price", and note a price-aware surface (a Google rich result, an AI answer) will.
+
+### Store-side findings, NOT fixable in this repo
+
+Owner informed, no document requested (2026-08-01). Recorded so they are not
+rediscovered:
+
+1. 🔴 **Tabby is enabled at checkout on a SANDBOX key.** `pk_test_fd66015f-…`
+   appears on all 16 captured pages and is the store's ONLY test key, beside
+   Moyasar's `pk_live_`. Our copy names Tabby in 4 strings per language (hedged
+   "where available"). Pre-existing; payment always went to Rekaz.
+2. 🔴 **The store's coworking product advertises FINGERPRINT entry, 13 times**
+   (`بصمة`), including a first-visit enrolment precondition. Our own copy says it
+   **zero** times, stripped site-wide 2026-07-23 as PDPL-sensitive. ⚠️ **This
+   change is what exposes it**: buyers previously booked on-site and never read
+   that description.
+3. 🔴 **The private-office store page never mentions the 20% meeting-room
+   discount**, which our copy promises in 10 strings per language (`خصم`, `20%`
+   and `الملقى` all count zero there, while the sibling coworking product DOES
+   document its 15% perk). Rekaz has no coupon API, so a person honours it.
+
+⚠️ **One adversarial finding was REFUTED by measurement, recorded so it is not
+re-raised:** an agent reported a "cancellation expectation gap", claiming our
+copy implies flexibility against the store's no-refund policy. It does not.
+`Faq.groups[1].items[3].a` says *"it stays non-refundable once it's placed"* and
+`TermsPage.sections[4]` says it again. The agent had read only the space page's
+own FAQ.
+
+**Still genuinely unverified** (completeness critic): nobody has clicked past a
+product page. Variant → cart → slot picker → customer form → payment is
+untested, and for the two reservation products the availability call happens
+client-side, so a 200 cannot reveal a broken slot endpoint. Cheapest closure is
+one click-through per product stopping at the payment page.
 
 ## Undoing this
 

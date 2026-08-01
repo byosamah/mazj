@@ -171,7 +171,37 @@ The brand's emotional spine is *a place that is truly yours, among your people* 
   - Everything outside `/spaces/*/book` keeps the old rule: no SAR amounts in headings, intros, FAQ answers, space pages or meta. (Subscriber perks like "15% / 20% off the meeting room" were always allowed and still are. It read "Membership perks" until 2026-07-31; the discount rule is unchanged, only the word for who gets it, see the reserved-word rule below.)
   - Inside the booking flow, prices are shown, pulled live from the Rekaz API. Nobody enters card details without seeing a total.
   - **Never hardcode a price in copy.** Rekaz rotates price ids when a price is edited, and a number typed into `messages/*.json` goes stale silently. The flow reads them at request time.
-- 🔴 **Booking happens HERE now, not on mazj.sa. Copy must never send people away.**
+- 🔴 **SUSPENDED 2026-08-01: BOOKING LINKS OUT TO mazj.sa AGAIN.** Owner decision,
+  until Rekaz fix their API. Every Book control opens the product's page on the
+  storefront in a new tab. So the headline rule directly below is currently
+  FALSE, and the rest of this bullet describes how copy worked from 2026-07-27
+  until 2026-08-01 and will again. Root `CLAUDE.md`, launch item 1, has the
+  mechanics; the keeper branch is `feature/onsite-booking`.
+  - ⚠️ **The sub-rules did NOT flip, and that is the useful part.** "Usually the
+    location is simply deleted" is still the answer, just pointing the other
+    way: copy must not say booking happens HERE either. Four strings were
+    corrected on 2026-08-01, all four pure deletions:
+    - ✗ "You book and pay **right here**, by card or split payments…" →
+      ✓ "You book and pay by card, or split payments…"
+      (AR: ✗ `تحجز وتدفع **من هنا** بالبطاقة…` → ✓ `تحجز وتدفع بالبطاقة…`)
+    - ✗ "…and finish your booking **right here**." → ✓ "…and finish your booking."
+      (AR: ✗ `وأكمل حجزك **من هنا**.` → ✓ `وأكمل حجزك.`)
+  - 🔴 **The 2026-07-27 trap repeated itself in mirror image, so record it as a
+    LAW rather than an incident: changing a link does not change the sentence
+    around it, in EITHER direction.** The link change shipped on 2026-08-01 with
+    the copy untouched and it was reported as a virtue ("zero copy changes"),
+    which is exactly how `SpaceOffice.faq[3].a` came to promise "you book and
+    pay right here" on the very page whose button leaves the site. **Any change
+    to where booking happens requires a copy sweep in the same session.**
+  - ⚠️ **Roughly seven more strings per language still over-claim** and were
+    deliberately left (owner decision, 2026-08-01: fix the flatly false ones
+    only). They stretch rather than lie: `SpaceCoworking.faq[0].a` and
+    `Faq.groups[1].items[4].a` say a day pass is "booked right here"
+    (`يُحجز من هنا`), the three `about[2]` strings say "the live price is shown
+    as you book", and `TermsPage.sections[3]` plus `PrivacyPage.sections[1]`
+    (AR) say spaces are booked "on our website". 🔴 Those last two are LEGAL
+    copy, so re-read them against the rule below before any launch.
+- 🔴 **Booking happened HERE from 2026-07-27 to 2026-08-01, not on mazj.sa. Copy must never send people away.** (Suspended; see above.)
   - The site used to link out to the Rekaz storefront, so 58 strings said so. They were swept on 2026-07-27, and the trap is that the LINKS were fixed first: `lib/links.ts` pointed at `/spaces/<space>/book` while the button beside it still read "Book on mazj.sa". Changing a link does not change the sentence around it.
   - ✗ `احجز عبر mazj.sa` / "Book on mazj.sa" → ✓ `احجز الآن` / "Book now"
   - ✗ `وتُحجز بالساعة عبر mazj.sa.` → ✓ `وتُحجز بالساعة.` **Usually the location is simply deleted.** "Booked by the hour" is warmer and shorter than naming a domain, and per §3.2 prose that repeats what the widget already does is dead words.

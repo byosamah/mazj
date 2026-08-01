@@ -366,7 +366,7 @@
   "SpacesPage": {
     "eyebrow": "The spaces",
     "title": "Every space,\none address",
-    "intro": "Four spaces at MAZJ in Al-Khobar. Pick the space first, then how long you need it, and finish your booking right here.",
+    "intro": "Four spaces at MAZJ in Al-Khobar. Pick the space first, then how long you need it, and finish your booking.",
     "bookCta": "Book now",
     "detailCta": "See the space",
     "sectionEyebrow": "Book direct",
@@ -520,7 +520,7 @@
       },
       {
         "q": "How does payment work?",
-        "a": "You book and pay right here, by card or split payments with Tamara or Tabby where available, with a VAT invoice on request."
+        "a": "You book and pay by card, or split payments with Tamara or Tabby where available, with a VAT invoice on request."
       }
     ]
   },
