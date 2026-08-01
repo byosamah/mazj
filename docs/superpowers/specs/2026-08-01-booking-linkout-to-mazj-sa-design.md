@@ -305,13 +305,65 @@ own code already uses. So pointing `mazj.sa` at Vercel breaks the store's
 **pages**, not its data layer. That is the blocker already recorded in root
 `CLAUDE.md` launch item 4, not a new one.
 
-**Still unverified, and it cannot be closed for free:** the customer form, order
-creation and the payment hand-off. On all four products "add to cart" is a
-server write (`POST /api/app/cart/cart-items/<cartId>` carrying the date and
-time), and `/cart`, `/checkout` and `/orders` all render "page not found", so
-the form only exists after that write. Closing it costs exactly one deliberate
-throwaway booking on the live calendar, cancelled by hand, and needs the owner's
-say-so.
+### The add-to-cart run, 2026-08-01 (owner-authorised)
+
+Owner approved creating cart items but **not** submitting customer details. Ran
+EN only, cheapest variant, mid-December dates. 🔴 `submittedAnyDetails` and
+`createdAnyOrder` are **false** on every product that reported: no name, mobile
+or email typed anywhere, no order, no payment. Both carts sit at status `cart`
+with `customerId: null`, a state an order cannot be in.
+
+| Product | add-to-cart | Notes |
+|---|---|---|
+| Private office | **200, clean** | Checkout drawer opened |
+| Meeting room | **200, clean** | Checkout drawer opened |
+| Events hall | **never fired** | Blocked by its own required Arabic-only fields |
+| Open desk | **no result** | Refused by a safety classifier, see below |
+
+**The checkout is a 3-step in-page drawer**, `Summary > Billing > Payment`, at
+the same URL. At Summary there are **zero input fields in the DOM** and **no
+payment method renders**: the customer form is behind step 2 and payment behind
+step 3.
+
+✅ **AN ABANDONED CART DOES NOT HOLD A ROOM. Measured, not assumed.** A December
+availability snapshot was taken BEFORE the run and re-read after: 276 slots, 276
+available, both times, and the exact carted slot (Mon 14 Dec 09:00Z) still
+reports `availableReservationsCount: 1`. **Zero slots changed.** So a browsing
+customer cannot block a paying one, and stale carts are not urgent.
+
+⚠️ **The store creates 1-3 empty carts on EVERY page load**, before anyone
+clicks, so cart counts are not a funnel metric and ~26 empty rows from this run
+are indistinguishable from normal public traffic.
+
+⚠️ **A `PUT /api/app/cart/cart-branch` returned 409 on a first page load**,
+leaving a user-visible English error string in the DOM ("The data you have...").
+
+### 🔴 THE COUPON FIELD EXISTS, AND FOUR DOCS SAY IT CANNOT
+
+The checkout's Summary step renders **"Do you have a coupon code?"** as a
+collapsed accordion above the price. Confirmed by eye in
+`scratchpad/cart/privateOffice-04-after-addtocart.png`.
+
+Root `CLAUDE.md`, `server/CLAUDE.md`, `TONE.md` and the startups approval email
+all assert that Rekaz has no coupon capability, that the offer code "cannot be
+redeemed by software anywhere", and that a person must honour it. The email says
+in as many words that there is "nothing to type into a payment page".
+
+⚠️ **What is actually established is narrower than either claim.** Confirmed: a
+coupon input exists in the live checkout. **NOT** confirmed: that the owner can
+create coupons in the Rekaz dashboard, or that any code is accepted. The two are
+reconcilable (the merchant API may expose no coupon endpoint while the storefront
+still redeems dashboard-created ones), but **"cannot be redeemed by software
+anywhere" is no longer safe to rely on**, and it is load-bearing for the startups
+offer and for the 15% / 20% discounts our copy promises.
+
+🔴 **Owner action, not a code change:** look for a coupons or promotions section
+in the Rekaz dashboard. If it exists, the startups offer can stop being honoured
+by hand and the approval email's sentence is wrong and must change.
+
+**Still unverified after all of this:** the Billing form, order creation and the
+payment hand-off. Reaching them requires submitting real contact details, which
+creates a permanent customer record. Owner declined, deliberately.
 
 ## Undoing this
 
