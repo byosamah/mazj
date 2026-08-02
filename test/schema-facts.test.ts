@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 
 import {describe, expect, it} from "vitest";
 
-import {eventSchema, localBusinessSchema} from "@/lib/schema";
+import {eventSchema, localBusinessSchema, websiteSchema} from "@/lib/schema";
 
 /**
  * The `LocalBusiness` node states machine-readable FACTS. This file pins the
@@ -320,5 +320,60 @@ describe("eventSchema location", () => {
     >;
 
     expect((schema.organizer as Record<string, string>)["@id"]).toContain("#business");
+  });
+});
+
+/**
+ * The `WebSite` node, and the two things that must never appear in it.
+ *
+ * 🔴 Both omissions will look like oversights to a future audit. They are not.
+ * A `SearchAction` is the most copy-pasted snippet in SEO and this site has no
+ * search, so declaring one is invented structured data. A second `Organization`
+ * node duplicates an entity that `LocalBusiness` already is.
+ */
+describe("websiteSchema", () => {
+  const site = websiteSchema("en", "MAZJ") as unknown as Record<string, Json>;
+
+  it("🔴 declares NO SearchAction, because the site has no search", () => {
+    expect(site.potentialAction).toBeUndefined();
+    expect(JSON.stringify(site)).not.toContain("SearchAction");
+  });
+
+  it("points at the business node rather than restating it", () => {
+    expect((site.publisher as Record<string, string>)["@id"]).toContain("#business");
+    // A stable fragment id, so other nodes can reference this one.
+    expect(site["@id"]).toContain("#website");
+  });
+
+  it("carries the other language's name, in both locales", () => {
+    expect(site.alternateName).toBe("مزج");
+    expect(
+      (websiteSchema("ar", "مزج") as unknown as Record<string, Json>).alternateName
+    ).toBe("MAZJ");
+  });
+});
+
+describe("LocalBusiness vocabulary corrections (2026-08-02)", () => {
+  const schema = schemaFor("en");
+
+  it("🔴 uses knowsLanguage, not inLanguage", () => {
+    // `inLanguage` is not defined for Organization or Place. Checked against
+    // schema.org/inLanguage: BroadcastService, CommunicateAction, CreativeWork,
+    // Event, LinkRole, PronounceableText, WriteAction. An undefined property is
+    // ignored rather than rejected, which is how it sat here unnoticed.
+    expect(schema.inLanguage).toBeUndefined();
+    expect(schema.knowsLanguage).toEqual(["ar", "en"]);
+  });
+
+  it("types itself as a coworking space via Wikidata", () => {
+    // Q97307779, label verified live: "coworking space".
+    expect(schema.additionalType).toBe("https://www.wikidata.org/wiki/Q97307779");
+  });
+
+  it("🔴 asserts NO foundingDate, because the site only knows an events date", () => {
+    // Five strings per language say MAZJ has HOSTED EVENTS since 2022.
+    // `foundingDate` is when the COMPANY was founded, which nothing here knows.
+    expect(schema.foundingDate).toBeUndefined();
+    expect(schema.founded).toBeUndefined();
   });
 });

@@ -87,10 +87,30 @@ export function localBusinessSchema({
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "@id": BUSINESS_ID,
+    // Points at Wikidata's "coworking space" (Q97307779, label verified live
+    // 2026-08-02: "shared workspace encouraging exchanges and openness").
+    // schema.org has no coworking subtype, so `LocalBusiness` is as specific as
+    // the vocabulary gets and this is how you say the rest. 🔴 It is also the
+    // one field here aimed squarely at the measured problem: Google's AI
+    // Overview named MAZJ in 0 of 6 category answers while three other
+    // assistants named it, which is an entity-recognition failure rather than a
+    // content one. Do not spend another hour looking for a better @type; there
+    // isn't one.
+    additionalType: "https://www.wikidata.org/wiki/Q97307779",
     name,
     description,
     url: absoluteUrl(`/${locale}`),
-    inLanguage: locale === "ar" ? "ar-SA" : "en-US",
+    // 🔴 `knowsLanguage`, NOT `inLanguage`. This said `inLanguage` until
+    // 2026-08-02 and that property is not defined for Organization or Place:
+    // schema.org lists it on BroadcastService, CommunicateAction, CreativeWork,
+    // Event, LinkRole, PronounceableText and WriteAction only (checked against
+    // schema.org/inLanguage, not from memory). An undefined property is
+    // silently ignored rather than rejected, which is why it sat here unnoticed.
+    // ⚠️ It stays correct on `eventSchema` below, because Event IS in that list.
+    //
+    // Both languages on both locales, deliberately: the business speaks Arabic
+    // and English whichever page you are reading, so there is no branch here.
+    knowsLanguage: ["ar", "en"],
     image: absoluteUrl("/images/hero-bg.jpg"),
     logo: absoluteUrl("/logos/mazj-wordmark.png"),
     address: {
@@ -347,6 +367,51 @@ export function localBusinessSchema({
       url: absoluteUrl(`/${locale}${o.path}`),
       priceCurrency: "SAR",
     })),
+  };
+}
+
+/**
+ * The `WebSite` node: says that this site IS the business's site, and that the
+ * business publishes it.
+ *
+ * Small on its own. It exists because the entity signal is where MAZJ measurably
+ * loses: on 2026-08-02 Google's AI Overview named MAZJ in **0 of 6** category
+ * answers while Gemini, ChatGPT and Perplexity all named it, several in first
+ * place. Both Google surfaces read the same Business Profile, so that is a
+ * recognition gap rather than a content gap, and `publisher` plus a stable
+ * `@id` is the cheapest thing in the vocabulary that addresses it.
+ *
+ * 🔴 NO `potentialAction` / `SearchAction`, and that omission is deliberate and
+ * permanent. The sitelinks-searchbox markup is the single most copy-pasted
+ * snippet in SEO and it declares that a site has a search endpoint. **This site
+ * has no search of any kind.** Declaring one is invented structured data, which
+ * the header of this file records as a site-wide penalty risk rather than a
+ * page-scoped one. A later pass will want to add it. Do not.
+ *
+ * ⚠️ Nor a separate `Organization` node. `LocalBusiness` already descends from
+ * `Organization`, so a second one is a duplicate entity claiming to be the same
+ * company, which is worse than having none. `publisher` references the existing
+ * node by `@id` instead.
+ *
+ * ⚠️ `foundingDate` was proposed for the business node and REJECTED on
+ * 2026-08-02, on the same test. The argument for it was that "since 2022" ships
+ * in five strings per language, which is true and was verified. But every one of
+ * those says MAZJ has HOSTED EVENTS since 2022, and `foundingDate` is when the
+ * COMPANY was founded. A business can be registered a year before it opens its
+ * doors. Nothing in this repo knows the incorporation date, so filling that
+ * field would be inferring a corporate fact from an operational one, which is
+ * exactly what this file refuses to do everywhere else.
+ */
+export function websiteSchema(locale: string, name: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${absoluteUrl("/")}#website`,
+    url: absoluteUrl(`/${locale}`),
+    name,
+    alternateName: locale === "ar" ? "MAZJ" : "مزج",
+    inLanguage: ["ar", "en"],
+    publisher: {"@id": BUSINESS_ID},
   };
 }
 

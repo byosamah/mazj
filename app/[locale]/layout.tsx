@@ -11,7 +11,7 @@ import SmoothScroll from "@/components/motion/SmoothScroll";
 import ScrollReset from "@/components/ScrollReset";
 import JsonLd from "@/components/JsonLd";
 import {ogImage} from "@/lib/metadata";
-import {localBusinessSchema} from "@/lib/schema";
+import {localBusinessSchema, websiteSchema} from "@/lib/schema";
 import {SITE_URL} from "@/lib/site";
 
 export function generateStaticParams() {
@@ -183,6 +183,10 @@ export default async function LocaleLayout({
           {nav("skipToContent")}
         </a>
         <JsonLd data={business} />
+        {/* Separate block rather than an @graph: the site already emits several
+            standalone ld+json scripts (BreadcrumbList, FAQPage) and mixing the
+            two conventions in one document is harder to read than either. */}
+        <JsonLd data={websiteSchema(locale, meta("siteName"))} />
         <NextIntlClientProvider>
           <Navigation />
           {children}

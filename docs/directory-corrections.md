@@ -177,6 +177,42 @@ Either way somebody at MAZJ has to say which. Nothing on the web can settle it.
 and names three others, so MAZJ appears in an unlinked text block without being
 counted. Ask to be listed properly.
 
+## 4b. 🔴 THE LISTING THAT DOES NOT EXIST: event-venue directories
+
+**This is not a correction. It is the gap the whole audit ended up pointing at,
+and it is not covered anywhere in the build plan.**
+
+Measured 2026-08-02 with a controlled comparison. Same assistant, same language,
+one variable changed:
+
+| Prompt | MAZJ |
+|---|---|
+| "Where can I **run a 30-person workshop** in Al Khobar?" | **named 1st** |
+| "Where can I **rent a small event hall for 30 people** in Al Khobar?" | **absent** |
+
+Gemini split that second answer into "Social Event & Banquet Halls" and "Meeting
+Rooms & Corporate Event Spaces", named ten operators across the two, and MAZJ was
+in neither. ChatGPT's version of the same answer named **White Spaces** as the
+coworking-style alternative to a hotel. So a coworking operator can hold that
+slot. MAZJ simply does not.
+
+**The likely reason is a listings gap, not a content gap.** Every MAZJ listing
+this audit traced is a **coworking** directory: `thecoworkingspaces.com`,
+`coworkingspaces.me`, `workin.space`, `coworker.com`. That is exactly why MAZJ
+appears on coworking questions and vanishes on venue questions. The venue and
+event-space marketplaces that fill those answers have never been approached.
+
+**The action:** find where Al Khobar event venues are listed and get Al-Ma'arij
+onto them, described as venue inventory (capacity 30, screen, sound system,
+2 to 5 hour slots, hourly/session booking) rather than as a room inside a
+coworking space. The competitors that own these answers are hotels, so the
+directories worth finding are the ones a hotel banqueting team submits to.
+
+⚠️ Two honest caveats. This rests on one controlled prompt pair on two surfaces,
+not a large sample, so re-test in Arabic before treating it as universal. And
+nobody has yet identified WHICH venue directories serve this market: that is the
+first task, not an assumption that they exist and are open.
+
 ## 5. `zoominfo.com/c/mazj/556922471`
 
 Points at the stale 2021 site. Low priority, but it is a business-data source

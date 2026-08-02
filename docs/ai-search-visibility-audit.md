@@ -653,16 +653,141 @@ other three combined. Perplexity's English answer opened with
 and Servcorp", and Gemini named MAZJ first of seven unprompted, in a genuinely
 fresh session. That is a strong position that Google alone does not see.
 
-**The event and startup gap mostly survives, with one clean exception.** Gemini
-was absent on the meeting-room question that ChatGPT named MAZJ for, a real
-cross-surface divergence on an identical prompt.
+### 🔴 The "event and startup blind spot" was wrong. It is a SURFACE pattern, not a query pattern.
 
-⚠️ **An earlier draft here said "nothing named MAZJ for an event hall or a
-startup founder anywhere it was tested". That is now false and the correction
-matters.** The gap-fill put the startup-founder question to Gemini in a fresh
-session and **Gemini named MAZJ FIRST of six.** So the startup blind spot holds
-on Google, ChatGPT and Perplexity, and breaks on Gemini. Three of four, not four
-of four. The workshop blind spot is still unbroken at three of three.
+This section reported a blind spot three times and each new data point weakened
+it, until the gap-fill killed it outright. Recording the whole arc, because the
+final answer points somewhere completely different from the first one.
+
+Gemini, in fresh sessions, named MAZJ **first** on the startup-founder question
+AND **first** on the 30-person workshop question. Those are the two queries
+Google, ChatGPT and Perplexity all skipped. So the absence does not track the
+QUESTION at all.
+
+**MAZJ named, by surface and query:**
+
+| Query | Google AIO | ChatGPT | Perplexity | Gemini |
+|---|---|---|---|---|
+| Best coworking (EN) | ✗ | 2nd | **1st** | **1st** |
+| Best coworking (AR) | ✗ | 2nd | 3rd | **1st** |
+| Meeting room, hourly | ✗ | 2nd | not captured | ✗ |
+| Startup founder | ✗ | ✗ | ✗ | **1st** |
+| 30-person workshop (EN) | ✗ | ✗ | ✗ | **1st** |
+| 🔴 Event hall, 30 people (AR) | ✗ | ✗ | not captured | ✗ |
+
+**22 cells captured, MAZJ named in 9.**
+
+Read down the columns, not across the rows:
+
+- **Gemini: 4 of 6, and MAZJ is FIRST in every one of the four.**
+- **ChatGPT: 3 of 6, always second.**
+- **Perplexity: 2 of 4, first and third.**
+- **Google AI Overview: 0 of 6.**
+
+🔴 **And read ONE row across: the event-hall question is the only universal
+blind spot.** Every surface that answered it skipped MAZJ, including Gemini,
+which named MAZJ first on four other questions. Al-Ma'arij is built for exactly
+the capacity being asked about, and nothing found it.
+
+⚠️ **But that row cannot yet be interpreted, because two variables moved
+together.** The event-hall prompt is **Arabic** AND framed as **"rent a hall"**.
+The workshop prompt that Gemini answered with MAZJ first is **English** AND
+framed as **"run a workshop"**. Same product, same capacity, opposite result,
+two changes at once.
+
+The two readings have completely different consequences:
+
+- **If it is the FRAMING**, MAZJ does not register as a rentable venue, and the
+  consideration set for "rent a hall" is hotels and serviced offices. That is a
+  positioning problem with a clear fix.
+- **If it is the ARABIC**, that is far more serious, because Arabic is where
+  MAZJ's entire ranking equity lives.
+
+### ✅ RESOLVED: it is the FRAMING, not the Arabic. This is the cleanest result in the audit.
+
+`Where can I rent a small event hall for 30 people in Al Khobar?` was put to
+Gemini and ChatGPT in English, holding language constant against the workshop
+prompt and changing only the framing. **MAZJ vanished from both**, including the
+surface that had just named it first.
+
+| Same assistant, same language, one variable | MAZJ |
+|---|---|
+| "Where can I **run a 30-person workshop** in Al Khobar?" | **1st of 6** |
+| "Where can I **rent a small event hall for 30 people** in Al Khobar?" | **absent** |
+
+Arabic is not the variable. **"Rent a venue" puts MAZJ outside the consideration
+set in any language.**
+
+**And Gemini's own answer says why, in its structure.** It split the reply into
+two labelled groups:
+
+- **"Social Event & Banquet Halls"**: قاعة السلطانة, Grand Hyatt, Diyafa
+  Almakan, AlMasyia Hall
+- **"Meeting Rooms & Corporate Event Spaces"**: Regus, Spaces Ajdan Walk,
+  Servcorp, Sharik, Efficiency Center
+
+Ten operators across two buckets. **MAZJ was in neither.** The model has a
+category for banquet halls and a category for corporate meeting rooms, and a
+coworking space with a thirty-person hall does not land in either one.
+
+🔴 **And this is not a limit of the category, which is the part that makes it
+actionable.** ChatGPT's answer to the same prompt named **White Spaces** as "a
+coworking/event-style option that may work better than a hotel if you only need
+a compact space". So a coworking operator CAN occupy the venue-rental slot.
+White Spaces does. MAZJ does not. That removes the comfortable explanation and
+leaves a specific gap.
+
+### What follows, and it is not more copy
+
+**Al-Ma'arij needs to exist as bookable VENUE INVENTORY, not only as a room
+inside a coworking space that someone might find via coworking intent.**
+
+Three concrete consequences, in order of leverage:
+
+1. 🔴 **MAZJ is listed on coworking directories and, as far as this audit found,
+   on zero event-venue directories.** Every listing traced in §6 and §7
+   (`thecoworkingspaces.com`, `coworkingspaces.me`, `workin.space`,
+   `coworker.com`) is a coworking directory, which is precisely why MAZJ
+   surfaces on coworking questions and disappears on venue questions. The venue
+   marketplaces that fill these answers were never approached. **This is a new
+   item, not covered anywhere in the build plan**, and it is the single
+   highest-leverage thing this measurement produced.
+2. ✅ **The on-site half is already built and is currently inert.** `EventVenue`
+   with `maximumAttendeeCapacity: 30` went into `containsPlace` earlier today,
+   which is exactly the machine-readable statement "this is a venue that holds
+   thirty". It cannot help while the site serves `Disallow: /`. At launch it
+   starts working without further edits.
+3. ⚠️ **The page's own framing is worth re-reading against this.**
+   `/spaces/event-hall` is written in activity language ("made for workshops,
+   meetups, and gatherings"), which is what MAZJ sounds like and is why it wins
+   the workshop query. A buyer typing "rent a hall" uses rental language. That
+   is a `TONE.md` question, not an SEO instruction, and it should go to the
+   owner rather than be resolved here: the honest framing of the trade is that
+   the current copy wins one query and loses the other.
+
+⚠️ **Scope of the claim.** Two surfaces, one prompt pair, one language. It is a
+controlled comparison rather than a large sample, and it should be re-run in
+Arabic before anyone calls it universal. It is strong enough to act on because
+the control was clean, not because the sample was big.
+
+🔴 **The two Google products disagree completely with each other, and that is
+the finding.** Gemini puts MAZJ at the top of four separate answers. Google's AI
+Overview never mentions it once. Both have access to the same Business Profile,
+and Gemini demonstrably reads it: it returned 4.7 and the correct 9-to-5 hours
+from the profile card. So this is not a data-access problem, and it is not a
+content problem, because Gemini finds plenty to say.
+
+**Which relocates the whole question.** The thing to explain is no longer "why
+is MAZJ invisible on event queries", it is **"why does Google AI Overview, alone
+among four assistants, not surface MAZJ at all"**. That is a local-search and
+entity question, not a copy question, and it points at C6 (claim the Business
+Profile) rather than at any page in this repo.
+
+⚠️ **Honest note on sample size, because it cuts against the flattering
+reading.** Gemini's 4-of-4 rests on four captures in a surface that hung twice
+and needed a fresh tab per query to behave. Google's 0-of-6 is the cleanest,
+largest and least-caveated sample in the whole set. **The most reliable number
+here is the worst one.**
 
 ### 🔴 The gap-fill settled it, and it is not a MAZJ problem. It is a CATEGORY problem.
 
@@ -784,12 +909,20 @@ and in Arabic
 This is not a poisoned source being repeated, because no source says it. It is
 invention.
 
-🔴 **And it invents the one thing `TONE.md` most forbids.** "Revenue sharing"
-and "profit-sharing models" describe a business that takes a cut of your
-company. That is the accelerator and incubator positioning MAZJ has spent
-deliberate effort refusing. Round 1 found that no assistant called MAZJ an
-accelerator when asked directly. Gemini implies it unprompted, in a
-recommendation, in both languages.
+⚠️ **AND THE FIRST READING OF THIS WAS TOO POINTED. It is category boilerplate,
+not a MAZJ-specific claim.** This was written up as "Gemini invents the one
+thing `TONE.md` most forbids", on the reasoning that revenue-sharing describes a
+business taking a cut of your company, which is the accelerator positioning MAZJ
+refuses. Then the same fabrication turned up in a later answer attached to a
+**different** operator: "An ideal environment for micro-enterprises, which
+seamlessly aligns with **subsidized co-working space allocations** from
+initiatives like Monshaat", said of Growth Hub by Fahdan.
+
+So Gemini applies this language to coworking spaces generally. It is still
+false, it is still attached to MAZJ in one answer, and it still describes a
+business model MAZJ does not have. But it is not evidence that anything about
+MAZJ specifically invited it, and reporting it that way would have been reading
+a category tic as a targeted problem.
 
 ⚠️ Fabrication is a different problem from the other two and neither fix touches
 it. Correcting `mazj.org` will not stop it and getting reviews will not stop it.
@@ -798,6 +931,33 @@ instead**, because a model with nothing concrete about a business fills the gap
 with category boilerplate. That is an argument for the concrete facts already
 built in this session, `maximumAttendeeCapacity`, `amenityFeature`, `/llms.txt`,
 and it is the one finding in this audit that argues for on-site work.
+
+🔴 **AND THERE IS A SECOND, STRANGER KIND, CAPTURED ON THE SAME SURFACE.** Asked
+where a startup founder should work, Gemini recommended MAZJ first and justified
+it like this:
+
+> "**MAZJ shares the exact name of your business project**, making this coworking
+> space on Amin Alraihani Street a uniquely fitting base for your operations."
+
+The prompt never named a business. There was no business to share a name with.
+The model invented a **fact about the reader** in order to manufacture a reason
+to recommend MAZJ.
+
+**That is a different failure from inventing an attribute, and arguably worse.**
+Inventing "revenue-sharing" misdescribes MAZJ, which is bad but at least
+checkable. Inventing a personal coincidence produces a recommendation that
+sounds tailored, is not, and collapses the moment the reader notices. A buyer
+who chooses MAZJ for a reason that was never true is a buyer arriving with a
+false expectation, and MAZJ never said any of it.
+
+⚠️ Nothing in this repo can prevent it and no off-site fix touches it either. It
+is recorded because it changes what an AI-visibility number MEANS: MAZJ was
+"recommended first" in that answer, and part of the reason given was fiction.
+**A favourable mention is not automatically a good mention.** Any future
+prompt-tracking should read the framing, not just count the placements.
+
+⚠️ Note the same answer also placed MAZJ on **"Amin Alraihani Street"**, the
+third capture of that bad-directory address across two rounds.
 
 ### The bad directory address reached an assistant, verbatim
 
