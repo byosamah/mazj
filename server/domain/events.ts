@@ -60,6 +60,53 @@ export function registrationIsOpen(
 }
 
 // ---------------------------------------------------------------------------
+// What an event must carry before it may go live
+// ---------------------------------------------------------------------------
+
+/** The four strings `events_published_is_bilingual` requires. */
+export type PublishableCopy = {
+  titleEn: string | null;
+  titleAr: string | null;
+  summaryEn: string | null;
+  summaryAr: string | null;
+};
+
+/** Which one is missing, named as the form's own control. */
+export type MissingForPublish =
+  | "titleEn"
+  | "titleAr"
+  | "summaryEn"
+  | "summaryAr";
+
+/**
+ * The first thing standing between this event and the public site, or `null`.
+ *
+ * 🔴 ONE definition, read by three callers that would otherwise each grow their
+ * own: the save action, the status control on the events list, and the same
+ * control on the event's own page. Two of those write the same row from
+ * different screens, and a rule restated per screen is a rule that eventually
+ * lets one screen publish what the other refuses.
+ *
+ * ⚠️ It is deliberately STRICTER than the check constraint it mirrors. Postgres
+ * asks only that the four columns are NOT NULL, so a row holding `''` satisfies
+ * it and would publish an event with a blank heading on both language pages.
+ * The trim closes that, and being stricter is the safe direction: the worst it
+ * can do is refuse to publish something nobody would want published.
+ *
+ * The ORDER is the form's reading order, so the field it names is the first one
+ * an operator's eye reaches when they open the event to fix it.
+ */
+export function missingToPublish(
+  copy: PublishableCopy
+): MissingForPublish | null {
+  if (!copy.titleEn?.trim()) return "titleEn";
+  if (!copy.titleAr?.trim()) return "titleAr";
+  if (!copy.summaryEn?.trim()) return "summaryEn";
+  if (!copy.summaryAr?.trim()) return "summaryAr";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Seats
 // ---------------------------------------------------------------------------
 

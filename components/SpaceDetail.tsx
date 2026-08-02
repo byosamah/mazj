@@ -2,6 +2,8 @@ import Image from "next/image";
 import {Link} from "@/i18n/navigation";
 import Reveal from "./Reveal";
 import CtaButton from "./CtaButton";
+import JsonLd from "./JsonLd";
+import {faqPageSchema} from "@/lib/schema";
 
 type Fact = {label: string; value: string};
 type Cta = {label: string; href: string; variant?: "dark" | "light"};
@@ -56,7 +58,11 @@ export default function SpaceDetail({
     <section className="relative w-full bg-beige px-6 py-16 lg:px-10 lg:py-24">
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal className="flex items-start justify-center">
-          <div className="relative aspect-[4/3] w-full max-w-[640px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
+          {/* Hairline via `after:`, the MediaFrame idiom. This is the biggest
+              photo on all four space routes and it was the last drop-shadowed
+              card on the site; its inset ring never rendered at all, because an
+              inset shadow paints under the opaque photo that fills the box. */}
+          <div className="relative aspect-[4/3] w-full max-w-[640px] overflow-clip rounded-[16px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']">
             <Image
               src={image}
               alt={imageAlt ?? ""}
@@ -93,7 +99,15 @@ export default function SpaceDetail({
               observer. The marker uses mt-[7px]+shrink-0 for optical alignment
               against the first line of a wrapping item. */}
           <div className="flex flex-col gap-4">
-            <p className="eyebrow text-12 text-muted">{includesTitle}</p>
+            {/* 🔴 A HEADING, not a styled <p>. This labels the four buying
+                reasons on all 8 space-detail URLs, which is the exact block a
+                buyer-intent query asks about, and a paragraph puts it in no
+                outline and no screen-reader rotor. `h3` is the right level: it
+                sits under the `aboutTitle` h2 and introduces no skipped level.
+                Visually identical, because `.eyebrow` (a class, 0-1-0) outranks
+                `h3 { letter-spacing: -0.02em }` (an element, 0-0-1) and
+                Tailwind's preflight strips heading size and margin. */}
+            <h3 className="eyebrow text-12 text-muted">{includesTitle}</h3>
             {/* must be a Reveal, not a plain <ul>: `.reveal-list` hides its
                 children until the CONTAINER gains `.is-visible`. */}
             <Reveal as="ul" className="reveal-list flex max-w-[480px] flex-col gap-3">
@@ -141,6 +155,31 @@ export default function SpaceDetail({
           </Reveal>
 
           <Reveal delay={100} className="flex flex-col gap-4">
+            {/* 🔴 FAQPage markup lives HERE, beside the questions it describes,
+                not in the four page.tsx files that mount this component.
+                Google requires the marked-up answer to be present on the page,
+                so the schema and the visible <dl> must never be able to
+                disagree. Building both from the same `faq` prop makes that
+                structurally true rather than a thing to remember: there is no
+                second read of the message file to drift from.
+
+                Each of the four space pages carries its own four questions and
+                NONE of them repeats one from /faq (verified 2026-08-02: 16
+                space questions, 18 on /faq, zero overlap), so these are 16
+                genuinely additional Q&A pairs rather than a duplicate of the
+                FAQPage node on /faq. One FAQPage per URL is exactly what the
+                spec wants.
+
+                ⚠️ Deliberately NOT extended to the landing page's FAQ teaser,
+                which renders a `limit`ed slice of the /faq set. Marking up a
+                partial copy of another page's questions is the one shape of
+                this that IS duplication. app/CLAUDE.md records that rule.
+
+                On Google specifically this earns no stars any more (FAQ rich
+                results are limited to government and health sites). It is here
+                for Perplexity, which measurably favours FAQ structured data,
+                and for the other answer engines that read it. */}
+            <JsonLd data={faqPageSchema(faq)} />
             {faqTitle && (
               <h2 className="text-balance font-sans text-24 font-medium leading-tight text-black lg:text-32">
                 {faqTitle}

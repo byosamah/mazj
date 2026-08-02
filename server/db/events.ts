@@ -530,6 +530,51 @@ export async function updateEvent(
   }
 }
 
+/**
+ * Moves ONE event between draft, published and cancelled, and touches nothing
+ * else.
+ *
+ * 🔴 `.eq("status", from)` IS the concurrency control, exactly as the startups
+ * queue's conditional update is. Two people with the events list open, or one
+ * person with a tab that has been sitting there since this morning, are both
+ * looking at a status that may already have moved. Writing `to` unconditionally
+ * would let a stale tab silently republish something a colleague pulled down
+ * ten minutes ago, and neither of them would ever know.
+ *
+ * ⚠️ So `null` here means NO ROW MATCHED, which is three different situations
+ * and the caller has to tell them apart by reading the row: the event is gone,
+ * somebody else moved it, or it is already at `to`. Only the middle one is a
+ * conflict, and reporting all three as one is how an operator ends up being told
+ * "that failed" about a change that has in fact already happened.
+ *
+ * The bilingual check constraint still guards the `published` transition
+ * independently, and `writeError` maps it. `missingToPublish` is what turns it
+ * into a sentence naming the field; this is the backstop under that.
+ */
+export async function setEventStatus(
+  id: string,
+  from: EventStatus,
+  to: EventStatus
+): Promise<Result<EventRecord | null, AppError>> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("events")
+      .update({ status: to })
+      .eq("id", id)
+      .eq("status", from)
+      .select(COLUMNS)
+      // `maybeSingle`, not `single`: a conditional update matching nothing is
+      // the expected outcome of a stale page, not a database error, and
+      // `single` reports it as one.
+      .maybeSingle();
+
+    if (error) return err(writeError("set event status", error));
+    return ok(data ? toRecord(data) : null);
+  } catch (cause) {
+    return err(fromUnknown(cause, "set event status"));
+  }
+}
+
 export async function deleteEvent(id: string): Promise<Result<void, AppError>> {
   try {
     const { error } = await supabaseAdmin().from("events").delete().eq("id", id);

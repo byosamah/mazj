@@ -7,7 +7,6 @@ import PageIntro from "@/components/PageIntro";
 import SpaceDetail from "@/components/SpaceDetail";
 import SpacesGrid from "@/components/SpacesGrid";
 import LocationHours from "@/components/LocationHours";
-import Footer from "@/components/Footer";
 import {bookingUrl} from "@/lib/links";
 
 function Content() {
@@ -67,7 +66,6 @@ export default async function MeetingRoomPage({
     <main id="content" tabIndex={-1} className="w-full overflow-x-hidden">
       <SpaceBreadcrumbs locale={locale} namespace="SpaceMeeting" path="/spaces/meeting-room" />
       <Content />
-      <Footer />
     </main>
   );
 }

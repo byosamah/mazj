@@ -345,6 +345,18 @@ h3 { letter-spacing: -0.02em; }
   transition: transform 0.35s var(--ease-expo), opacity 0.2s ease;
   transform-origin: 50% 50%;
 }
+/* 🔴 The glyph is GENERATED, not a text node, and that is an SEO fix rather
+   than a style choice. `.acc-sign` lives inside the <label>, which lives inside
+   the question's <h3>, so a literal "+" in the markup made the heading TEXT of
+   every FAQ row end in "+" (48 headings across /faq x2 and the two landing
+   teasers). `aria-hidden` does not help: it removes the element from the
+   accessibility tree and leaves the character in the DOM text an extractor
+   reads. Moving the span out of the <h3> was the other candidate and it is
+   worse: the two rotation selectors below exist precisely BECAUSE the span is
+   nested, so restructuring the markup means rewriting them too. */
+.acc-sign::after {
+  content: "+";
+}
 /* a "+" rotated 45deg reads as a "×": one glyph, both states.
    Same nesting trap as the focus ring above: the sign lives inside the <dt>, so
    the old `:checked ~ .acc-label .acc-sign` matched 0 elements and an open row

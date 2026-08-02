@@ -87,7 +87,7 @@ export default function EventCard({
           </h3>
 
           {event.host && (
-            <p className="text-15 leading-relaxed text-black/70">{event.host}</p>
+            <p className="text-pretty text-15 leading-relaxed text-black/70">{event.host}</p>
           )}
 
           <p className="max-w-[46ch] text-pretty text-15 leading-relaxed text-muted">

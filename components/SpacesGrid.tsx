@@ -48,7 +48,7 @@ export default function SpacesGrid({
         {showHeader && (
           <Reveal className="flex flex-col items-center gap-5 text-center">
             <p className="eyebrow text-12 text-muted">{t("eyebrow")}</p>
-            <h2 className="whitespace-pre-line font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
+            <h2 className="whitespace-pre-line text-balance font-sans text-32 font-medium leading-[1.05] text-black lg:text-50">
               {t("title")}
             </h2>
           </Reveal>
@@ -56,7 +56,7 @@ export default function SpacesGrid({
 
         {heading && (
           <Reveal className="flex flex-col gap-4 border-t border-black/10 pt-6">
-            <h2 className="font-sans text-24 font-medium leading-tight text-black lg:text-32">
+            <h2 className="text-balance font-sans text-24 font-medium leading-tight text-black lg:text-32">
               {heading}
             </h2>
           </Reveal>

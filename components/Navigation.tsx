@@ -3,7 +3,7 @@
 import {useEffect, useRef, useState} from "react";
 import Image from "next/image";
 import {useLocale, useTranslations} from "next-intl";
-import {Link} from "@/i18n/navigation";
+import {Link, usePathname} from "@/i18n/navigation";
 import CtaButton from "./CtaButton";
 import LocaleSwitcher from "./LocaleSwitcher";
 import {getLenis} from "./motion/SmoothScroll";
@@ -26,7 +26,18 @@ const FOCUSABLE = "a[href], button:not([disabled])";
 
 export default function Navigation() {
   const t = useTranslations("Nav");
+  // The brand string, per locale, for the wordmark's alt. The PNG DRAWS the
+  // Arabic مزج, so the hardcoded alt="MAZJ" it carried until 2026-08-02 was
+  // wrong on all 13 Arabic routes (39 of its 78 instances site-wide): it
+  // neither described the picture nor matched the name the page uses
+  // everywhere else, and Arabic image search saw no مزج on the one asset that
+  // IS the mark. `Meta.siteName` already exists in both message files, so this
+  // needs no new key and cannot drift from the brand.
+  const brand = useTranslations("Meta")("siteName");
   const rtl = useLocale() === "ar";
+  // Locale-stripped ("/spaces", not "/en/spaces"), which is exactly the shape
+  // `links` holds, so the comparison needs no prefix handling.
+  const pathname = usePathname();
   const isDesktop = useIsDesktop();
   const reduceMotion = usePrefersReducedMotion();
 
@@ -178,7 +189,7 @@ export default function Navigation() {
               is in the first viewport on all 26 of them. Left to the default it
               is lazy, and a lazy image in a fixed header still waits for the
               observer. */}
-          <Image src="/logos/mazj-wordmark.png" alt="MAZJ" height={19} width={26} priority className="h-[19px] w-auto" />
+          <Image src="/logos/mazj-wordmark.png" alt={brand} height={19} width={26} priority className="h-[19px] w-auto" />
         </Link>
         {/* Labelled so a landmark rotor can tell this from the footer's nav.
             Unlabelled, the two announced as a bare "navigation, navigation".
@@ -186,10 +197,20 @@ export default function Navigation() {
             of the two subtrees is ever display:block, so they never coexist in
             the accessibility tree. */}
         <nav aria-label={t("primaryNav")} className="flex flex-row items-center" style={{gap: "24px"}}>
+          {/* `aria-current="page"` was absent from the public nav on all 26
+              routes (the admin rail already had it). It is the only thing that
+              tells a screen-reader or a crawler which of the four is the page
+              being read; without it the nav announces four equal links on every
+              route. Deliberately no visual change: the design has no active
+              state and adding one is an owner call, so this is the semantic
+              half only. `startsWith` covers /spaces/coworking marking /spaces. */}
           {links.map((l) => (
             <Link
               key={l.label}
               href={l.href}
+              aria-current={
+                pathname === l.href || pathname.startsWith(`${l.href}/`) ? "page" : undefined
+              }
               className="text-14 text-black inline-flex items-center min-h-[40px] underline decoration-transparent underline-offset-[6px] hover:decoration-black [transition:text-decoration-color_200ms,transform_120ms] active:scale-[0.96]"
             >
               {l.label}
@@ -291,7 +312,7 @@ export default function Navigation() {
       <div ref={mobileRef} className="pointer-events-none w-[calc(100vw-1.5rem)] lg:hidden">
         <div className="pointer-events-auto flex items-center justify-between rounded-[6px] bg-white px-5 py-3 shadow-[0_2px_20px_rgba(0,0,0,0.1)]">
           <Link href="/" aria-label={t("home")} className="relative flex items-center transition-transform duration-[120ms] active:scale-[0.96] before:absolute before:content-[''] before:left-1/2 before:top-1/2 before:h-[44px] before:w-[44px] before:-translate-x-1/2 before:-translate-y-1/2">
-            <Image src="/logos/mazj-wordmark.png" alt="MAZJ" height={18} width={25} priority className="h-[18px] w-auto" />
+            <Image src="/logos/mazj-wordmark.png" alt={brand} height={18} width={25} priority className="h-[18px] w-auto" />
           </Link>
           <div className="flex items-center gap-4">
             <LocaleSwitcher />
@@ -312,11 +333,31 @@ export default function Navigation() {
                   an X would need per-line scaling to come out symmetric. The
                   wrapper pins both to the icon's own 18x14 box so neither relies
                   on flex static-position for abspos children. Reduced motion is
-                  already handled globally (transition-duration -> 0.001ms). */}
+                  already handled globally (transition-duration -> 0.001ms).
+
+                  🔴 THREE PROPERTIES, NOT ONE, and the transition list has to
+                  name what Tailwind actually COMPILES TO rather than what the
+                  utility is called. `scale-[0.25]` compiles to `transform` and
+                  `blur-none` compiles to `filter`, so a list naming `scale` or
+                  `blur` would watch properties that never change and both halves
+                  would snap. Same trap as the press-scale one recorded in
+                  components/CLAUDE.md, which has shipped here twice.
+
+                  Neither icon ever unmounts, so this animates on the way OUT as
+                  well as in, which is the whole reason for the stacked pair.
+
+                  ⚠️ The easing is a FOURTH one. DESIGN.md documents a closed set
+                  of three, none of which is a spring approximation: expo and
+                  premium both overshoot or snap hard at the start, which fights
+                  a scale-from-quarter-size. Owner-approved for this one control
+                  on 2026-08-01; if a second control ever wants it, it belongs in
+                  DESIGN.md's motion table rather than copied from here. */}
               <span className="relative block h-[14px] w-[18px]">
                 <svg
                   width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true"
-                  className={`absolute inset-0 [transition:opacity_200ms] ${menuOpen ? "opacity-0" : "opacity-100"}`}
+                  className={`absolute inset-0 transition-[opacity,transform,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                    menuOpen ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"
+                  }`}
                 >
                   <line x1="0.75" y1="1.5" x2="17.25" y2="1.5" stroke="#111" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="3.25" y1="7" x2="14.75" y2="7" stroke="#111" strokeWidth="1.5" strokeLinecap="round" />
@@ -324,7 +365,9 @@ export default function Navigation() {
                 </svg>
                 <svg
                   width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true"
-                  className={`absolute inset-0 [transition:opacity_200ms] ${menuOpen ? "opacity-100" : "opacity-0"}`}
+                  className={`absolute inset-0 transition-[opacity,transform,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                    menuOpen ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]"
+                  }`}
                 >
                   <line x1="3" y1="1" x2="15" y2="13" stroke="#111" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="15" y1="1" x2="3" y2="13" stroke="#111" strokeWidth="1.5" strokeLinecap="round" />

@@ -29,13 +29,39 @@ async function robotsServedFrom(origin: string): Promise<MetadataRoute.Robots> {
   return robots();
 }
 
+type RobotsGroup = {
+  userAgent?: string | string[];
+  allow?: string | string[];
+  disallow?: string | string[];
+};
+
+function groups(result: MetadataRoute.Robots): RobotsGroup[] {
+  return (Array.isArray(result.rules) ? result.rules : [result.rules]).filter(
+    Boolean
+  ) as RobotsGroup[];
+}
+
+function list(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * Every path disallowed anywhere in the file, DEDUPLICATED.
+ *
+ * ⚠️ It deduplicates because since 2026-08-02 the launch shape has more than
+ * one group and each must repeat `/admin`, so the raw list legitimately
+ * contains it once per group. Asserting on the raw list would make this helper
+ * report a group COUNT dressed up as a path list, and adding a user-agent
+ * would then fail a test about admin exposure for no reason.
+ */
 function disallowedPaths(result: MetadataRoute.Robots): string[] {
-  const rules = Array.isArray(result.rules) ? result.rules : [result.rules];
-  return rules.flatMap((rule) => {
-    const disallow = rule?.disallow;
-    if (disallow === undefined) return [];
-    return Array.isArray(disallow) ? disallow : [disallow];
-  });
+  return [...new Set(groups(result).flatMap((rule) => list(rule.disallow)))];
+}
+
+/** Every user-agent token the file names, across all groups. */
+function userAgents(result: MetadataRoute.Robots): string[] {
+  return groups(result).flatMap((rule) => list(rule.userAgent));
 }
 
 afterEach(() => {
@@ -101,5 +127,85 @@ describe("robots.txt at launch", () => {
     const result = await robotsServedFrom("https://vercel.app.mazj.sa");
 
     expect(disallowedPaths(result)).toEqual(["/admin"]);
+  });
+});
+
+/**
+ * The AI crawler groups, added 2026-08-02 on the owner's ruling that every AI
+ * search engine may read the site.
+ */
+describe("robots.txt AI crawler policy at launch", () => {
+  const LAUNCH = "https://mazj.sa";
+
+  it("🔴 EVERY named group restates /admin, because a group does not inherit from *", async () => {
+    // This is the whole reason these tests exist. robots.txt group selection is
+    // most-specific-wins: a crawler obeys the ONE group matching its own name
+    // and ignores every other group, `*` included. So the moment `GPTBot` has a
+    // group, it stops inheriting the wildcard's `Disallow: /admin`, and a group
+    // carrying only `Allow: /` hands the admin tool to that crawler. Nothing
+    // about the file would look wrong: it would read as deliberately more open.
+    //
+    // Same shape as the ESLint flat-config trap in the root CLAUDE.md, and the
+    // same fix: a narrower block must RESTATE everything that still applies.
+    const result = await robotsServedFrom(LAUNCH);
+
+    expect(groups(result).length).toBeGreaterThan(1);
+    for (const group of groups(result)) {
+      expect(
+        list(group.disallow),
+        `group [${list(group.userAgent).join(", ")}] does not disallow /admin`
+      ).toContain("/admin");
+    }
+  });
+
+  it("names the crawlers that can actually cite MAZJ back", async () => {
+    const agents = userAgents(await robotsServedFrom(LAUNCH));
+
+    // One per engine that grounds an answer in live web content. If an engine
+    // is dropped from this list it silently stops being covered by an explicit
+    // rule, which is survivable today and is not the day someone adds a
+    // Disallow to the wildcard.
+    for (const bot of [
+      "GPTBot",
+      "OAI-SearchBot",
+      "ClaudeBot",
+      "PerplexityBot",
+      "Google-Extended",
+      "Bingbot",
+      "Applebot",
+    ]) {
+      expect(agents).toContain(bot);
+    }
+  });
+
+  it("allows every named AI crawler rather than blocking it", async () => {
+    for (const group of groups(await robotsServedFrom(LAUNCH))) {
+      expect(list(group.allow)).toContain("/");
+      expect(list(group.disallow)).not.toContain("/");
+    }
+  });
+
+  it("🔴 does NOT block CCBot, which was offered and declined", async () => {
+    // Blocking the training-only harvester is the obvious tidy-up and it is not
+    // ours to make: it was put to the owner on 2026-08-02 as the "block
+    // training-only, allow search" option and declined in favour of allowing
+    // everything. A future session reading a list of AI user-agents will want
+    // to add it. This is the reason not to.
+    const result = await robotsServedFrom(LAUNCH);
+
+    expect(userAgents(result)).not.toContain("CCBot");
+    expect(disallowedPaths(result)).toEqual(["/admin"]);
+  });
+
+  it("still refuses every AI crawler before launch", async () => {
+    // The pre-launch shape is a single wildcard group refusing everything, and
+    // it must stay that way: naming AI crawlers in their own groups there would
+    // give each one a group with no `Disallow: /`, i.e. it would invite exactly
+    // the crawlers the pre-launch block exists to keep out.
+    const result = await robotsServedFrom("https://mazj-tau.vercel.app");
+
+    expect(groups(result)).toHaveLength(1);
+    expect(userAgents(result)).toEqual(["*"]);
+    expect(disallowedPaths(result)).toEqual(["/"]);
   });
 });

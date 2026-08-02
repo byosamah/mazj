@@ -115,7 +115,24 @@ export default function AmbientVideo({
     // pin-scale effect used to grab the `<video>` directly, which is now absent
     // at mount time, so this wrapper is what it animates instead.
     <div ref={hostRef} data-ambient aria-hidden="true" className="absolute inset-0">
-      <Image src={poster} alt="" fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />
+      {/* 🔴 `fetchPriority` is passed EXPLICITLY, because `priority` does not
+          imply it. Next 16 treats the two as independent props: `priority`
+          sets `meta.preload`, and the preload's own fetchpriority is built
+          from `imgAttributes.fetchPriority`, so leaving it undefined emits no
+          attribute at all. Measured on the 26 rendered production pages before
+          this line: 370 <img>, 48 <link rel=preload as=image>, and ZERO
+          carrying fetchpriority. The hero poster is the LCP element on the
+          landing page in both locales, so it was being preloaded and then
+          fetched at the browser's default priority for an <img>. */}
+      <Image
+        src={poster}
+        alt=""
+        fill
+        sizes={sizes}
+        priority={priority}
+        fetchPriority={priority ? "high" : undefined}
+        className={`object-cover ${className}`}
+      />
       {play && (
         <video
           className={`absolute inset-0 h-full w-full object-cover ${className}`}

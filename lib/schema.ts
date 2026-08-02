@@ -28,6 +28,28 @@ import {absoluteUrl} from "@/lib/site";
 /** Stable @id for the business node, so other nodes can reference it. */
 const BUSINESS_ID = `${absoluteUrl("/")}#business`;
 
+/**
+ * Stable @ids for the two named rooms. LOCALE-INDEPENDENT, exactly like
+ * `BUSINESS_ID` directly above, and that is the whole point of them.
+ *
+ * 🔴 They were built as `${absoluteUrl(`/${locale}`)}#al-malqa`, which mints a
+ * DIFFERENT identifier per locale, so the site published FOUR room entities
+ * where two rooms exist: `/en#al-malqa` and `/ar#al-malqa` are two nodes as far
+ * as any consumer is concerned, each describing the same six-seat room in one
+ * language. An `@id` is an identity claim, not a URL to visit, which is why
+ * `BUSINESS_ID` never carried the locale: MAZJ is one business described in two
+ * languages, and Al-Malqa is one room described in two languages. The
+ * per-locale `url` field below is where the language-specific page belongs.
+ *
+ * ⚠️ `makesOffer`'s `areaServed` reference must be built from these same
+ * constants. Two `@id` strings that differ by a locale segment do not join two
+ * nodes, they silently describe a room nobody can resolve.
+ */
+const ROOM_ID = {
+  meeting: `${absoluteUrl("/")}#al-malqa`,
+  event: `${absoluteUrl("/")}#al-maarij`,
+} as const;
+
 /** Geo pin, parsed off the real Google Maps listing in `lib/contact.ts`. */
 const GEO = {latitude: 26.302126, longitude: 50.176999} as const;
 
@@ -36,6 +58,17 @@ type LocalBusinessInput = {
   name: string;
   description: string;
   streetAddress: string;
+  /**
+   * The four product names IN THIS LOCALE, read from `Spaces.cards.<id>.name`
+   * so the structured data says what the page says. Required rather than
+   * optional on purpose: see the note on `makesOffer`.
+   */
+  products: {
+    sharedSeat: string;
+    privateOffice: string;
+    meeting: string;
+    event: string;
+  };
 };
 
 /**
@@ -48,6 +81,7 @@ export function localBusinessSchema({
   name,
   description,
   streetAddress,
+  products,
 }: LocalBusinessInput) {
   return {
     "@context": "https://schema.org",
@@ -92,11 +126,180 @@ export function localBusinessSchema({
         closes: "17:00",
       },
     ],
-    sameAs: [SOCIALS.instagram, SOCIALS.x, SOCIALS.linkedin],
+    sameAs: [SOCIALS.instagram, SOCIALS.linkedin],
     areaServed: {
       "@type": "AdministrativeArea",
       name: locale === "ar" ? "المنطقة الشرقية" : "Eastern Province, Saudi Arabia",
     },
+    // The other language's name for the same business. `sameAs` says "these
+    // profiles are me"; this says "this other string is also me", which is what
+    // lets an engine reading the English page resolve a query typed as `مزج` to
+    // this entity rather than treating them as two businesses.
+    alternateName: locale === "ar" ? "MAZJ" : "مزج",
+    // Off the FAQ's own payment answer and the six acceptance marks in
+    // `public/payments/`. Not aspirational: these are the methods the
+    // storefront actually takes.
+    paymentAccepted: "Visa, Mastercard, Mada, Tamara, Tabby",
+    /**
+     * 🔴 EVERY ENTRY BELOW IS QUOTED FROM COPY THAT ALREADY SHIPS, AND THE
+     * OMISSIONS ARE AS DELIBERATE AS THE INCLUSIONS.
+     *
+     * `amenityFeature` is the field an answer engine reads to decide whether a
+     * venue MEETS A REQUIREMENT ("somewhere in Khobar with a projector and
+     * parking"), so it is the highest-value machine fact this node was missing.
+     * It is also the easiest place on the whole site to invent something,
+     * because every coworking space in the world plausibly has a printer. This
+     * one has not said so anywhere, so it is not claimed here.
+     *
+     * Verified against `messages/*.json` on 2026-08-02, in BOTH files:
+     *   - printing/scanning: `طباعة` scores **0** in Arabic and the English
+     *     `print` hits are all inside the word "sprint". NOT CLAIMED.
+     *   - parking: real, and narrower than it looks. The FAQ says parking is
+     *     available "around the tower", not that MAZJ owns any, so the feature
+     *     is worded as nearby rather than on-site.
+     *   - Wi-Fi: the Arabic is `إنترنت سريع` (19 occurrences). `واي فاي` scores
+     *     **0**, so writing the transliteration here would have introduced a
+     *     term the site does not use.
+     *   - coffee corner: the copy says `ركن القهوة` (2). `ركن قهوة` without the
+     *     article scores **0**. The first draft here coined it.
+     *   - lockable office: the copy says `غرفة مغلقة تخصّك` (1). Both `بمفتاح`
+     *     and `تُغلق` score **0**. The first draft here coined that too.
+     *
+     * ⚠️ THOSE LAST TWO SHIPPED WRONG FOR ABOUT AN HOUR ON 2026-08-02, in the
+     * commit that added this block, and they are the reason the verification
+     * list above now covers all eleven entries rather than the three that were
+     * interesting. Three terms were checked, eight were assumed, and two of the
+     * eight were invented Arabic. The root `CLAUDE.md` rule is not "check the
+     * words you are unsure about", it is `str.count` the existing `ar.json` for
+     * every term before writing it.
+     *
+     * 🔴 24/7 ACCESS IS DELIBERATELY ABSENT FROM THIS LIST, AND THAT IS THE ONE
+     * ENTRY MOST LIKELY TO GET "COMPLETED" BY A LATER PASS. It was here, worded
+     * `24/7 access for space subscribers`, and it was wrong for a structural
+     * reason rather than a factual one: `LocationFeatureSpecification` carries a
+     * name and a boolean and has NO field for a condition, so a parser reads the
+     * whole entry as "this building offers round-the-clock access, true" and the
+     * qualifier in the label is decoration. That is the same defect as the
+     * `openingHoursSpecification` eight lines above shipping `closes: 21:00`
+     * against a 9-to-5 business: a machine-readable claim that sends a walk-in
+     * to a locked door. The fact itself is real and survives where it can carry
+     * its condition, in `Faq` "When can I get in?" in both languages, in
+     * `Location.subscribersValue`, and in `/llms.txt`, which states it in a
+     * sentence that can hold the qualifier.
+     *
+     * ⚠️ `value: true` on each is required: a `LocationFeatureSpecification`
+     * with a name and no value is a feature whose availability is unstated,
+     * which parsers are free to ignore. It is also why nothing conditional can
+     * live in this array at all.
+     */
+    amenityFeature: (locale === "ar"
+      ? [
+          "إنترنت سريع",
+          "مشروبات مجانية",
+          "مساحات مشتركة وركن القهوة",
+          // 🔴 The room names are the SHIPPED forms, byte-identical to
+          // `Spaces.cards.<id>.name`, which is what `makesOffer` and
+          // `containsPlace` already use. They read `غرفة اجتماعات (الملقى)` and
+          // `قاعة فعاليات (المعارج)` until 2026-08-02: parenthesised, and with
+          // the definite article dropped. Measured with python str.count over
+          // the raw message files, both forms scored **0** occurrences while
+          // `غرفة الاجتماعات · الملقى` and `قاعة الفعاليات · المعارج` scored 3
+          // each. So one LocalBusiness node named the same room two different
+          // ways, and neither of the amenity spellings existed anywhere a
+          // reader could see. This is a survivor of the same pass that fixed
+          // the identical string in `makesOffer` and missed this array.
+          "غرفة الاجتماعات · الملقى",
+          "قاعة الفعاليات · المعارج",
+          "مكاتب خاصة، غرفة مغلقة تخصّك",
+          "شاشة عرض وجدار للكتابة",
+          "نظام صوتي",
+          "استقبال خلال ساعات العمل",
+          "مواقف سيارات حول المبنى",
+        ]
+      : [
+          "Fast Wi-Fi",
+          "Free drinks",
+          "Shared areas and coffee corner",
+          // Same correction as the Arabic above: these are the forms that ship
+          // on screen (3 occurrences each), where the parenthesised ones had 0.
+          "Meeting room · Al-Malqa",
+          "Events hall · Al-Ma'arij",
+          "Lockable private offices",
+          "Presentation screen and writable wall",
+          "Sound system",
+          "Staffed reception during opening hours",
+          "Parking around the building",
+        ]
+    ).map((name) => ({
+      "@type": "LocationFeatureSpecification",
+      name,
+      value: true,
+    })),
+    /**
+     * The two NAMED rooms, as places inside this place.
+     *
+     * 🔴 `maximumAttendeeCapacity` is the single most useful number MAZJ can
+     * publish for AI search, and until now it existed only inside display copy
+     * ("Up to 30", "حتى 30"). "Where can I run a workshop for 25 people in
+     * Al-Khobar" is a real query that an engine answers by filtering on exactly
+     * this field, and a capacity buried in a sentence is a capacity that has to
+     * be inferred rather than read.
+     *
+     * ⚠️ The numbers are LITERALS here rather than parsed out of the message
+     * files, and that is the safer of two bad options. The copy strings are
+     * `"Up to 6 · by the hour"` in English and `"حتى 6 · بالساعة"` in Arabic,
+     * so extracting an integer means parsing prose in two scripts around a
+     * middle dot. These are facts about the building, so they sit beside `GEO`
+     * with the other structural constants, and `test/schema-facts.test.ts`
+     * asserts they still match the `facts` blocks in both message files.
+     *
+     * ⚠️ The Arabic really does use a WESTERN `6`, not `٦`. An earlier version
+     * of this comment claimed Arabic-Indic numerals and used that as half its
+     * justification; measured across all 705 Arabic strings, the capacities and
+     * every other figure here are Western digits. The reasoning above stands
+     * without it, but a rationale nobody checked is exactly the kind this repo
+     * has been bitten by, so it is corrected rather than quietly dropped.
+     *
+     * `MeetingRoom` and `EventVenue` are both real schema.org types, so this is
+     * more specific than a bare `Place` without asserting anything extra.
+     *
+     * 🔴 EACH ROOM CARRIES A STABLE `@id`, AND `makesOffer` BELOW REFERENCES IT.
+     * Without that the same room is described twice with nothing connecting the
+     * two descriptions: once here as a place seating six, once below as a
+     * service called "Meeting room". An extractor listing MAZJ's rooms can then
+     * legitimately count four where there are two, and neither entry carries
+     * the other's information. The `@id` is what makes them one node.
+     */
+    containsPlace: [
+      {
+        "@type": "MeetingRoom",
+        "@id": ROOM_ID.meeting,
+        name: locale === "ar" ? "الملقى" : "Al-Malqa",
+        description:
+          locale === "ar"
+            ? "غرفة اجتماعات تتسع حتى ستة أشخاص، وتُحجز بالساعة."
+            : "Meeting room seating up to six, booked by the hour.",
+        maximumAttendeeCapacity: 6,
+        // 🔴 The room's DESCRIPTIVE page, not its Book route. `BOOKING.meeting`
+        // would have been the obvious reuse and it is wrong here: since
+        // 2026-08-01 those four paths 307 straight out to mazj.sa, so a `url`
+        // built from them names a redirect rather than a page about the room.
+        // `makesOffer` below legitimately still uses them, because an Offer's
+        // url IS where the thing is transacted.
+        url: absoluteUrl(`/${locale}/spaces/meeting-room`),
+      },
+      {
+        "@type": "EventVenue",
+        "@id": ROOM_ID.event,
+        name: locale === "ar" ? "المعارج" : "Al-Ma'arij",
+        description:
+          locale === "ar"
+            ? "قاعة فعاليات تتسع حتى ثلاثين شخصاً، مع شاشة ونظام صوتي."
+            : "Events hall seating up to thirty, with a screen and sound system.",
+        maximumAttendeeCapacity: 30,
+        url: absoluteUrl(`/${locale}/spaces/event-hall`),
+      },
+    ],
     // The four products, each pointing at its on-site booking page. No `price`
     // is asserted: prices are live from Rekaz and a stale one in schema is worse
     // than none.
@@ -106,14 +309,41 @@ export function localBusinessSchema({
     // cannot resolve it without a base, so the offer is dropped or misattributed.
     // Every other URL in this file is already absolute; these were the only ones
     // that silently became relative.
+    //
+    // 🔴 THE NAMES ARE PASSED IN PER LOCALE, AND THEY USED TO BE FOUR ENGLISH
+    // LITERALS. Measured 2026-08-02: `Open desk`, `Private office`,
+    // `Meeting room (Al-Malqa)` and `Events hall (Al-Ma'arij)` were emitted on
+    // all 13 ARABIC routes as well as the English ones, so the machine-readable
+    // description of what MAZJ sells was English-only on the exact half of the
+    // site that holds the ranking equity, and the two room names never
+    // registered in Arabic at all. The literals did not even match the site's
+    // own English: schema said `Meeting room (Al-Malqa)` where every visible
+    // surface says `Meeting room · Al-Malqa`. They now come from
+    // `Spaces.cards.<id>.name`, which is the string on screen in both locales.
+    //
+    // ⚠️ Which means this function can no longer be called without the `Spaces`
+    // namespace. That is the point: an offer named in the wrong language is a
+    // silent defect, and a required argument is the only thing that makes it a
+    // compile error instead.
     makesOffer: [
-      {name: "Open desk", path: BOOKING.sharedSeat},
-      {name: "Private office", path: BOOKING.privateOffice},
-      {name: "Meeting room (Al-Malqa)", path: BOOKING.meeting},
-      {name: "Events hall (Al-Ma'arij)", path: BOOKING.event},
+      {name: products.sharedSeat, path: BOOKING.sharedSeat, room: null},
+      {name: products.privateOffice, path: BOOKING.privateOffice, room: null},
+      // The two named rooms ALSO exist as places in `containsPlace` above.
+      // `itemOffered` references that node by `@id` rather than restating it,
+      // so the room and the thing you can book are one entity rather than two
+      // descriptions an extractor has to guess are the same.
+      {name: products.meeting, path: BOOKING.meeting, room: ROOM_ID.meeting},
+      {name: products.event, path: BOOKING.event, room: ROOM_ID.event},
     ].map((o) => ({
       "@type": "Offer",
-      itemOffered: {"@type": "Service", name: o.name},
+      itemOffered: {
+        "@type": "Service",
+        name: o.name,
+        // The reference is now the ROOM_ID constant itself rather than a
+        // locale-prefixed string rebuilt here. Rebuilding it was how the two
+        // sides drifted in the first place.
+        ...(o.room ? {areaServed: {"@id": o.room}} : {}),
+      },
       url: absoluteUrl(`/${locale}${o.path}`),
       priceCurrency: "SAR",
     })),
@@ -186,6 +416,7 @@ export function eventSchema({
   image,
   performer,
   offer,
+  location,
 }: {
   locale: string;
   name: string;
@@ -198,6 +429,18 @@ export function eventSchema({
   image?: string | null;
   performer?: string | null;
   offer?: {price: number; url: string} | null;
+  /**
+   * Where the event is actually held, IN THIS LOCALE, when it is not at MAZJ.
+   * `null` or absent means MAZJ, which is the overwhelmingly common case.
+   *
+   * 🔴 Passing this is not optional politeness. `/admin` has always let an
+   * operator type a venue and the page has always printed it, while this
+   * function hardcoded MAZJ regardless. So the first event MAZJ hosts at a
+   * partner venue, a university or a hotel would have told Google, Apple Maps
+   * and every assistant that it is at Al Hayat Tower, while the page a human
+   * reads says otherwise. Dormant today only because no upcoming event exists.
+   */
+  location?: string | null;
 }) {
   return {
     "@context": "https://schema.org",
@@ -214,7 +457,25 @@ export function eventSchema({
     eventStatus: "https://schema.org/EventScheduled",
     inLanguage: locale === "ar" ? "ar-SA" : "en-US",
     url: absoluteUrl(`/${locale}${path}`),
-    location: {"@id": BUSINESS_ID},
+    // 🔴 A NAME AND NOTHING ELSE FOR AN OFF-SITE VENUE, DELIBERATELY.
+    //
+    // `Place` accepts an `address`, and the obvious next step is to fill one
+    // in. Do not. MAZJ cannot verify a third party's postal address, and a
+    // guessed one is invented structured data, which this file's own header
+    // records as a SITE-WIDE penalty risk rather than a page-scoped one. A bare
+    // name is honest, is valid, and is what MAZJ actually knows. The reader
+    // gets the venue name and can search it; that is strictly better than being
+    // sent to the wrong building with confidence.
+    //
+    // When there is no override the event IS at MAZJ, so it references the
+    // sitewide LocalBusiness node by `@id` rather than restating the address.
+    // One address, described once.
+    location: location
+      ? {"@type": "Place", name: location}
+      : {"@id": BUSINESS_ID},
+    // ⚠️ `organizer` stays MAZJ either way, and that is correct rather than an
+    // oversight: MAZJ runs the event, the venue only houses it. A hall rented
+    // from someone else does not make them the organiser.
     organizer: {"@id": BUSINESS_ID},
     ...(image ? {image} : {}),
     ...(performer ? {performer: {"@type": "Person", name: performer}} : {}),

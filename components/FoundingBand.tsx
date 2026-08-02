@@ -100,9 +100,18 @@ export default function FoundingBand() {
             className="object-cover"
           />
           <div className="absolute inset-0 flex items-center justify-center p-8">
+            {/* Hairline via `after:`, the MediaFrame idiom, and this is the one
+                card on the site where dropping the shadow costs something real:
+                it floats over a photograph rather than sitting on the cream
+                page, so the shadow WAS doing separation work. It goes anyway,
+                because the inset half never rendered (an inset shadow paints
+                under the opaque poster filling this overflow-clip box) and
+                DESIGN.md lists exactly two things that may float, the
+                navigation pill and the skip link. Separation now comes from the
+                bright clip against the darker photo plus the rise on scroll. */}
             <div
               data-fx="rise"
-              className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.24),inset_0_0_0_1px_rgba(0,0,0,0.1)]"
+              className="relative aspect-square w-full max-w-[405px] overflow-clip rounded-[16px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']"
             >
               {/* The same ambient loop clip as StepInto's card, decorative and
                   below the fold. It carried `preload="none"`, which `autoPlay`

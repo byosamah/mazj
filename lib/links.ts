@@ -141,8 +141,17 @@ export function bookingUrl(
  */
 export const STARTUP_OFFER = "/startups";
 
+/**
+ * 🔴 **There is no MAZJ account on X** (owner, 2026-08-01). An `x` entry
+ * pointing at `twitter.com/mazjorg` was removed from here, from the footer,
+ * from `/contact` and from `lib/schema.ts`'s `sameAs` on that date. The schema
+ * one is the reason this note exists: `sameAs` is a machine-readable claim that
+ * the profile IS this business, so it told Google MAZJ owns a handle it does
+ * not control. Do not restore it from an older doc; `CONTENT-BUILD-PROMPT.md`
+ * still lists it, and that file is a stale build brief (it also states the
+ * Google rating as 5.0, which is a known shipped bug).
+ */
 export const SOCIALS = {
-  x: "https://twitter.com/mazjorg",
   instagram: "https://www.instagram.com/mazjorg",
   linkedin: "https://www.linkedin.com/company/mazj-%D9%85%D8%B2%D8%AC",
 } as const;

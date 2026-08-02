@@ -6,12 +6,10 @@ import PageIntro from "@/components/PageIntro";
 import LocationHours from "@/components/LocationHours";
 import Reveal from "@/components/Reveal";
 import CtaButton from "@/components/CtaButton";
-import Footer from "@/components/Footer";
 import {SOCIALS} from "@/lib/links";
 import {waLink} from "@/lib/contact";
 
 const SOCIAL_LINKS = [
-  {label: "X", href: SOCIALS.x},
   {label: "Instagram", href: SOCIALS.instagram},
   {label: "Linkedin", href: SOCIALS.linkedin},
 ];
@@ -118,7 +116,6 @@ export default async function ContactPage({
   return (
     <main id="content" tabIndex={-1} className="w-full overflow-x-hidden">
       <Content />
-      <Footer />
     </main>
   );
 }

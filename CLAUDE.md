@@ -560,6 +560,12 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   factories, plus making `app/sitemap.ts` async without awaiting it in
   `admin-surface.test.ts`. The suite also grew 294 → 344 between two consecutive
   runs, so even the test COUNT is not a stable baseline.
+- **A purely ADDITIVE diff cannot have broken a suite it does not import.**
+  `git diff --numstat <files>` reading `N 0` (zero removals), plus the failing
+  suite's own import chain, settles attribution in two commands without stashing
+  or worktreeing a tree that holds someone else's work. Used 2026-08-01 on the
+  `faalyh-tjrybyh` Rekaz canary: 92 lines added, 0 removed, in files that suite
+  never reaches.
 - **A leaf-key count that drops hard is probably not your deletion.** Removing 9
   keys took `messages/*.json` from 844 paths to 662. Attribute the gap before
   panicking: diff paths against `git show HEAD:messages/en.json` and bucket them,
@@ -625,6 +631,18 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   findings adjudicated (27 survivors + 28 refuted): the stalled agents were
   retried. Reconcile against the script's own `log()` before reporting a gap;
   quoting the failures list would have invented one.
+  - ⚠️ **But it is not always a phantom either, so reconcile in BOTH
+    directions.** On 2026-08-01 one entry was a permanent refusal rather than a
+    retry, and the run genuinely covered 3 of 4 items. Read the reason, not the
+    count.
+- 🔴 **CONTRADICTORY ANSWERS TO ONE `AskUserQuestion` CAN GET A WORKFLOW AGENT
+  REFUSED BY THE SAFETY CLASSIFIER while its siblings run.** Measured
+  2026-08-01: two answers in the same call disagreed about how far a live-store
+  test could go (one said stop before the form, the other described reaching
+  payment), and 1 of 4 agents was blocked with that contradiction quoted back as
+  the reason, so one product went untested. The classifier was right. **Resolve
+  a contradiction explicitly before dispatching anything that writes**, rather
+  than silently taking the conservative reading and hoping.
 - ⚠️ **A detached `( cmd1; cmd2 ) &` makes the background-task notification
   LIE.** The launcher returns immediately, the harness reports "completed, exit
   0", and the real work runs on for another 40 minutes. Poll for the artifacts
@@ -680,6 +698,17 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   CPU, accepts TCP, never responds, even for already-compiled routes; only a kill
   plus `npm run dev` relaunch recovers). Warm routes sequentially before any
   parallel fetch or assertion sweep.
+  - 🔴 **Before fanning AGENTS out over routes, capture the rendered HTML to
+    disk yourself, sequentially, and point them at the files.** The warning above
+    is not avoidable by asking agents to be careful: a dozen of them will hit the
+    server at once. One sequential `curl -D <headers> -o <page>` loop over every
+    route, plus the sitemap, robots and a redirect trace, costs about a minute
+    and makes the whole fan-out read-only. Used 2026-08-02 for a 26-agent audit:
+    13 dimensions over the same 26 pages, zero server contention, and every agent
+    measured the SAME bytes, which is what makes their numbers comparable at
+    synthesis time. Put the capture paths in the prompt, and tell them a
+    localhost `curl` needs `dangerouslyDisableSandbox: true` or it fails exit 7
+    with no message naming the sandbox.
 - 🔴 **`HTTP ERROR 431` on `localhost:3000` is the BROWSER, not the app.** Node's
   header ceiling is 16KB and an old localhost cookie jar exceeds it, so the request
   dies before Next runs. `curl` works (no cookies) while the browser fails, which
@@ -789,6 +818,19 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   own `order`, and the DEFAULT variant is `aria-pressed="true"` on card 0. That
   is how "both products default to One day" was established. No credential
   handling, so it sidesteps the classifier refusal below.
+  - 🔴 **THAT RECIPE DIED 2026-08-01.** Booking links out to mazj.sa now, so
+    `/spaces/<space>/book` 307s off-site and renders no prices at all. **Use the
+    storefront's own API instead, read-only and credential-free:**
+    `platform.rekaz.io/api/app/product/product/<slug>` and
+    `/api/app/reservation-v2/availabilities?PriceId=…&StartDate=M/D/YYYY&EndDate=…&MinQuantity=1&MinProvidersCount=1`,
+    with header `__tenant: 3a14a1b1-1f18-24e9-bfb1-a77ce84ff72a` and **no
+    bearer** (a different surface from our `/api/public` calls, same host). One
+    availabilities call measures the real booking horizon: it is how bookings
+    were found to stop dead after **31 Dec 2026**. See `server/CLAUDE.md`.
+  - ⚠️ **`mazj.sa/api/app/*` answers 500 `Only HTML requests are supported
+    here`.** That is an edge rule refusing non-HTML requests, **not** a Rekaz
+    outage, and it nearly shipped as "the store's API is down". The real API is
+    on `platform.rekaz.io`; the store makes **zero** calls to `mazj.sa`.
 - 🔴 **Hand-rolled API calls that read `.env.local` are refused by the permission
   classifier.** A script reading a credential from that file and POSTing or
   PATCHing an external API was blocked twice in one session (bulk env upload to
@@ -824,3 +866,19 @@ These bite anywhere in the tree. Layer-specific traps live in the scoped files.
   `bookingsByMobile` and `getBookingPaymentLink` in `server/db/bookings.ts`. All
   five are still exercised by tests and still documented in
   `docs/rekaz-api-findings.md`, so they are reference material, not live paths.
+- 🔴 **`components/ui/` IS 9/11 DEAD.** Only `breadcrumb` (2 importers) and
+  `skeleton` (1) are used; `button`, `input`, `checkbox`, `select`, `textarea`,
+  `label`, `table`, `badge` and `alert` have **zero** (measured 2026-08-02). So the
+  repo's only `transition-all`, `checkbox.tsx`'s 16px hit area, and the double
+  focus ring `input.tsx`'s own docblock warns about all sit on surfaces that render
+  nowhere. `components/admin/` deliberately does not build on them.
+- **The booking flow renders on no reachable route** while the link-out is in
+  place: all eight `/spaces/<space>/book` URLs 307 to mazj.sa, so
+  `app/[locale]/spaces/_lib/BookingScreen.tsx`, `_lib/BookingSkeleton.tsx` and
+  `components/booking/BookingFlow.tsx` are parked, not live. Editing them ships
+  nothing today and risks conflicting with the eventual revert.
+- 🔴 **`CONTENT-BUILD-PROMPT.md` is a HISTORICAL build brief that says "use
+  verbatim", and four of its facts were wrong** (it is the upstream source of
+  the shipped `5.0` rating bug, asking for it in BOTH the hero and Proof, and it
+  listed an X account MAZJ does not have). Each is now corrected in place with a
+  date. **Never source a fact from it.**

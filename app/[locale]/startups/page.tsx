@@ -2,7 +2,6 @@ import type {Metadata} from "next";
 import {setRequestLocale} from "next-intl/server";
 import {useTranslations} from "next-intl";
 
-import Footer from "@/components/Footer";
 import PageIntro from "@/components/PageIntro";
 import Reveal from "@/components/Reveal";
 import WordReveal from "@/components/WordReveal";
@@ -71,7 +70,7 @@ function Content() {
           <Reveal className="reveal-list mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-[16px] bg-black/12 md:grid-cols-3">
             {points.map((point) => (
               <div key={point.title} className="flex flex-col gap-3 bg-beige p-8 lg:p-10">
-                <h3 className="font-sans text-20 font-bold leading-[1.3] text-black lg:text-24">
+                <h3 className="text-balance font-sans text-20 font-bold leading-[1.3] text-black lg:text-24">
                   {point.title}
                 </h3>
                 <p className="text-pretty text-14 leading-relaxed text-muted lg:text-15">
@@ -109,7 +108,7 @@ function Content() {
                 <span className="eyebrow text-12 text-orange tabular-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <h3 className="font-sans text-20 font-bold leading-[1.3] text-brown lg:text-24">
+                <h3 className="text-balance font-sans text-20 font-bold leading-[1.3] text-brown lg:text-24">
                   {step.title}
                 </h3>
                 <p className="text-pretty text-14 leading-relaxed text-brown/85 lg:text-15">
@@ -176,7 +175,6 @@ export default async function StartupsPage({
   return (
     <main id="content" tabIndex={-1} className="w-full overflow-x-hidden">
       <Content />
-      <Footer />
     </main>
   );
 }

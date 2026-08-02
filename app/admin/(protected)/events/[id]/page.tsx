@@ -20,6 +20,7 @@ import {
 } from "@/components/admin";
 
 import {requireAdmin, type AdminUser} from "../../../_lib/auth";
+import {readEventOutcome} from "../../../_lib/event-outcomes";
 import {
   loadAdminEvent,
   loadRegistrations,
@@ -28,6 +29,7 @@ import {
   type AdminRegistrationRow,
   type AdminRegistrationsResult,
 } from "../../../_lib/events";
+import {EventActions} from "../EventActions";
 import {EventCrumbs} from "../EventCrumbs";
 import {EventLifecycle} from "../EventLifecycle";
 import EventForm from "../EventForm";
@@ -48,8 +50,18 @@ export default async function AdminEventPage({
   searchParams,
 }: {
   params: Promise<{id: string}>;
-  /** `?saved=1` is set by `saveEvent`'s own redirect. See P10. */
-  searchParams: Promise<{saved?: string | string[]}>;
+  /**
+   * `?saved=1` is set by `saveEvent`'s own redirect. See P10.
+   *
+   * `?outcome=…` is set by the status and delete controls beside the title.
+   * The two are mutually exclusive by construction: each action's redirect
+   * writes its own parameter and drops the other's.
+   */
+  searchParams: Promise<{
+    saved?: string | string[];
+    outcome?: string | string[];
+    event?: string | string[];
+  }>;
 }) {
   // 🔴 Above the first data read. This page loads registrations, which are
   // names, mobile numbers and email addresses of members of the public. A
@@ -60,6 +72,7 @@ export default async function AdminEventPage({
   const query = await searchParams;
   const saved =
     (Array.isArray(query.saved) ? query.saved[0] : query.saved) === "1";
+  const outcome = readEventOutcome(query);
 
   const found = await loadAdminEvent(admin, id);
 
@@ -111,6 +124,7 @@ export default async function AdminEventPage({
             ticketOptions={extras.tickets.options}
             rekazReachable={extras.tickets.reachable}
             saved={saved}
+            outcome={outcome}
           />
         </>
       ) : (
@@ -158,29 +172,35 @@ function ledeFor(event: AdminEventDetail): string | undefined {
 }
 
 /**
- * What sits beside the h1.
+ * What sits beside the h1: where this event currently is, and how to move it.
  *
  * A published event gets its two public pages as REAL links: they were plain
  * text before, so previewing what you had just written meant copy-pasting a
  * path by hand. A draft or a cancelled event gets its state instead, because
- * those URLs do not resolve and because the only tell used to be a select
- * buried near the bottom of a very long form.
+ * those URLs do not resolve.
+ *
+ * 🔴 `EventActions` renders LAST and on every status, which is the half of this
+ * that changed on 2026-08-01. The state was already stated up here; the only
+ * way to CHANGE it was a select near the bottom of a fourteen-field form,
+ * applied by rewriting every other column with it. The badge and the control
+ * that moves it now sit in the same eyeline.
  */
 function HeadActions({event}: {event: AdminEventDetail}) {
-  if (event.status !== "published") {
-    return event.status === "cancelled" ? (
-      <Chip tone="destructive" fill="hollow">
-        Cancelled
-      </Chip>
-    ) : (
-      <Chip tone="quiet">Draft</Chip>
-    );
-  }
-
   return (
     <>
-      <PublicLink href={`/en/events/${event.slug}`} label="English page" />
-      <PublicLink href={`/ar/events/${event.slug}`} label="Arabic page" />
+      {event.status === "published" ? (
+        <>
+          <PublicLink href={`/en/events/${event.slug}`} label="English page" />
+          <PublicLink href={`/ar/events/${event.slug}`} label="Arabic page" />
+        </>
+      ) : event.status === "cancelled" ? (
+        <Chip tone="destructive" fill="hollow">
+          Cancelled
+        </Chip>
+      ) : (
+        <Chip tone="quiet">Draft</Chip>
+      )}
+      <EventActions event={event} scope="detail" />
     </>
   );
 }

@@ -4,7 +4,6 @@ import {pageMetadata} from "@/lib/metadata";
 import {useTranslations} from "next-intl";
 import PageIntro from "@/components/PageIntro";
 import SpaceOffers from "@/components/SpaceOffers";
-import Footer from "@/components/Footer";
 
 function Content() {
   const t = useTranslations("SpacesPage");
@@ -34,7 +33,6 @@ export default async function SpacesPage({
       {/* Absorbs the old /pricing page: all six mazj.sa products, grouped by
           commitment, each with what it includes and where to book it. */}
       <SpaceOffers />
-      <Footer />
     </main>
   );
 }

@@ -4,12 +4,30 @@
 > minimal new pages, WITHOUT changing the visual design.
 
 > 🔴 **HISTORICAL. This was a one-shot build prompt and it is no longer
-> maintained. Do not treat its "Known data" block as current.** Two of its facts
-> were live bugs the site later had to fix: the Google rating below says 5.0 and
-> the real one is **4.7**, and the mazj.sa store URLs are the pre-2026-07-27
-> booking model (booking is on-site now, see `lib/links.ts`). The hours and
-> access lines were corrected in place on 2026-07-31 so a future session cannot
-> copy the old ones back out. ⚠️ **The word "membership" survives below in five
+> maintained. Do not treat its "Known data" block as current.** The mazj.sa store
+> URLs below are the pre-2026-07-27 booking model and are still the wrong SHAPE
+> today (booking moved on-site on 2026-07-27, then back out to mazj.sa on
+> 2026-08-01, but as locale-prefixed URLs built by `bookingUrl()`): read
+> `lib/links.ts`, never this list.
+>
+> **Four corrections have been made IN PLACE, each dated where it sits, so a
+> future session cannot copy the old value back out:**
+>
+> 1. Staffed hours, and subscriber access (2026-07-31).
+> 2. 🔴 The Google rating, which said **5.0** when the real one is **4.7**. That
+>    was not a typo in a document, it was a live shipped bug: it reached the hero
+>    trust line and the Proof section, both of which this prompt explicitly asked
+>    for below (Tasks A2 and A7). Corrected 2026-08-01, and the rule that
+>    replaced it is in the "Known data" block.
+> 3. The socials line, which listed an **X account MAZJ does not have**
+>    (2026-08-01). It had already reached `lib/schema.ts`'s `sameAs`, i.e. the
+>    site was telling Google that a handle MAZJ does not control IS the business.
+> 4. 🔴 Task A11, which asked for an FAQ entry on "access **and fingerprint**"
+>    (2026-08-01). Access is non-biometric, and biometric copy is a PDPL
+>    exposure, not a wording preference. This is the one correction here with a
+>    legal edge: see the note at the task itself.
+>
+> ⚠️ **The word "membership" survives below in five
 > places (the store-URL list and Tasks A1, A9, B) and must NOT be copied into
 > copy.** Owner ruling 2026-07-31: "member" and "membership" are reserved for a
 > future, unlaunched product, so the person is a **space subscriber**
@@ -69,10 +87,15 @@ bilingual: Arabic (primary, RTL) and English. Your job is a CONTENT build, not a
 ## Known data (use verbatim; do not invent what is missing)
 - Location: Life Tower (برج الحياة), Zaid Ibn Alkhattab St, Al-Olaya, Al-Khobar.
 - Hours: staffed Sun to Thu, 9am to 5pm. Space subscribers enter 24/7 by QR code or access card.
-- Socials: X https://twitter.com/mazjorg · Instagram https://www.instagram.com/mazjorg ·
+- Socials: Instagram https://www.instagram.com/mazjorg ·
   LinkedIn https://www.linkedin.com/company/mazj-مزج
+  (corrected 2026-08-01: this line also listed `X https://twitter.com/mazjorg`.
+  🔴 **MAZJ has no X account.** Do not add one back from any other document.)
 - ZATCA tax number: 310240548700003.
-- Google rating: 5.0.
+- Google rating: **4.7**, off a handful of reviews (corrected 2026-08-01; this
+  line said 5.0). 🔴 **And do NOT put a rating claim on the site at all**, which
+  is why Tasks A2 and A7 below no longer ask for one: lead with legitimacy
+  signals instead (address, staffed hours, 24/7 subscriber access, VAT).
 - UNKNOWN, so use a clearly labelled placeholder string + a `// TODO` code comment and do
   NOT fabricate: phone/WhatsApp number, Google Maps embed/link, CR number, testimonial
   quotes, exact review count. Collect every placeholder into a final report for the owner.
@@ -88,7 +111,14 @@ all built from existing components/patterns:
 1. Header/nav (existing): wire links to the new routes (Spaces, Pricing, Events, About,
    Contact); primary button to the membership or day-pass mazj.sa URL.
 2. Hero (keep headline + SpaceFinder, both work): add a small trust line under the pill,
-   "5.0 on Google · Life Tower, Al-Khobar · 24/7 access" (AR mirror). No price.
+   "Life Tower, Al-Khobar · 24/7 access" (AR mirror). No price.
+   🔴 Corrected 2026-08-01. This asked for `"5.0 on Google · ..."` and the site
+   shipped it. Two separate rulings kill it: the rating is 4.7, and no rating
+   claim belongs in the hero at all. ⚠️ The Life Tower half is ALSO wrong now
+   (owner 2026-07-26: the tower is not a landmark, so it appears only in
+   address, directions and legal copy, never as a marketing locator, see
+   `TONE.md` §4). And the trust line no longer exists: `Hero.trustLine` has zero
+   code references, the hero renders the three `SpaceFinder` chips instead.
 3. Spaces (upgrade the USP section or add one new section): four product cards (Open desk,
    Private office, Meeting room, Event hall), each with name, capacity, a one-line
    "includes", and a Book button to its mazj.sa URL. No price shown.
@@ -103,15 +133,24 @@ all built from existing components/patterns:
    otherwise leave it and add a `// TODO`. Do not create new design.
 6. Why MAZJ (keep as-is).
 7. The space + proof (NEW): reuse an existing image/section pattern for a small gallery +
-   the 5.0 rating + 2 to 3 testimonial slots (placeholder quotes + TODO).
+   2 to 3 testimonial slots (placeholder quotes + TODO).
+   🔴 Corrected 2026-08-01: this asked for "the 5.0 rating" here too. No rating
+   claim in Proof either. ⚠️ `components/Proof.tsx` was built from this task and
+   is now mounted on NO route, so its strings are dead keys: editing them ships
+   nothing.
 8. Host your event (NEW): a block for the event hall (seats 30, screens, sound). CTA
    "Enquire" to Contact, plus "Book the hall" to the mazj.sa event URL.
 9. Community / Network (keep): ensure its CTA routes to Community or membership.
 10. Location & hours (NEW): address, hours, a map placeholder (TODO embed), phone/WhatsApp
     placeholders. Use existing type/section styling.
-11. FAQ (NEW): 6 to 8 Q&As (access and fingerprint, what is included, cancellation and the
+11. FAQ (NEW): 6 to 8 Q&As (access, what is included, cancellation and the
     no-refund policy, payment via Tamara/Tabby, VAT invoice, guests, parking). Reuse simple
     existing text styling.
+    🔴 Corrected 2026-08-01: this asked for a Q&A on "access **and fingerprint**".
+    Access is QR code or access card via Rekaz and is deliberately
+    **non-biometric**. Every fingerprint and biometric string was stripped
+    site-wide on 2026-07-23, because biometric data is PDPL-sensitive and implies
+    a controller registration MAZJ avoids. **Never write it back in.**
 12. Final CTA (keep StepInto): wire both buttons (Book a tour to Contact; Book a day pass
     to mazj.sa).
 13. Footer (keep design): wire nav links to routes, socials to the real URLs, add

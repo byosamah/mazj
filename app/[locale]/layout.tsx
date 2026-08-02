@@ -5,6 +5,7 @@ import {getTranslations, setRequestLocale} from "next-intl/server";
 import {routing} from "@/i18n/routing";
 import "../globals.css";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import ScrollFX from "@/components/ScrollFX";
 import SmoothScroll from "@/components/motion/SmoothScroll";
 import ScrollReset from "@/components/ScrollReset";
@@ -30,7 +31,17 @@ export async function generateMetadata({
   // VERBATIM with no " | MAZJ" suffix appended, so `Meta.metaTitle` must carry
   // the brand itself.
   const title = t.has("metaTitle") ? t("metaTitle") : t("title");
-  const description = t("description");
+  // 🔴 `Meta.description` and `Meta.metaDescription` are two different jobs, and
+  // the homepage used the first one for both until 2026-08-02. `description` is
+  // the BUSINESS description: it also feeds the JSON-LD `LocalBusiness.description`
+  // via `localBusinessSchema`, where length is free and completeness is the
+  // point. A search snippet is the opposite: Google shows roughly 160 characters
+  // and the English string is 177, so the sentence was being cut mid-clause on
+  // the site's single most valuable result. Same optional-key pattern
+  // `pageMetadata` already uses for every other route.
+  const description = t.has("metaDescription")
+    ? t("metaDescription")
+    : t("description");
   const siteName = t("siteName");
   const isAr = locale === "ar";
   const path = `/${locale}`;
@@ -95,11 +106,22 @@ export default async function LocaleLayout({
   const meta = await getTranslations({locale, namespace: "Meta"});
   const location = await getTranslations({locale, namespace: "Location"});
   const nav = await getTranslations({locale, namespace: "Nav"});
+  // 🔴 The product names must come from the SAME strings the page renders, per
+  // locale. They were four English literals inside `lib/schema.ts` until
+  // 2026-08-02, which meant every Arabic route described what MAZJ sells in
+  // English, on the half of the site that carries the ranking equity.
+  const spaces = await getTranslations({locale, namespace: "Spaces"});
   const business = localBusinessSchema({
     locale,
     name: meta("siteName"),
     description: meta("description"),
     streetAddress: location("address"),
+    products: {
+      sharedSeat: spaces("cards.openDesk.name"),
+      privateOffice: spaces("cards.privateOffice.name"),
+      meeting: spaces("cards.meetingRoom.name"),
+      event: spaces("cards.eventHall.name"),
+    },
   });
 
   return (
@@ -164,6 +186,27 @@ export default async function LocaleLayout({
         <NextIntlClientProvider>
           <Navigation />
           {children}
+          {/* 🔴 MOUNTED HERE, AS A SIBLING OF `<main>`, NOT INSIDE IT.
+              It was rendered by each of the 14 route files as the last child of
+              their own `<main>`, and it had two costs, both measured on the 26
+              rendered production pages 2026-08-02.
+
+              1. `<main>` opened before `<footer>` and closed after it on 26 of
+                 26. Per the HTML Accessibility API Mappings a `<footer>` that
+                 descends from `main` does NOT map to the `contentinfo` role, so
+                 the site shipped **zero** contentinfo landmarks and
+                 `role="contentinfo"` appeared 0 times. A landmark rotor had no
+                 way to jump to the footer on any page.
+              2. 208 of 616 internal anchors, 33.8% of the site's whole internal
+                 link graph, were site-wide boilerplate structurally filed as
+                 main content. On /en/contact ALL 8 in-main internal anchors
+                 were footer links and 0 were contextual, which is exactly the
+                 signal a content-extraction pass reads to decide what a page is
+                 about.
+
+              One mount also means it can never again be forgotten on a new
+              route, or ordered differently on one of them. */}
+          <Footer />
           {/* Lenis smooth-scroll base (drives ScrollTrigger; skipped under reduced motion) */}
           <SmoothScroll />
           {/* Reset scroll to top on forward navigation (Lenis otherwise keeps the

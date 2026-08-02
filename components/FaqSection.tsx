@@ -55,7 +55,7 @@ export default function FaqSection({
               {groups.map((group, gi) => (
                 <div key={group.label} className="flex flex-col gap-2">
                   <Reveal className="pb-2">
-                    <h2 className="font-sans text-24 font-medium leading-tight text-black lg:text-32">
+                    <h2 className="text-balance font-sans text-24 font-medium leading-tight text-black lg:text-32">
                       {group.label}
                     </h2>
                   </Reveal>
@@ -137,10 +137,15 @@ function FaqRow({item, id, delay}: {item: Item; id: string; delay: number}) {
           <span className="font-sans text-18 leading-snug text-black underline decoration-transparent underline-offset-[6px] [transition:text-decoration-color_200ms] group-hover:decoration-black lg:text-20 [text-wrap:balance]">
             {item.q}
           </span>
-          {/* one glyph, two states: rotated 45deg a plus reads as a close mark */}
-          <span aria-hidden className="acc-sign mt-1 text-20 leading-none text-muted">
-            +
-          </span>
+          {/* one glyph, two states: rotated 45deg a plus reads as a close mark.
+              🔴 The "+" is drawn by `.acc-sign::after` in globals.css and is
+              deliberately NOT a text node here. This span sits INSIDE the <h3>
+              (the label wraps both), so a literal glyph made every question's
+              heading text end in "+": 48 headings across /faq and the two
+              landing teasers. `aria-hidden` never fixed that, because it hides
+              from the accessibility tree while leaving the character in the
+              text a crawler extracts. Generated content is not text content. */}
+          <span aria-hidden className="acc-sign mt-1 text-20 leading-none text-muted" />
         </label>
       </h3>
       <div className="acc-panel">

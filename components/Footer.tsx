@@ -5,7 +5,6 @@ import AmbientVideo from "./motion/AmbientVideo";
 import {SOCIALS, STARTUP_OFFER} from "@/lib/links";
 
 const SOCIAL_LINKS = [
-  {label: "X", href: SOCIALS.x},
   {label: "Linkedin", href: SOCIALS.linkedin},
   {label: "Instagram", href: SOCIALS.instagram},
 ];
@@ -34,6 +33,7 @@ const PAYMENTS = [
 
 export default function Footer() {
   const t = useTranslations("Footer");
+  const brand = useTranslations("Meta")("siteName");
 
   const links = [
     {label: t("linkAbout"), href: "/about"},
@@ -135,9 +135,12 @@ export default function Footer() {
         <div className="flex justify-center lg:justify-start">
           {/* 559x412 intrinsic, rendered at 42px tall, so 57 wide. Stated so
               the row reserves the box rather than reflowing when it lands. */}
+          {/* alt is the brand string PER LOCALE. The PNG draws the Arabic مزج,
+              so a hardcoded "MAZJ" described the wrong thing on every Arabic
+              route. `Meta.siteName` already carries both, so no new key. */}
           <Image
             src="/logos/mazj-wordmark.png"
-            alt="MAZJ"
+            alt={brand}
             width={57}
             height={42}
             className="h-[42px] w-auto opacity-95 [filter:brightness(0)_invert(1)]"
@@ -236,8 +239,12 @@ export default function Footer() {
             clipped INSTAGRAM and dropped ZATCA onto the h2. Logical props, so
             RTL mirrors. */}
         <div className="eyebrow flex w-full flex-wrap items-center justify-between gap-x-12 gap-y-2 text-12 text-beige/90">
-          {/* gap-x-10 below sm keeps the EN socials row (274px) from stranding
-              INSTAGRAM on a second line inside the 272px container at 320px. */}
+          {/* gap-x-10 below sm keeps the EN socials row from stranding
+              INSTAGRAM on a second line inside the 272px container at 320px.
+              The measured 274px behind that number was the THREE-link row; X
+              was removed 2026-08-01 (see SOCIALS in lib/links.ts), so the row
+              carries the same two long labels with one fewer gap and can only
+              be narrower. Re-measure before tightening the gap further. */}
           <div className="flex flex-wrap items-center gap-x-10 sm:gap-x-12">
             {SOCIAL_LINKS.map((s) => (
               <a

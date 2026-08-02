@@ -32,7 +32,14 @@ export default function HostEvent() {
         </Reveal>
 
         <Reveal delay={120} className="flex items-center justify-center">
-          <div className="relative aspect-[4/3] w-full max-w-[560px] overflow-clip rounded-[16px] shadow-[0_10px_32px_rgba(0,0,0,0.12),inset_0_0_0_1px_rgba(0,0,0,0.1)]">
+          {/* The hairline is drawn by an `after:` pseudo-element, matching
+              MediaFrame / USP / LocationHours. This box used to carry a drop
+              shadow plus an inset ring on the box ITSELF, and both halves were
+              wrong: an inset shadow paints above the background but below the
+              content, so the opaque photo filling this overflow-clip box hid
+              the ring entirely, and the visible half was the floating white
+              card DESIGN.md says the system exists to avoid. */}
+          <div className="relative aspect-[4/3] w-full max-w-[560px] overflow-clip rounded-[16px] after:pointer-events-none after:absolute after:inset-0 after:rounded-[16px] after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] after:content-['']">
             {/* The alt describes the PHOTOGRAPH — it must never be t("title"):
                 that is verbatim the <h2> in the other half of this grid, and it
                 once made the heading announce twice in a row. */}

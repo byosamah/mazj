@@ -59,6 +59,36 @@ const TICKETABLE_TYPES = new Set<number>([
   REKAZ_PRODUCT_TYPE.subscription,
 ]);
 
+/**
+ * Whether a catalog product may be offered to the admin as an event ticket.
+ *
+ * 🔴 EXPORTED FOR ITS OWN TEST, and the reason is a guard that quietly stopped
+ * guarding. This rule used to be asserted only inside
+ * `test/rekaz.integration.test.ts`, against the LIVE tenant, by checking that a
+ * product slugged `faalyh-tjrybyh` was still on sale. That had two faults which
+ * both came due: it `skipIf`s away on any machine without merchant credentials,
+ * so a fresh clone and any CI runner never ran it at all, and it pinned a row in
+ * somebody's production dashboard, so it went permanently red on 2026-08-02 when
+ * the owner deleted that product. The rule itself never depended on either: it
+ * is two set memberships, and it is now tested as two set memberships, offline,
+ * on every run.
+ *
+ * The invariant that matters is the SECOND line. A room reaching this list puts
+ * "private office, one year, 34,000 SAR" one mis-click from a 50 SAR ticket, on
+ * the form that decides what a stranger is charged.
+ *
+ * Structural parameter rather than `RekazProduct` so a test can state the two
+ * fields the rule actually reads instead of constructing a whole catalog entry.
+ */
+export function isTicketableProduct(product: {
+  type: number;
+  slug: string;
+}): boolean {
+  if (!TICKETABLE_TYPES.has(product.type)) return false;
+  if (SPACE_SLUGS.has(product.slug)) return false;
+  return true;
+}
+
 export type TicketPriceOption = {
   /** Stable across dashboard edits. This is what an event stores. */
   immutableId: string;
@@ -149,8 +179,7 @@ export async function listTicketPriceOptions(): Promise<
   const options: TicketPriceOption[] = [];
 
   for (const product of catalog.value.items ?? []) {
-    if (!TICKETABLE_TYPES.has(product.type)) continue;
-    if (SPACE_SLUGS.has(product.slug)) continue;
+    if (!isTicketableProduct(product)) continue;
 
     for (const price of product.pricing ?? []) {
       options.push({

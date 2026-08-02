@@ -64,7 +64,7 @@ export default function StartupApplicationForm() {
         <h3
           ref={doneRef}
           tabIndex={-1}
-          className="font-sans text-28 font-bold leading-[1.2] text-black outline-none lg:text-32"
+          className="text-balance font-sans text-28 font-bold leading-[1.2] text-black outline-none lg:text-32"
         >
           {t("successTitle")}
         </h3>
@@ -242,14 +242,14 @@ export default function StartupApplicationForm() {
       </div>
 
       {state.status === "error" && (
-        <p role="alert" className="text-14 text-orange">
+        <p role="alert" className="text-pretty text-14 text-orange">
           {errorCopy(t, state)}
         </p>
       )}
 
       <Submit />
 
-      <p className="text-13 leading-relaxed text-muted">
+      <p className="text-pretty text-13 leading-relaxed text-muted">
         {t("consent")}{" "}
         <Link
           href="/privacy"

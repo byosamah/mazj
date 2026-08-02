@@ -517,13 +517,24 @@ decorative, and there is no elevation ladder.
 
 ### Motion
 
-Motion is a contract in this system, not a flourish. Three easings, and
+Motion is a contract in this system, not a flourish. Four easings, and
 durations that cluster hard.
 
 - `--ease-expo: cubic-bezier(0.16, 1, 0.3, 1)` for scroll reveals.
 - `--ease-premium: cubic-bezier(0.16, 1.08, 0.38, 0.98)` for cards, crossfades,
   and anything that should overshoot slightly.
 - `--ease-default: cubic-bezier(0.4, 0, 0.2, 1)` for interface micro-motion.
+- `cubic-bezier(0.2, 0, 0, 1)` for a **contextual icon swap**, and only that.
+  Added 2026-08-01 by owner approval. It is the one spring-shaped curve here: it
+  leaves rest slowly and arrives hard, which is what a mark scaling up from a
+  quarter of its size needs. The other three all fail that case, and the reasons
+  are worth keeping because they are why a fourth was allowed at all: `expo`
+  starts at full speed, so a quarter-size glyph is already near full size before
+  the eye finds it; `premium` overshoots, and an icon that overshoots reads as a
+  bounce rather than a swap; `default` is symmetric and too slack to feel like a
+  swap at all. 🔴 It is deliberately NOT a `--ease-*` custom property: it has one
+  call site (`Navigation.tsx`'s hamburger-to-close cross-fade) and a token would
+  invite a second. Promote it only when a second control genuinely needs it.
 
 | Pattern                        | Duration                    |
 | :----------------------------- | :-------------------------- |
@@ -531,6 +542,7 @@ durations that cluster hard.
 | Button sweep and label lift    | 120ms                       |
 | Hover opacity, focus rim       | 200ms                       |
 | Chevron rotate                 | 300ms                       |
+| Contextual icon swap           | 300ms                       |
 | Accordion open and close       | 450ms                       |
 | Media crossfade                | 600ms                       |
 | Word reveal, 45ms per word     | 550ms                       |
@@ -545,6 +557,13 @@ durations that cluster hard.
 - **Press feedback is universal.** Every interactive element scales to 0.96 on
   press, at 120ms, using the CSS `scale` property so it never collides with a
   `transform`-based sweep.
+- **An icon that changes meaning cross-fades, it never toggles visibility.**
+  Three properties together: opacity 0 to 1, scale 0.25 to 1, blur 4px to 0.
+  Both glyphs stay mounted with one absolutely positioned over the other, which
+  is what gives the swap an exit as well as an entrance. There is no motion
+  library in this project, so this is CSS transitions rather than a spring, and
+  the curve above is the approximation. This applies to a state change
+  (hamburger to close), never to a static or decorative icon.
 - **Autoplaying video ignores `prefers-reduced-motion` in CSS.** Ambient video
   must be gated in script, not in a media query. Under reduced motion all
   transition durations collapse to near zero, which also means motion timing

@@ -8,7 +8,6 @@ import PageIntro from "@/components/PageIntro";
 import FaqSection from "@/components/FaqSection";
 import Reveal from "@/components/Reveal";
 import CtaButton from "@/components/CtaButton";
-import Footer from "@/components/Footer";
 import {waLink} from "@/lib/contact";
 
 function Content() {
@@ -85,7 +84,6 @@ export default async function FaqPage({
       {/* grouped => every question, categorised, each category a real <h2> */}
       <FaqSection showHeader={false} grouped />
       <Closing />
-      <Footer />
     </main>
   );
 }

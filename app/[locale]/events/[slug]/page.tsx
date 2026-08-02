@@ -4,7 +4,6 @@ import {getTranslations, setRequestLocale} from "next-intl/server";
 
 import {Link} from "@/i18n/navigation";
 import CtaButton from "@/components/CtaButton";
-import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import PageIntro from "@/components/PageIntro";
 import Reveal from "@/components/Reveal";
@@ -129,6 +128,11 @@ export default async function EventPage({
             path: `/events/${slug}`,
             image: event.posterUrl,
             performer: event.host,
+            // 🔴 Was never passed, so every event claimed to be at MAZJ no
+            // matter what the operator typed into `/admin` and no matter what
+            // this page printed a few hundred pixels below. `null` here means
+            // "at MAZJ", which is what the field means in the database.
+            location: event.location,
             // 🔴 `url` is the STOREFRONT, not this page. An Offer's url is
             // where the offer is transacted, and since 2026-07-30 that is the
             // product's page on the Rekaz store; this page only describes it.
@@ -212,7 +216,6 @@ export default async function EventPage({
         </div>
       </section>
 
-      <Footer />
     </main>
   );
 }
@@ -401,7 +404,7 @@ async function RegistrationPanel({
             {t("ticketCta")}
           </CtaButton>
         </div>
-        <p className="mt-4 text-12 text-brown/60">{t("vatNote")}</p>
+        <p className="mt-4 text-pretty text-12 text-brown/60">{t("vatNote")}</p>
       </div>
     );
   }
@@ -435,7 +438,7 @@ function Panel({
 }) {
   return (
     <div className="rounded-[16px] bg-beige-card p-8 lg:p-10">
-      <h2 className="font-sans text-24 font-bold leading-[1.05] text-brown lg:text-32">
+      <h2 className="text-balance font-sans text-24 font-bold leading-[1.05] text-brown lg:text-32">
         {title}
       </h2>
       <p className="mt-3 max-w-[42ch] text-pretty text-15 leading-relaxed text-brown/85">

@@ -8,7 +8,6 @@ import {useFormStatus} from "react-dom";
 // for this chunk, and one primitive ever reaching for `next/headers` or `_lib`
 // would break the build of the biggest form in the tool.
 import {Btn} from "@/components/admin/Btn";
-import {Disclosure} from "@/components/admin/Disclosure";
 import {ErrorState} from "@/components/admin/ErrorState";
 import {Eyebrow} from "@/components/admin/Eyebrow";
 import {Field} from "@/components/admin/Field";
@@ -16,12 +15,12 @@ import {Notice} from "@/components/admin/Notice";
 import {Section} from "@/components/admin/Section";
 import {UnknownValue} from "@/components/admin/UnknownValue";
 
-import {
-  removeEvent,
-  saveEvent,
-  type RemoveEventState,
-  type SaveEventState,
-} from "../../_lib/event-actions";
+import {saveEvent, type SaveEventState} from "../../_lib/event-actions";
+// Type-only, so nothing from `_lib` crosses into this client bundle. That
+// directory is a sanctioned crossing into `@/server` and can reach the Supabase
+// secret key, so a value import from here would be the wrong shape even for a
+// module that happens to be pure data, as this one is.
+import type {EventOutcome} from "../../_lib/event-outcomes";
 import type {AdminEventDetail, TicketPriceOption} from "../../_lib/events";
 
 /**
@@ -46,13 +45,31 @@ import type {AdminEventDetail, TicketPriceOption} from "../../_lib/events";
  * here: `?saved=1` survives in the URL after a save, so a page-owned "Saved."
  * would still be on screen underneath a failed second save. So the "Saved."
  * notice is passed IN as a prop and rendered through the same slot, where a
- * later failure displaces it.
+ * later failure displaces it. `outcome` arrives the same way and for the same
+ * reason: the status and delete controls now sit beside the h1, outside this
+ * component, and a second notice up there would be exactly that pair again.
+ *
+ * ⚠️ THE STATUS SELECT AND THE DELETE PANEL BOTH LEFT THIS FORM on 2026-08-01,
+ * owner request, and the reason is worth keeping. Both are now in
+ * `EventActions`, beside the title and on every row of the events list.
+ *
+ * The select had to go rather than merely be duplicated: two controls writing
+ * one column on one screen can disagree, and this pair would have done it
+ * silently. Changing the select and NOT saving, then pressing Publish beside
+ * the title, would have thrown away the unsaved choice with nothing on screen
+ * to say so. A status is a transition, not a field, and it has no business
+ * requiring the other twenty-two columns to be rewritten with it.
+ *
+ * 🔴 WHAT REPLACES IT ON AN EXISTING EVENT IS A HIDDEN INPUT, and it is not
+ * decoration. `saveEvent` reads `status` from the form and falls back to
+ * `"draft"`, so a form that simply stopped sending the field would demote a
+ * live event to a draft on every ordinary save, silently, from a control nobody
+ * touched.
  */
 
 type Precision = AdminEventDetail["datePrecision"];
 
 const INITIAL_SAVE: SaveEventState = {status: "idle"};
-const INITIAL_REMOVE: RemoveEventState = {status: "idle"};
 
 /**
  * Field names the write path reports that this form does not have a control
@@ -92,6 +109,7 @@ export default function EventForm({
   ticketOptions,
   rekazReachable,
   saved = false,
+  outcome = null,
 }: {
   /** Absent when creating. */
   event?: AdminEventDetail;
@@ -99,12 +117,14 @@ export default function EventForm({
   rekazReachable: boolean;
   /** True on `?saved=1`, i.e. the redirect this form's own action just made. */
   saved?: boolean;
+  /**
+   * What the status or delete control beside the title just did, read off the
+   * URL by the page. Passed in rather than rendered up there, so this screen
+   * keeps exactly one alert slot.
+   */
+  outcome?: EventOutcome | null;
 }) {
   const [saveState, saveAction] = useActionState(saveEvent, INITIAL_SAVE);
-  const [removeState, removeAction] = useActionState(
-    removeEvent,
-    INITIAL_REMOVE
-  );
 
   const [ticketed, setTicketed] = useState(
     Boolean(event?.rekazPriceImmutableId)
@@ -177,20 +197,25 @@ export default function EventForm({
       : undefined;
 
   // Focus moves to the notice on a failure, which is what makes one alert slot
-  // workable: the delete control sits at the very bottom of a long form and its
-  // message renders at the very top. `Notice` carries the tabIndex and the data
+  // workable: Save sits at the bottom of a very long form and its message
+  // renders at the very top. `Notice` carries the tabIndex and the data
   // attribute for exactly this. Never on mount, or the "Saved." notice would
   // steal focus and scroll the page on every arrival.
+  //
+  // ⚠️ `outcome` deliberately does NOT trigger it. That one arrives through a
+  // real navigation rather than an in-place action, so the browser has already
+  // put the reader at the top of the document with the notice in view; moving
+  // focus would be the mount case this comment warns against.
   useEffect(() => {
-    if (saveState.status !== "error" && removeState.status !== "error") return;
+    if (saveState.status !== "error") return;
     document.querySelector<HTMLElement>("[data-admin-notice]")?.focus();
-  }, [saveState, removeState]);
+  }, [saveState]);
 
   return (
     <div className="space-y-10 lg:space-y-12">
       <NoticeSlot
         saveState={saveState}
-        removeState={removeState}
+        outcome={outcome}
         saved={saved}
         badField={badField}
         rekazReachable={rekazReachable}
@@ -547,18 +572,30 @@ export default function EventForm({
 
         <Section eyebrow="PUBLISHING" title="Where it appears">
           <div className="grid gap-x-6 gap-y-6 md:grid-cols-2">
-            <Field
-              id="field-status"
-              name="status"
-              label="Status"
-              as="select"
-              defaultValue={event?.status ?? "draft"}
-              error={errorFor("status")}
-            >
-              <option value="draft">Draft, not on the site</option>
-              <option value="published">Published, live on the site</option>
-              <option value="cancelled">Cancelled, hidden</option>
-            </Field>
+            {/* 🔴 A hidden ROUND TRIP on an existing event, never a dropped
+                field. `saveEvent` falls back to "draft" when `status` is
+                absent, so a form that stopped sending it would quietly take a
+                live event off the site every time somebody fixed a typo. The
+                visible control lives beside the title, in `EventActions`.
+
+                It stays a real select while CREATING, because there is no
+                status control up there yet: nothing exists to change. */}
+            {event ? (
+              <input type="hidden" name="status" value={event.status} />
+            ) : (
+              <Field
+                id="field-status"
+                name="status"
+                label="Status"
+                as="select"
+                defaultValue="draft"
+                error={errorFor("status")}
+              >
+                <option value="draft">Draft, not on the site</option>
+                <option value="published">Published, live on the site</option>
+                <option value="cancelled">Cancelled, hidden</option>
+              </Field>
+            )}
 
             <Field
               id="field-slug"
@@ -592,8 +629,6 @@ export default function EventForm({
 
         <Save />
       </form>
-
-      {event && <DangerZone event={event} action={removeAction} />}
     </div>
   );
 }
@@ -607,27 +642,24 @@ export default function EventForm({
  */
 function NoticeSlot({
   saveState,
-  removeState,
+  outcome,
   saved,
   badField,
   rekazReachable,
   ticketTrap,
 }: {
   saveState: SaveEventState;
-  removeState: RemoveEventState;
+  outcome: EventOutcome | null;
   saved: boolean;
   badField?: string;
   rekazReachable: boolean;
   ticketTrap: boolean;
 }) {
-  if (removeState.status === "error") {
-    return (
-      <Notice tone="destructive" live="assertive">
-        {removeState.message}
-      </Notice>
-    );
-  }
-
+  // 🔴 A FAILED SAVE OUTRANKS THE OUTCOME, and the pair is reachable. The
+  // outcome lives in the query string and survives every in-place action on
+  // this page, so pressing Publish beside the title and then failing a Save
+  // would otherwise leave "That event is on the site now." sitting above a form
+  // that has just refused to record anything.
   if (saveState.status === "error") {
     return (
       <Notice
@@ -648,6 +680,18 @@ function NoticeSlot({
         }
       >
         {saveState.message}
+      </Notice>
+    );
+  }
+
+  if (outcome) {
+    return (
+      <Notice
+        tone={outcome.tone}
+        live={outcome.tone === "destructive" ? "assertive" : "polite"}
+        detail={outcome.detail}
+      >
+        {outcome.message}
       </Notice>
     );
   }
@@ -697,74 +741,26 @@ function Save() {
 }
 
 /**
- * Deleting, behind a disclosure and a typed confirmation.
+ * ⚠️ `DangerZone` AND `DeleteButton` STOOD HERE, and both are gone rather than
+ * moved unchanged. Deleting now lives in `EventActions`, beside the title and
+ * on every row of the events list.
  *
- * 🔴 NO BLOCKING `confirm()` AND NO MODAL. `confirm()` blocks the event loop
+ * What was here: a DANGER section at the very bottom of a very long form,
+ * holding a collapsed disclosure, holding a field that made you type the
+ * event's own link before the button would submit.
+ *
+ * 🔴 Two things about that are worth carrying forward, because the replacement
+ * keeps one of them and deliberately drops the other.
+ *
+ * KEPT: no blocking `confirm()` and no modal. `confirm()` stops the event loop
  * and every automated check that drives this screen, and a modal replaces a
- * guard the operator can read with one they dismiss. The guard here is having
- * to type the event's own link, which is native validation and needs no
- * JavaScript.
+ * guard somebody reads with one they dismiss. The new control is a native
+ * disclosure and a button whose LABEL states what is about to happen, including
+ * how many sign-ups go with it.
  *
- * ⚠️ A SEPARATE `<form>`, a sibling of the save form rather than a child.
- * Nested forms are invalid HTML and the inner one is simply dropped, which
- * would attach this button to the save action.
+ * DROPPED: the typed slug, by owner decision on 2026-08-01 (two clicks, no
+ * typing). It was a slip guard and could never have been anything else. In its
+ * place `removeEvent` now compares the posted slug against the STORED one,
+ * which is a check the typed field could not perform: it refuses when the page
+ * and the row disagree about which event this is.
  */
-function DangerZone({
-  event,
-  action,
-}: {
-  event: AdminEventDetail;
-  action: (formData: FormData) => void;
-}) {
-  return (
-    <Section eyebrow="DANGER" title="Delete this event">
-      <Disclosure label="Delete this event" tone="destructive">
-        <form action={action} className="space-y-4">
-          <input type="hidden" name="id" value={event.id} />
-          <input type="hidden" name="slug" value={event.slug} />
-          {event.posterPath && (
-            <input type="hidden" name="posterPath" value={event.posterPath} />
-          )}
-
-          <p className="max-w-[62ch] text-14 leading-[1.6]">
-            Deleting removes the event, its poster and every sign-up for it.
-            There is no undo. To take an event off the site without losing who
-            signed up, set its status to Cancelled instead.
-          </p>
-
-          <Field
-            id="field-confirmSlug"
-            name="confirmSlug"
-            label={`Type ${event.slug} to confirm`}
-            required
-            autoComplete="off"
-            // No escaping: `isValidSlug` restricts a slug to lowercase letters,
-            // digits and hyphens, and a hyphen outside a character class is a
-            // literal. Anything else could never have been stored.
-            pattern={event.slug}
-          />
-
-          <DeleteButton />
-        </form>
-      </Disclosure>
-    </Section>
-  );
-}
-
-function DeleteButton() {
-  const {pending} = useFormStatus();
-
-  return (
-    <Btn
-      type="submit"
-      variant="danger"
-      pending={pending}
-      pendingLabel="Deleting"
-      onClick={(e) => {
-        if (pending) e.preventDefault();
-      }}
-    >
-      Delete this event
-    </Btn>
-  );
-}

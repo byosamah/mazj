@@ -71,14 +71,25 @@ export function errorResponse(error: AppError): Response {
   return json(toPublicError(error), { status, headers });
 }
 
-/** Maps a `Result` to a response, using `onOk` for the success shape. */
+/**
+ * Maps a `Result` to a response, using `onOk` for the success shape.
+ *
+ * `headers` is optional and merges over `json`'s defaults, which is how
+ * `app/api/health/route.ts` attaches `X-Robots-Tag: noindex`. It applies to the
+ * SUCCESS path only: an error goes through `errorResponse`, and a 4xx/5xx is
+ * not a document any engine indexes in the first place.
+ */
 export function respond<T>(
   result: Result<T, AppError>,
-  onOk: (value: T) => { body: unknown; status?: number }
+  onOk: (value: T) => {
+    body: unknown;
+    status?: number;
+    headers?: Record<string, string>;
+  }
 ): Response {
   if (!result.ok) return errorResponse(result.error);
-  const { body, status } = onOk(result.value);
-  return json(body, { status });
+  const { body, status, headers } = onOk(result.value);
+  return json(body, { status, headers });
 }
 
 /**

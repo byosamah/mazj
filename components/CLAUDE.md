@@ -25,6 +25,41 @@ expensive mistakes live.
   (`rtl ? "bg-gradient-to-l" : "bg-gradient-to-r"`), with **both** class names
   written literally so the JIT emits them.
 
+### 🔴 A HYPHENATED NUMBER RANGE IN ARABIC COPY RENDERS BACKWARDS
+
+`9-5` inside an Arabic sentence displays on screen as **`5-9`**, and nothing
+errors. Measured and fixed 2026-08-02, on the one string where it mattered most:
+`SpaceCoworking.facts[2].value` said `الخميس 9-5` and rendered the staffed hours
+as 5 to 9, which is the exact misreading the 9-to-5 correction exists to
+prevent. The same fault put `فترات 2-5 ساعات` on **five** routes as 5 to 2.
+
+**Why.** After an Arabic letter, Unicode bidi rule W2 retypes the digits from
+European to Arabic numbers. Rule W4 then cannot absorb the `-`, because it joins
+**European** numbers only, so W6 makes it a neutral and N1 resolves it to R
+between two AN runs. The two numbers end up on opposite sides of the separator
+from where they were typed. A space around the hyphen does not help, and neither
+does an en dash: both are neutrals.
+
+**The fix is the site's own construction, not punctuation:** `من 9 إلى 5`,
+`من 2 إلى 5 ساعات`. Leave the English twin alone; it is an LTR paragraph and was
+never affected. `24/7` is safe (a solidus between two ANs stays an AN run).
+
+✅ **BUT AN `Intl` DATE RANGE IS NOT THIS BUG, AND IT WILL BE FILED AS ONE.**
+`/ar/events` renders `١٧-١٨ فبراير ٢٠٢٣` with the same transposition, and it is
+CORRECT: `Intl.DateTimeFormat(...).formatRange()` for `ar-SA` produces that
+string byte for byte (verified in this repo's Node), so it is CLDR's canonical
+Arabic range format rather than anything this codebase chose. ⚠️ The obvious fix
+is also measured and does **nothing**: `dir="ltr"` returns the identical output,
+because Arabic-Indic digits are class AN and stay RTL-ordered regardless of the
+paragraph direction. Do not touch it.
+
+**Verify a bidi claim against a real implementation, never by reasoning.**
+`python-bidi` (`from bidi.algorithm import get_display; get_display(s,
+base_dir='R')`) and the `fribidi` CLI are both installed and agree.
+⚠️ `get_display` returns VISUAL order, so read its output as screen order, and
+check whether a reader parsing a numeric range left-to-right would get the
+number the copy meant.
+
 ## 🔴 Arabic typography and the clipping rule
 
 This is the single most expensive area in the repo. Read it before touching any
@@ -465,7 +500,16 @@ truth.
   `PageIntro`'s hero photo (the LCP element on all eight photo routes) and the
   nav wordmark. As a raw `<img loading="eager">` the opener still went out at
   **Low** fetch priority, queued behind every below-fold photo; `priority` is
-  what emits the preload plus `fetchPriority="high"`.
+  what emits the preload that gets it DISCOVERED early.
+  - 🔴 **`priority` does NOT imply `fetchPriority`, and this line said it did
+    until 2026-08-02.** They are independent props in Next 16: `priority` sets
+    `meta.preload`, while the attribute is built from
+    `imgAttributes.fetchPriority`, so an undefined value emits nothing. Measured
+    across the 26 rendered production pages: **370 `<img>`, 48 image preloads,
+    and ZERO carrying `fetchpriority`**, including the LCP element on 20 of 26
+    routes. `PageIntro` and `AmbientVideo` now pass **both**. Verify by grepping
+    the rendered HTML for the lowercased attribute (`fetchpriority="high"`),
+    never by reading the JSX, since the prop name and the attribute differ.
 - **`location-map.png` is `unoptimized` on purpose.** It is a hand-tuned PNG-8 at
   256 colours (41 KB, effectively lossless against the styled map's 464 distinct
   colours). A lossy AVIF re-encode bands the flat cream fields and rings the
@@ -486,6 +530,19 @@ authoritative check is
 `new URLSearchParams(img.currentSrc.split('?')[1]).get('w')` against
 `cssWidth × devicePixelRatio`; confirm by fetching the chosen URL and reading the
 delivered file's real dimensions.
+
+🔴 **AN INSET `box-shadow` ON A MEDIA BOX RENDERS NOTHING, AND HERE IS THE
+NUMBER.** `MediaFrame`'s docblock asserts it; measured 2026-08-02 with an isolated
+probe (same markup twice, one box carrying the 1px ink-at-10% ring on itself and
+one on an `after:` pseudo-element, opaque image inside `overflow:clip`):
+first-pixel-vs-second ratios of **1.000** and **0.898**. Inset shadows paint above
+the background but below content, so an absolutely-positioned `<Image fill>`
+covers the ring completely.
+
+`HostEvent`, `SpaceDetail` and `FoundingBand` each carried that dead ring PLUS the
+banned drop shadow until 2026-08-02. All three now use the `after:` idiom and
+measure 0.900 against `MediaFrame` controls at 0.900 / 0.905 / 0.914, so **every
+media box on the marketing site now draws its hairline the same way.**
 
 ### 🔴 `AmbientVideo` — `preload="none"` DOES NOT SURVIVE `autoPlay`
 
@@ -1082,6 +1139,45 @@ changes and the press SNAPS with zero easing (shipped twice: contact socials,
 LocationHours map card). Press timing standard is 120ms; the idiom is
 `[transition:opacity_200ms,transform_120ms]`.
 
+## The interface-polish pass, and what it already covers
+
+Run 2026-08-01/02 against the `make-interfaces-feel-better` principles. **Most of
+it was already done, so re-audit before "fixing" anything here.** Measured across
+`app/` + `components/` (`.tsx`) on 2026-08-02:
+
+| Principle | State |
+|---|---|
+| press scale | 36 `active:scale-[0.96]`, plus the shared `.cta` rule in `globals.css` |
+| explicit transitions | 37 `[transition:…]` lists; **zero** `transition-all` outside dead `components/ui/button.tsx` |
+| text wrapping | 32 `text-balance`, 51 `text-pretty`, 9 `[text-wrap:…]` |
+| tabular figures | 51 sites, plus `body` in `admin.css` |
+| hit pads | 10 `before:h-11` / `before:h-[44px]` pseudo-pads |
+| font smoothing | all three documents (`[locale]`, `admin`, `global-error`) |
+| `will-change` | **zero** in `.tsx`, deliberately; see the notes in `globals.css` |
+
+Deliberately NOT wrapped, so don't "complete" it: `Hero.tsx`'s `h1` (two authored
+`intro-line` block spans, balance is a no-op), `FaqSection`'s bare `<h3>` wrapper
+(the span inside carries it), `PastEvents`' year numeral, `/startups`' `font-mono`
+reference code, and the two label-register paragraphs in `global-error.tsx`.
+
+🔴 **`blur-none` COMPILES TO AN EMPTY `--tw-blur`, NOT `blur(0px)`. Use `blur-0`.**
+Read out of the served stylesheet 2026-08-02: `.blur-none` emits `--tw-blur:  ;`
+while `.blur-0` emits `--tw-blur: blur(0)`. The empty form leaves the composed
+`filter` shorthand invalid at computed-value time, so the property falls back to
+`none` and a `filter` transition interpolates a list against nothing. It still
+renders, which is what makes it a trap rather than a bug.
+
+🔴 **`blur-*` compiles to `filter`, exactly as `scale-*` compiles to `transform`.**
+The press-feedback rule above says a transition list must name `transform`, never
+`scale`; the same applies one property over. `Navigation.tsx`'s icon cross-fade
+therefore names all three: `transition-[opacity,transform,filter]`.
+
+⚠️ **That cross-fade carries a FOURTH easing**, `cubic-bezier(0.2,0,0,1)`,
+owner-approved 2026-08-01 for that one control. `DESIGN.md` documents a closed set
+of three and none suits a scale-from-quarter-size (expo snaps hard at the start,
+premium overshoots, and zero bounce is the requirement). It is NOT in `DESIGN.md`'s
+motion table yet, so a later pass may "correct" it back.
+
 ## Brand assets
 
 The MAZJ wordmark is `public/logos/mazj-wordmark.png` (recolored to project ink
@@ -1153,6 +1249,26 @@ expect posters where clips would be. Pause videos in the same session before
 measuring anything over video
 (`document.querySelectorAll('video').forEach(v => v.pause())`), or sample ≥12
 frames ~620ms apart and take the worst case.
+
+🔴 **System-Chrome `--screenshot` captures the VIEWPORT, not the full page, so a
+taller `--window-size` does NOT get you further down.** Measured 2026-08-02: the
+output is always exactly the window height (1440x900 → 900px; 1440x3200 → 3200px).
+And because the landing's sections are sized in `svh` (`min-h-svh`,
+`min-h-[max(100svh,620px)]`, `min-h-[min(640px,100svh)]`), a 3200px window makes
+the hero 3200px tall and captures **only the hero**. Taller buys nothing.
+
+**To inspect a below-the-fold component without a driver, PROBE IT IN ISOLATION:**
+write a standalone `.html` into the scratchpad replicating the exact declarations,
+point it at the real files under `public/` with `file://` plus
+`--allow-file-access-from-files`, and capture that. Used 2026-08-02 to compare
+FoundingBand's card with and without its drop shadow over the real photograph, and
+to prove the inset-shadow result in `## Media`. It answers a CSS question without
+touching the app, and it is deterministic.
+
+**Measuring a 1px hairline: compare the box's first pixel column against its
+second, down many rows, and take the MEDIAN** (ink at 10% makes col0 ≈ 0.90 ×
+col1). Always run the same measurement on a known-good control in the SAME
+capture; a lone ratio tells you a hairline exists, not that it is the right one.
 
 The page never reaches Playwright `networkidle` (looping autoplay videos keep the
 network busy), so wait on `domcontentloaded` + `wait_for_selector('header')` +

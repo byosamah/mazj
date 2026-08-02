@@ -11,7 +11,6 @@ import Network from "@/components/Network";
 import LocationHours from "@/components/LocationHours";
 import FaqSection from "@/components/FaqSection";
 import StepInto from "@/components/StepInto";
-import Footer from "@/components/Footer";
 
 export default async function Home({
   params,
@@ -41,7 +40,6 @@ export default async function Home({
       {/* Landing shows a teaser; /faq carries the full categorised set. */}
       <FaqSection limit={6} />
       <StepInto />
-      <Footer />
     </main>
   );
 }

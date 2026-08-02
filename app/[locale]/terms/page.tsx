@@ -4,7 +4,6 @@ import {pageMetadata} from "@/lib/metadata";
 import {useTranslations} from "next-intl";
 import PageIntro from "@/components/PageIntro";
 import LegalSections from "@/components/LegalSections";
-import Footer from "@/components/Footer";
 
 function Content() {
   const t = useTranslations("TermsPage");
@@ -43,7 +42,6 @@ export default async function TermsPage({
   return (
     <main id="content" tabIndex={-1} className="w-full overflow-x-hidden">
       <Content />
-      <Footer />
     </main>
   );
 }

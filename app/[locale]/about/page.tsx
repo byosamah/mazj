@@ -7,7 +7,6 @@ import Reveal from "@/components/Reveal";
 import WordReveal from "@/components/WordReveal";
 import MediaFrame from "@/components/MediaFrame";
 import CtaButton from "@/components/CtaButton";
-import Footer from "@/components/Footer";
 import {Link} from "@/i18n/navigation";
 import {waLink} from "@/lib/contact";
 
@@ -275,7 +274,6 @@ export default async function AboutPage({
   return (
     <main id="content" tabIndex={-1} className="w-full overflow-x-hidden">
       <Content />
-      <Footer />
     </main>
   );
 }

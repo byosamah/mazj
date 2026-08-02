@@ -1,19 +1,25 @@
 "use server";
 
+import {refresh} from "next/cache";
 import {redirect} from "next/navigation";
 
 import type {AppError} from "@/server/core/errors";
 import {
   deleteEvent,
+  getEventById,
   insertEvent,
+  setEventStatus,
   updateEvent,
   type EventDraft,
+  type EventRecord,
   type EventStatus,
 } from "@/server/db/events";
 import {
   isValidSlug,
+  missingToPublish,
   slugifyTitle,
   type DatePrecision,
+  type MissingForPublish,
 } from "@/server/domain/events";
 import {riyadhWallClockToUtc} from "@/server/domain/riyadh-time";
 import {cleanFreeText} from "@/server/domain/text";
@@ -22,6 +28,11 @@ import {resolveTicketPrice} from "@/server/services/event-tickets";
 import {deletePoster, uploadPoster} from "@/server/storage/event-posters";
 
 import {requireAdmin} from "./auth";
+import {
+  eventOutcomeUrl,
+  type EventOutcomeCode,
+  type EventScope,
+} from "./event-outcomes";
 
 /**
  * Creating, editing and deleting events.
@@ -54,9 +65,25 @@ export type SaveEventState =
   | {status: "saved"}
   | {status: "error"; message: string; field?: string};
 
-export type RemoveEventState =
-  | {status: "idle"}
-  | {status: "error"; message: string};
+/**
+ * ⚠️ `RemoveEventState` STOOD HERE and is gone, with the `useActionState` form
+ * that consumed it.
+ *
+ * Deleting used to live at the bottom of `EventForm`, behind a typed-slug
+ * confirmation, and it was reachable from exactly one screen. It is now on the
+ * events LIST as well (owner request, 2026-08-01), and a control that exists on
+ * two screens cannot report itself through one screen's client state. Both
+ * screens report through `event-outcomes.ts` instead, which is why this action
+ * now takes a bare `FormData` and redirects rather than returning a value.
+ *
+ * 🔴 The typed slug went with it, by the same owner decision: two clicks, no
+ * typing. What replaced it as the SERVER-side guard is the slug comparison in
+ * `removeEvent`, and that swap is the load-bearing part. The typed field never
+ * defended against a crafted POST (an admin is trusted and can delete anything
+ * they like); it defended against a SLIP, and a slip cannot happen over HTTP.
+ * The comparison defends something the typed field never did: it refuses when
+ * the page's idea of the event disagrees with the row.
+ */
 
 /** Mirrors the check constraints in `20260728120000_events.sql`. */
 const LIMITS = {
@@ -135,26 +162,31 @@ export async function saveEvent(
     };
   }
 
-  // Checked here as well as by the database, because a constraint violation
-  // arrives as a Postgres error and the person who needs to read it is looking
-  // at a form, not a log.
-  if (status === "published" && !(titleEn && titleAr)) {
-    return {
-      status: "error",
-      message: "A published event needs a title in both languages.",
-      field: titleEn ? "titleAr" : "titleEn",
-    };
-  }
-
   const summaryEn = clean(formData, "summaryEn", LIMITS.summary);
   const summaryAr = clean(formData, "summaryAr", LIMITS.summary);
 
-  if (status === "published" && !(summaryEn && summaryAr)) {
-    return {
-      status: "error",
-      message: "A published event needs a one-line summary in both languages.",
-      field: summaryEn ? "summaryAr" : "summaryEn",
-    };
+  // Checked here as well as by the database, because a constraint violation
+  // arrives as a Postgres error and the person who needs to read it is looking
+  // at a form, not a log.
+  //
+  // 🔴 Through `missingToPublish`, which is the SAME rule the status control on
+  // the events list reads. Two screens now publish the same row, and the two
+  // used to hold their own copy of "what counts as ready": the copy here tested
+  // truthiness, so a title of `" "` passed it and the other would have had to
+  // rediscover that. The two SENTENCES still differ, and should: this one is a
+  // field error rendered beside the field, and the list's is a notice on a page
+  // where the event is one row of forty.
+  if (status === "published") {
+    const missing = missingToPublish({titleEn, titleAr, summaryEn, summaryAr});
+    if (missing) {
+      return {
+        status: "error",
+        message: missing.startsWith("title")
+          ? "A published event needs a title in both languages."
+          : "A published event needs a one-line summary in both languages.",
+        field: missing,
+      };
+    }
   }
 
   const capacityRaw = str(formData, "capacity");
@@ -294,54 +326,199 @@ export async function saveEvent(
   redirect(`/admin/events/${saved.value.id}?saved=1`);
 }
 
-export async function removeEvent(
-  _previous: RemoveEventState,
-  formData: FormData
-): Promise<RemoveEventState> {
+/**
+ * Moves one event between draft, published and cancelled, and touches nothing
+ * else.
+ *
+ * 🔴 THIS EXISTS SO THAT CHANGING A STATUS IS NOT A FULL-FORM SAVE. The only
+ * way to publish something used to be `saveEvent`, which rewrites all
+ * twenty-three columns from the form's current contents. That made an ordinary
+ * "put this live" carry every unrelated field on the screen, and the events
+ * list, where an operator actually decides what to publish, could not do it at
+ * all: it had no controls.
+ *
+ * ⚠️ It is a bare `FormData` action rather than a `useActionState` one, and
+ * that is what keeps the events list a Server Component. `/admin` ships exactly
+ * six client components, pinned BY NAME in `test/admin-page-guards.test.ts`,
+ * and turning a forty-row list into the seventh to render three buttons is the
+ * trade this shape avoids. The outcome travels back in the URL instead; see
+ * `event-outcomes.ts`.
+ */
+export async function changeEventStatus(formData: FormData): Promise<void> {
   await requireAdmin();
 
+  const scope = readScope(formData);
+  const id = str(formData, "id");
+  const to = str(formData, "status");
+  const from = str(formData, "from");
+
+  if (!id || !isStatus(to) || !isStatus(from)) return back(scope, id, "failed");
+
+  // 🔴 The ROW is read before anything is decided, and the page's own idea of
+  // the status is only ever used as a precondition. An admin list is left open
+  // for hours and a second person may be working the same queue, so what the
+  // form posts is a claim about the past.
+  const found = await getEventById(id);
+  if (!found.ok) return back(scope, id, "failed");
+  if (!found.value) return back(scope, id, "gone");
+
+  const event = found.value;
+
+  // 🔴 ALREADY THERE IS A SUCCESS, NOT A CONFLICT. Two people pressing Publish
+  // on the same draft, or one person on a tab that missed a refresh, both want
+  // the state that now holds. Reporting "that changed while this page was open"
+  // for a change that produced exactly the intended outcome is how an operator
+  // learns to distrust the whole control and goes back to opening the event.
+  if (event.status === to) return back(scope, id, doneCode(to));
+
+  if (event.status !== from) return back(scope, id, "moved");
+
+  // 🔴 Checked BEFORE the write, so the refusal can name the field. The check
+  // constraint would catch it anyway, but it arrives as `23514` naming
+  // `events_published_is_bilingual`, and the operator needs to be told which of
+  // four boxes is empty, not which constraint fired.
+  if (to === "published") {
+    const missing = missingToPublish(publishableCopy(event));
+    if (missing) return back(scope, id, needsCode(missing));
+  }
+
+  const saved = await setEventStatus(id, from, to);
+  if (!saved.ok) {
+    // 🔴 A CONSTRAINT VIOLATION IS NOT AN OUTAGE, and `failed` says it is:
+    // "the database did not answer" about a database that answered very
+    // clearly. `missingToPublish` cleared this event moments ago, so the only
+    // way `events_published_is_bilingual` can fire here is that somebody
+    // emptied a title between our read and our write. That is precisely what
+    // `moved` reports, and it is the only one of the two that is true.
+    const raced = saved.error.code === "validation_failed";
+    return back(scope, id, raced ? "moved" : "failed");
+  }
+
+  // The conditional update matched nothing, having read the row a moment ago:
+  // somebody wrote it in between. Nothing was changed, and saying so is the
+  // whole reason that update is conditional.
+  if (!saved.value) return back(scope, id, "moved");
+
+  return back(scope, id, doneCode(to));
+}
+
+/**
+ * Deletes one event, its poster and every sign-up for it.
+ *
+ * 🔴 THE POSTED SLUG IS COMPARED AGAINST THE STORED ONE, and that comparison is
+ * the whole server-side guard now that the typed confirmation is gone (owner
+ * decision, 2026-08-01: two clicks, no typing).
+ *
+ * It is a real guard rather than a smaller version of the old one, and it
+ * defends a different thing. Typing the slug proved the operator meant this
+ * event; comparing it proves the PAGE meant this event. A list rendered twenty
+ * minutes ago, whose row has since been renamed or replaced, now refuses
+ * instead of deleting whatever currently sits at that id. Neither the typed
+ * field nor its `pattern` could ever have caught that, because both compared
+ * the page against itself.
+ *
+ * 🔴 The poster path is read from the DATABASE, never from the form. It used to
+ * arrive in a hidden input, which means a crafted POST could name any object in
+ * a public bucket and have this delete it on the way past.
+ */
+export async function removeEvent(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const scope = readScope(formData);
   const id = str(formData, "id");
   const slug = str(formData, "slug");
 
-  // 🔴 Both of these used to be a bare `return`, i.e. a delete that failed and
-  // a delete that succeeded were both a page doing nothing. The operator
-  // concludes the button is broken and presses it again, which is the one thing
-  // that must not happen on an irreversible control.
-  if (!id) {
-    return {
-      status: "error",
-      message: "The event was not deleted. Nothing was changed.",
-    };
-  }
+  if (!id || !slug) return back(scope, id, "failed");
 
-  // The typed-slug confirmation is enforced here as well as by the input's own
-  // `pattern`. Native validation is a slip guard and cannot be reached by a
-  // crafted POST, so this is what makes the guard real rather than a property
-  // of the markup that a later edit could drop without anyone noticing.
-  if (!slug || str(formData, "confirmSlug") !== slug) {
-    return {
-      status: "error",
-      message:
-        "Type the event's link exactly to confirm. Nothing was changed.",
-    };
-  }
+  const found = await getEventById(id);
+  if (!found.ok) return back(scope, id, "failed");
+  if (!found.value) return back(scope, id, "gone");
+  if (found.value.slug !== slug) return back(scope, id, "moved");
 
-  // Read first, so the poster can be cleaned up after the row is gone.
-  const poster = str(formData, "posterPath");
+  // Read before the row goes, so the object can be cleaned up after it.
+  const poster = found.value.posterPath;
 
   const deleted = await deleteEvent(id);
-  if (!deleted.ok) {
-    return {
-      status: "error",
-      message: "The event was not deleted. Nothing was changed.",
-    };
-  }
+  if (!deleted.ok) return back(scope, id, "failed");
 
   // Registrations go with it: the foreign key is `on delete cascade`, because a
   // registration for an event that no longer exists is a row nobody can act on.
-  await deletePoster(poster ?? null);
+  await deletePoster(poster);
 
-  redirect("/admin/events");
+  // 🔴 Always the LIST, whichever screen this was pressed on. The event's own
+  // page no longer resolves, so returning to it would answer the successful
+  // delete with a 404 and leave the operator wondering which of the two things
+  // went wrong.
+  return back("list", undefined, "deleted");
+}
+
+// ---------------------------------------------------------------------------
+// The status controls' plumbing
+// ---------------------------------------------------------------------------
+
+const STATUSES: readonly EventStatus[] = ["draft", "published", "cancelled"];
+
+function isStatus(value: string | undefined): value is EventStatus {
+  return value !== undefined && (STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * 🔴 Narrowed to two values, never trusted as a path. Anything that is not
+ * exactly `detail` is the list, so a crafted `scope` cannot steer the redirect;
+ * `eventOutcomeUrl` builds every destination itself.
+ */
+function readScope(formData: FormData): EventScope {
+  return formData.get("scope") === "detail" ? "detail" : "list";
+}
+
+function doneCode(status: EventStatus): EventOutcomeCode {
+  if (status === "published") return "published";
+  return status === "cancelled" ? "cancelled" : "drafted";
+}
+
+/**
+ * The missing field, as the code that names it.
+ *
+ * A function rather than an inline template with a cast, so the two unions have
+ * to keep agreeing: rename a field in `MissingForPublish` without adding the
+ * matching `needs-*` code and this stops compiling, where a cast would have gone
+ * on producing a string neither screen recognises and rendering no notice at all.
+ */
+function needsCode(missing: MissingForPublish): EventOutcomeCode {
+  return `needs-${missing}`;
+}
+
+function publishableCopy(event: EventRecord) {
+  return {
+    titleEn: event.title.en,
+    titleAr: event.title.ar,
+    summaryEn: event.summary.en,
+    summaryAr: event.summary.ar,
+  };
+}
+
+/**
+ * Reports the outcome and sends the operator back where they pressed.
+ *
+ * ⚠️ `refresh()` on EVERY path, including the ones that changed nothing, and
+ * that is deliberate rather than lazy. `gone` and `moved` both mean the page
+ * the operator is looking at is describing a row that no longer matches it, so
+ * the one thing they must not get is their stale copy handed straight back with
+ * a note attached. Both list pages read Postgres on every render, so there is
+ * no server cache to bust; what is stale is the CLIENT router cache, which is
+ * exactly the trap `decideApplication` documents next door.
+ *
+ * ⚠️ OUTSIDE any try/catch, because `redirect()` works by throwing a
+ * control-flow signal that Next catches. Swallowing it turns a completed action
+ * into a screen that silently does nothing.
+ */
+function back(
+  scope: EventScope,
+  eventId: string | undefined,
+  code: EventOutcomeCode
+): never {
+  refresh();
+  redirect(eventOutcomeUrl(scope, eventId, code));
 }
 
 /**

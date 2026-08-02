@@ -53,6 +53,12 @@ export default function GlobalError({
           color: "#111111",
           fontFamily:
             "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+          // This route replaces the whole document and imports no stylesheet,
+          // so it never inherits the smoothing globals.css sets on `html` and
+          // the same copy renders heavier here than on every other route.
+          // Restated inline for the same reason the fonts and colours are.
+          WebkitFontSmoothing: "antialiased",
+          MozOsxFontSmoothing: "grayscale",
         }}
       >
         <p
@@ -67,10 +73,19 @@ export default function GlobalError({
         >
           Error
         </p>
-        <h1 style={{margin: 0, fontSize: "40px", fontWeight: 700, lineHeight: 1.1}}>
+        <h1 style={{margin: 0, fontSize: "40px", fontWeight: 700, lineHeight: 1.1, textWrap: "balance"}}>
           Something went wrong
         </h1>
-        <p style={{margin: 0, maxWidth: "46ch", fontSize: "16px", lineHeight: 1.5, color: "#4c2806"}}>
+        <p
+          style={{
+            margin: 0,
+            maxWidth: "46ch",
+            fontSize: "16px",
+            lineHeight: 1.5,
+            color: "#4c2806",
+            textWrap: "pretty",
+          }}
+        >
           The page could not be loaded. Try again, or head back to the homepage.
         </p>
         {error.digest ? (

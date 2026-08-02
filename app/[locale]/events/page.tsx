@@ -3,7 +3,6 @@ import {setRequestLocale} from "next-intl/server";
 import {useTranslations} from "next-intl";
 
 import PageIntro from "@/components/PageIntro";
-import Footer from "@/components/Footer";
 import PastEvents from "@/components/events/PastEvents";
 import UpcomingEvents from "@/components/events/UpcomingEvents";
 import {pageMetadata} from "@/lib/metadata";
@@ -61,7 +60,7 @@ function LoadFailed() {
       <div className="relative z-[2] mx-auto w-full max-w-[1400px]">
         <p
           role="status"
-          className="max-w-[52ch] border-t border-black/15 pt-6 text-15 leading-relaxed text-muted"
+          className="max-w-[52ch] text-pretty border-t border-black/15 pt-6 text-15 leading-relaxed text-muted"
         >
           {t("loadFailed")}
         </p>
@@ -103,7 +102,6 @@ export default async function EventsPage({
       ) : (
         <LoadFailed />
       )}
-      <Footer />
     </main>
   );
 }

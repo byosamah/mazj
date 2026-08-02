@@ -4,7 +4,8 @@
     "description": "MAZJ is a coworking space in Al-Khobar, where the Eastern Province's makers come together: flexible desks, private offices, a meeting room, and an events hall, all in one place.",
     "siteName": "MAZJ",
     "city": "Al-Khobar",
-    "metaTitle": "Coworking Space in Al-Khobar, Eastern Province | MAZJ"
+    "metaTitle": "Coworking Space in Al-Khobar, Eastern Province | MAZJ",
+    "metaDescription": "MAZJ is a coworking and shared office space in Al-Khobar: open desks, private offices, a meeting room and an events hall, all at one address."
   },
   "Nav": {
     "spaces": "Spaces",
@@ -412,7 +413,8 @@
     "detailAria": "See the space: {space}",
     "sectionIntro": "MAZJ is a coworking space in the heart of Al-Khobar: open desks in the shared workspace, furnished private offices for rent, the Al-Malqa meeting room by the hour, and the Al-Ma'arij event hall for up to 30. Every space sits on one address, with reception staffed Sunday to Thursday and 24/7 subscriber access on monthly plans.",
     "sectionIntro2": "All four share one address in Al-Olaya, Al-Khobar: book a day at an open desk, take a furnished office by the month, rent Al-Malqa for exactly the hours you meet, or run a workshop for thirty in Al-Ma'arij. Whichever you pick, you book right here at the live price, reception is staffed Sunday to Thursday 9am to 5pm, and monthly plans add 24/7 subscriber access.",
-    "heroAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar"
+    "heroAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar",
+    "metaDescription": "Four workspaces to rent at MAZJ in Al-Khobar: a hot desk in the shared office, a private office, the Al-Malqa meeting room and the Al-Ma'arij events hall."
   },
   "SpaceCoworking": {
     "eyebrow": "Open desk",
@@ -441,7 +443,7 @@
       }
     ],
     "ctaBook": "Book a seat",
-    "metaTitle": "Open Desk & Shared Seat Coworking in Al-Khobar",
+    "metaTitle": "Open Desk & Day Pass Coworking in Al-Khobar",
     "photoAlt": "Open desks in the shared coworking space at MAZJ in Al-Khobar",
     "aboutTitle": "The shared workspace, in detail",
     "about": [
@@ -467,7 +469,8 @@
         "q": "When is the space open?",
         "a": "Staffed Sunday to Thursday, 9am to 5pm. With a monthly subscription, you can come and go any hour of any day."
       }
-    ]
+    ],
+    "metaDescription": "A hot desk in MAZJ's shared office in Al-Khobar, by the day or by the month. Reception is open Sunday to Thursday, 9am to 5pm; subscribers get 24/7 access."
   },
   "SpaceOffice": {
     "eyebrow": "Private office",
@@ -496,7 +499,7 @@
       }
     ],
     "ctaBook": "Book the office",
-    "metaTitle": "Private Office for Rent in Al-Khobar, 24/7 Access",
+    "metaTitle": "Private Office for Rent in Al-Khobar, Day or Month",
     "photoAlt": "A furnished, lockable private office at MAZJ in Al-Khobar",
     "aboutTitle": "A furnished office, ready from day one",
     "about": [
@@ -522,7 +525,8 @@
         "q": "How does payment work?",
         "a": "You book and pay by card, or split payments with Tamara or Tabby where available, with a VAT invoice on request."
       }
-    ]
+    ],
+    "metaDescription": "A lockable private office for rent in Al-Khobar, for a day, a week, or every month. Monthly plans carry 24/7 access to the building."
   },
   "SpaceMeeting": {
     "eyebrow": "Meeting room",
@@ -577,7 +581,8 @@
         "q": "Can guests attend my meeting?",
         "a": "Yes. A meeting-room booking covers your guests for the booked hours, and reception will point them your way."
       }
-    ]
+    ],
+    "metaDescription": "Al-Malqa, the meeting room at MAZJ in Al-Khobar: seats up to six and books by the hour. Space subscribers get a discount on every booking."
   },
   "SpaceEventHall": {
     "eyebrow": "Events hall",
@@ -633,7 +638,8 @@
         "q": "How do I confirm a date?",
         "a": "Book your slot here to confirm it, and contact the team before your date if plans change."
       }
-    ]
+    ],
+    "metaDescription": "Al-Ma'arij, the event space at MAZJ in Al-Khobar: room for 30 with a screen and sound system, booked in slots of two to five hours."
   },
   "EventsPage": {
     "eyebrow": "Events",
@@ -678,7 +684,8 @@
     "metaTitle": "About Us | Coworking in Al-Khobar",
     "storyAlt": "Someone climbing the white staircase inside MAZJ toward a tall window",
     "spaceAlt": "A corner table by MAZJ's tall windows in Al-Khobar, with daylight across the floor",
-    "communityAlt": "Four people sitting on the floor around a board game at a MAZJ community night"
+    "communityAlt": "Four people sitting on the floor around a board game at a MAZJ community night",
+    "metaDescription": "Why MAZJ exists, who works here, and what a shared workspace in Al-Khobar is actually for. One address in Al-Olaya, open to work of every kind."
   },
   "ContactPage": {
     "eyebrow": "Contact",
@@ -692,7 +699,8 @@
     "socialsEyebrow": "Follow",
     "socialsTitle": "Find us online",
     "socialsBody": "News, events, and everyday life at MAZJ, and the fastest way to reach the team today.",
-    "metaTitle": "Contact Us | Life Tower, Al-Olaya, Al-Khobar"
+    "metaTitle": "Contact Us | Life Tower, Al-Olaya, Al-Khobar",
+    "metaDescription": "Find MAZJ in Al-Olaya, Al-Khobar: the address, the map, staffed hours Sunday to Thursday 9am to 5pm, and a WhatsApp line to book a tour."
   },
   "FaqPage": {
     "eyebrow": "Good to know",
@@ -703,7 +711,8 @@
     "closingCta": "See the spaces",
     "closingAlt": "Ask on WhatsApp",
     "closingMsg": "Hi MAZJ, I have a question about the space.",
-    "metaTitle": "Coworking in Al-Khobar | Hours, Access & Booking FAQ"
+    "metaTitle": "Coworking in Al-Khobar | Hours, Access & Booking FAQ",
+    "metaDescription": "Answers about booking, payment, access and visiting MAZJ, the coworking space in Al-Khobar. Opening hours, what is included, and how the space works."
   },
   "TermsPage": {
     "eyebrow": "Legal",
@@ -1094,6 +1103,7 @@
         "teamSize": "Give us a number.",
         "space": "Choose the space that suits you."
       }
-    }
+    },
+    "metaDescription": "A standing offer for founders and builders in Al-Khobar. Tell us what you are making, and we will open the door on terms we settle with you alone."
   }
 }

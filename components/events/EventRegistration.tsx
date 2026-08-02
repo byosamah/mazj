@@ -44,7 +44,7 @@ export default function EventRegistration({slug}: {slug: string}) {
         role="status"
         className="rounded-[16px] bg-beige-card p-8 lg:p-10"
       >
-        <h3 className="font-sans text-24 font-bold leading-[1.1] text-brown lg:text-32">
+        <h3 className="text-balance font-sans text-24 font-bold leading-[1.1] text-brown lg:text-32">
           {confirmed ? t("confirmedTitle") : t("alreadyTitle")}
         </h3>
         <p className="mt-3 max-w-[46ch] text-pretty text-15 leading-relaxed text-brown/85">
@@ -94,7 +94,7 @@ export default function EventRegistration({slug}: {slug: string}) {
       </div>
 
       {state.status === "error" && (
-        <p role="alert" className="text-15 text-orange">
+        <p role="alert" className="text-pretty text-15 text-orange">
           <ErrorCopy code={state.code} reason={state.reason} />
         </p>
       )}

@@ -130,13 +130,30 @@ describe.skipIf(!hasRekazCredentials)("rekaz live API", () => {
       );
       expect(rooms, "a ROOM product reached the ticket dropdown").toEqual([]);
 
-      // The merchandise tickets must be reachable. This is what went wrong
-      // before 2026-07-30: the products existed, the filter admitted only
-      // subscriptions, and the dropdown read "Free" with no explanation.
-      expect(
-        options.some((o) => o.productSlug.startsWith("faalyh-tjrybyh")),
-        "no one-time ticket product is offered; check TICKETABLE_TYPES"
-      ).toBe(true);
+      // 🔴 THE "A TICKET PRODUCT EXISTS" ASSERTION WAS REMOVED ON 2026-08-02,
+      // and it was removed rather than relaxed. It read
+      // `options.some(o => o.productSlug.startsWith("faalyh-tjrybyh"))`, i.e. it
+      // pinned one row of somebody's production dashboard, and the owner deleted
+      // that product. It could never pass again, and a permanently red suite is
+      // how a suite stops being read.
+      //
+      // It also contradicted this file's own contract, stated at the top: these
+      // are assertions about STRUCTURE, not content, because MAZJ's operations
+      // team edits the catalog as part of running a business.
+      //
+      // What it was really guarding (the filter must admit merchandise, not only
+      // subscriptions, which is the defect that shipped before 2026-07-30 and
+      // made the dropdown read "Free" with no explanation) is now
+      // `server/services/event-tickets.filter.test.ts`. That is MORE coverage,
+      // not less: this suite skips entirely without merchant credentials, so on
+      // a fresh clone or a CI runner the rule was never being checked here at
+      // all, while the unit test runs on every `npm run test`.
+      //
+      // ⚠️ The catalog legitimately holds ZERO ticketable products today
+      // (measured 2026-08-02: four products, all of them rooms), which means
+      // paid events cannot currently be created in /admin. That is an
+      // operational state for the owner to resolve in the Rekaz dashboard, not
+      // a code defect, so it must not be a failing test.
 
       for (const option of options) {
         expect(typeof option.amount).toBe("number");

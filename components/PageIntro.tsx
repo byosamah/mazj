@@ -70,8 +70,17 @@ export default function PageIntro({
             Paint element on all eight photo routes. As a raw <img loading=
             "eager"> it still went out at Low fetch priority, so the browser
             queued it behind every below-fold photo on the page and the opener
-            painted late. `priority` emits the preload hint plus
-            fetchPriority="high", which is the only thing that reorders it.
+            painted late. `priority` emits the preload hint, which is what gets
+            it DISCOVERED early.
+
+            🔴 BUT `priority` DOES NOT IMPLY `fetchPriority`, AND THIS COMMENT
+            CLAIMED IT DID UNTIL 2026-08-02. They are independent props in Next
+            16: `priority` sets `meta.preload`, while the emitted attribute is
+            built from `imgAttributes.fetchPriority`, so an undefined value
+            ships no attribute. Measured across the 26 rendered production
+            pages: 370 <img> elements and 48 image preloads, ZERO of them
+            carrying fetchpriority. Discovery was early and the fetch itself
+            still queued at default priority. Both props are now passed.
 
             `sizes="100vw"` because the photo is full-bleed at every breakpoint;
             that is what lets the 390px candidate be chosen on a phone instead
@@ -82,6 +91,7 @@ export default function PageIntro({
             alt={imageAlt ?? ""}
             fill
             priority
+            fetchPriority="high"
             sizes="100vw"
             className="z-0 object-cover"
           />

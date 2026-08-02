@@ -9,6 +9,7 @@ import {
   ErrorState,
   Handle,
   HealthStrip,
+  Notice,
   PageHead,
   RecordList,
   RecordRow,
@@ -20,7 +21,12 @@ import {
 } from "@/components/admin";
 
 import {requireAdmin} from "../../_lib/auth";
+import {
+  readEventOutcome,
+  type EventOutcome,
+} from "../../_lib/event-outcomes";
 import {loadAdminEvents, type AdminEventRow} from "../../_lib/events";
+import {EventActions} from "./EventActions";
 import {EventLifecycle} from "./EventLifecycle";
 
 /**
@@ -36,7 +42,16 @@ export const dynamic = "force-dynamic";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-export default async function AdminEventsPage() {
+export default async function AdminEventsPage({
+  searchParams,
+}: {
+  /**
+   * `?outcome=…&event=…`, written by this page's own status and delete
+   * controls. See `_lib/event-outcomes.ts` for why the result of an action
+   * travels in the URL rather than in component state.
+   */
+  searchParams: Promise<{outcome?: string | string[]; event?: string | string[]}>;
+}) {
   // 🔴 AUTHORISED HERE TOO, not only by the layout. `redirect()` in the layout
   // throws, but React renders the page concurrently with its ancestors rather
   // than after them, so the throw does not stop this component. Measured on the
@@ -47,6 +62,7 @@ export default async function AdminEventsPage() {
   // so forgetting the guard is a compile error rather than a leak a regex has
   // to notice. `test/admin-page-guards.test.ts` also fails if it is missing.
   const admin = await requireAdmin();
+  const outcome = readEventOutcome(await searchParams);
   const result = await loadAdminEvents(admin);
 
   const health: HealthItem[] = [];
@@ -70,7 +86,7 @@ export default async function AdminEventsPage() {
             <Link href="/admin/events/new">New event</Link>
           </Btn>
         }
-        notice={health.length > 0 ? <HealthStrip items={health} /> : undefined}
+        notice={headNotice(outcome, health)}
       />
       {result.status === "unavailable" ? (
         /* 🔴 A failed load and an empty list are different OBJECTS, not the
@@ -86,6 +102,52 @@ export default async function AdminEventsPage() {
       ) : (
         <EventSections events={result.events} />
       )}
+    </div>
+  );
+}
+
+/**
+ * The head's one alert slot, in priority order.
+ *
+ * 🔴 A FUNCTION CALL returning `undefined`, never an element that might render
+ * nothing. `PageHead` gates the slot on truthiness and a React element is truthy
+ * even when its component returns null, so passing a component here opens an
+ * empty 24px box above the first section on every ordinary page load.
+ *
+ * The outcome sits ABOVE the health strip because it reports something that
+ * just happened at the operator's own hand, while the strip reports a standing
+ * condition. Both can be true at once: publishing an event on a day the seat
+ * count is failing is two separate facts and collapsing them would drop one.
+ */
+function headNotice(
+  outcome: EventOutcome | null,
+  health: HealthItem[]
+): React.ReactNode | undefined {
+  if (!outcome && health.length === 0) return undefined;
+
+  return (
+    <div className="space-y-4">
+      {outcome && (
+        <Notice
+          tone={outcome.tone}
+          // "Nothing was changed" must not be announced at the same urgency as
+          // "That event is on the site now."
+          live={outcome.tone === "destructive" ? "assertive" : "polite"}
+          detail={outcome.detail}
+          action={
+            outcome.eventId ? (
+              <Btn variant="quiet" size="sm" asChild>
+                <Link href={`/admin/events/${outcome.eventId}`}>
+                  Open the event
+                </Link>
+              </Btn>
+            ) : undefined
+          }
+        >
+          {outcome.message}
+        </Notice>
+      )}
+      {health.length > 0 && <HealthStrip items={health} />}
     </div>
   );
 }
@@ -230,6 +292,12 @@ function EventRows({events}: {events: AdminEventRow[]}) {
             {label: "Ticket", value: <TicketCell event={event} />},
             {label: "Poster", value: <PosterCell event={event} />},
           ]}
+          // 🔴 `RecordRow` has carried this slot, unused by this page, since the
+          // redesign: the startups queue filled it and the events list did not,
+          // so the one screen where somebody decides what goes on the site was
+          // the one screen that could not act. `scope` is what brings the
+          // operator back HERE afterwards rather than into the event.
+          action={<EventActions event={event} scope="list" />}
         />
       ))}
     </RecordList>

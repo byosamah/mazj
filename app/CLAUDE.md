@@ -23,6 +23,13 @@ language, with which `<head>`**. Also `globals.css`, which physically lives here
   without it next-intl rewrites `/admin` to `/en/admin` before any admin code
   runs, every admin route 404s, and the magic link's redirect target stops
   existing.
+  ⚠️ Since 2026-08-02 it **wraps** `createMiddleware(routing)` rather than
+  exporting it, to add `Vary: Accept-Language, Cookie` + `Cache-Control:
+  no-store` to redirect responses only. `GET /` genuinely varies (307 to `/en`
+  plain, 307 to `/ar` under `Accept-Language: ar`) and shipped with neither
+  header, so any shared cache could store one language's redirect and serve it
+  to everyone at the site's front door. Scoped to 3xx on purpose:
+  locale-prefixed pages do not vary and must keep their own caching.
 - `next.config.mjs` wires `createNextIntlPlugin("./i18n/request.ts")`.
 - 🔴 There is **no `app/layout.tsx`**. Instead there are **two root layouts**,
   side by side, each owning its own `<html>`:
@@ -138,12 +145,39 @@ only URLs in that file not already wrapped in `absoluteUrl()`, which is why it
 went unnoticed. **Any change to `BOOKING`'s shape must be checked against
 `schema.ts`**, and JSON-LD URLs must be absolute AND locale-prefixed.
 
+🔴 **`sameAs` is the OTHER consumer of `lib/links.ts`, and it is a CLAIM rather
+than a link.** `lib/schema.ts` spreads `SOCIALS` into the `LocalBusiness`
+`sameAs`, which tells Google those profiles ARE this business. So removing a
+social account is a **four**-file edit and the two visible ones matter least:
+`SOCIALS`, `Footer.tsx`, `/contact`, and `sameAs`. Removing X (2026-08-01) was
+asked for as "the footer and contact"; the site was separately vouching for a
+handle MAZJ does not own. **Grep `SOCIALS`, never just the footer.** ⚠️ The row
+labels are hardcoded brand names, NOT i18n keys, so there is nothing to mirror
+in `messages/*.json` and the both-file rule does not apply.
+
 `app/robots.ts` has **two shapes**, picked by `IS_PRELAUNCH_ORIGIN` in
 `lib/site.ts`. On any `*.vercel.app` host (or the placeholder) it serves
 `Disallow: /` with NO `Sitemap:` line, so a pre-launch deploy cannot become a
 duplicate of the pages mazj.org ranks with. It lifts itself when
 `NEXT_PUBLIC_SITE_URL` names a real domain. 🔴 Do NOT "fix" a blocked robots.txt
 by editing this file: set the domain.
+
+🔴 **`IS_PRELAUNCH_ORIGIN` IS BUILD-TIME AND HOST-BLIND, SO IT CANNOT PROTECT
+THE VERCEL ALIAS.** It reads `NEXT_PUBLIC_SITE_URL`, never the request host.
+Measured on a launch-configured build 2026-08-02:
+`curl -H "Host: mazj.org" .../robots.txt` returned the full allow-all file, and
+`curl -H "Host: mazj.org" .../en` returned `canonical="https://mazj.sa/en"`. So
+the day that variable becomes a real domain, `mazj-tau.vercel.app` (a permanent
+alias Vercel does not retire) serves a complete crawlable duplicate of the site,
+with only a canonical hint standing in the way. `next.config.mjs` `headers()`
+now carries `has: [{type: "host", value: ".*\\.vercel\\.app"}]` ->
+`X-Robots-Tag: noindex, nofollow`, which also covers every preview deploy.
+
+🔴 **That header is the ONLY thing in this app allowed to vary by host, and the
+asymmetry is the point.** Robots directives per host = correct. Canonical,
+hreflang, sitemap `<loc>` and JSON-LD `@id` per host = two self-canonicalising
+copies of one site, which is the failure `lib/site.ts` exists to prevent. Never
+add a second `has: host` rule outside `headers()`.
 
 The launch shape disallows **only** `/admin`. It stays empty for everything else:
 a `Disallow` would stop Google reading the `noindex` meta on `/privacy` and
@@ -198,6 +232,21 @@ combining marks**: `الخُبر`'s damma is a combining codepoint that overcoun
 metaTitles use ` | ` between clauses; colons were swapped out site-wide
 2026-07-23.
 
+**Descriptions decouple the same way, since 2026-08-02.** `metaDescription` is
+the optional sibling of `metaTitle` and now ships on all 10 indexable namespaces
+in BOTH locales; the `intro` fallback fires only on `PrivacyPage` and
+`TermsPage`, which are `noindex`. Before this, 22 of 26 pages took their search
+snippet from display copy and **12 of 26 landed outside the 70-160 character
+window** (3 English ones truncated at 171-182, 8 wasted at 41-69). Same
+counting rule as above: sans combining marks.
+
+🔴 **The homepage reads TWO description keys and they are not interchangeable.**
+`generateMetadata` in `app/[locale]/layout.tsx` uses `Meta.metaDescription` (the
+SERP snippet, ~140 chars), while `localBusinessSchema` separately reads
+`Meta.description` (the business description, where length is free and
+completeness is the point). Collapsing them back into one key re-ships a snippet
+cut mid-clause on the site's single most valuable result.
+
 The `Faq` namespace's grouped Q&A auto-flows into the `/faq` `FAQPage` JSON-LD
 (`faqPageSchema` flattens `groups`); the landing teaser renders the same section
 with `limit` and must NOT be the marked-up set. Google shows FAQ rich results for
@@ -209,6 +258,67 @@ feeds it into the JSON-LD `streetAddress`, so it must keep the full
 `برج الحياة، شارع زيد بن الخطاب، العليا، الخُبر` string even when a tone pass is
 stripping the tower elsewhere. Verify after any copy pass by parsing the
 `ld+json` block, not by reading the page.
+
+### The AI-search layer (added 2026-08-02)
+
+Full audit and measurements:
+[`../docs/ai-search-visibility-audit.md`](../docs/ai-search-visibility-audit.md).
+This is the mechanics.
+
+**Two machine-readable files, both ROUTE HANDLERS rather than files in `public/`.**
+`app/llms.txt/route.ts` and `app/pricing.md/route.ts`. A static file cannot read
+`messages/*.json` or `SITE_URL`, so it goes stale the first time anyone edits a
+product name, the hours or the address, and nothing reports it. Everything in
+both is derived. Next routes a segment containing a dot, so the folder name IS
+the filename; verified serving 200 with the right content type from a real
+production build, since the dev server hides this class of bug.
+
+🔴 **`/pricing.md` carries NO price and ships `X-Robots-Tag: noindex` always.**
+The `TONE.md` no-prices rule stands; what the file gives an agent is products,
+units of sale, capacity, inclusions, access, currency, VAT and where the number
+lives. `noindex` is what keeps a file named "pricing" from ever becoming a search
+result, which is also what keeps it clear of the standing rule against labelling
+anything "Pricing" in the interface. ⚠️ That naming tension is flagged, not
+settled: renaming it is one line here plus the reference in `llms.txt`.
+
+🔴 **`robots.txt` names 14 AI user-agents, and EVERY group restates
+`Disallow: /admin`.** Group selection is most-specific-wins: a crawler obeys the
+one group matching its name and ignores every other group, `*` included, so a
+named group carrying only `Allow: /` hands it the admin tool. Same shape as the
+ESLint flat-config trap in the root `CLAUDE.md`. `test/prelaunch-indexing.test.ts`
+fails if any group omits it, and separately asserts **CCBot stays unblocked**
+(offered to the owner 2026-08-02 and declined: it is the obvious tidy-up, hence
+the test).
+
+🔴 **`lib/machine-text.ts` is for MACHINE SURFACES ONLY and must never touch
+rendered copy.** It strips the 162 decorative kashidas and the harakat so
+`/llms.txt` and `/pricing.md` carry Arabic a tokenizer can match. Pointing it at
+a heading would silently delete 46 swashes that `test/arabic-kashida.test.ts`
+exists to protect. ⚠️ **A tatweel is decoration when an Arabic letter follows it
+and correct orthography when a digit or Latin character does** (`لـ30`,
+`الـIP`). A blanket strip shipped `ل30` into a `metaTitle` on the first render;
+`test/machine-text.test.ts` walks the real `ar.json` and fails on any orphaned
+prefix.
+
+**`FAQPage` is now on the four space pages too**, emitted from
+`components/SpaceDetail.tsx` rather than from the four `page.tsx` files, so the
+markup and the visible `<dl>` are built from one `faq` prop and cannot drift.
+16 questions, zero overlap with `/faq`'s 18, verified. ⚠️ Deliberately NOT
+extended to the landing teaser, which renders a `limit`ed slice of the `/faq`
+set: marking up a partial copy of another page's questions is the one shape of
+this that IS duplication.
+
+**`localBusinessSchema` gained `alternateName`, `paymentAccepted`,
+`amenityFeature` (11) and `containsPlace` (the two named rooms with
+`maximumAttendeeCapacity` 6 and 30).** 🔴 The capacities are literals, because
+parsing them out of `"Up to 6 · by the hour"` and `"حتى 6 · بالساعة"` means
+parsing prose in two scripts. `test/schema-facts.test.ts` asserts they still
+match the `facts` blocks in both message files, which is the enforcement
+`openingHoursSpecification` did not have on the day it was shipping 9-to-9
+against a 9-to-5 business. That file also pins the ABSENCE of `aggregateRating`,
+`priceRange` and any `Offer.price`, and rejects an `amenityFeature` naming
+something the copy never claims (printing is the canonical trap: `طباعة` scores
+0 and every English `print` is inside "sprint").
 
 ## Share cards (`public/og/{en,ar}.png`)
 
@@ -231,6 +341,30 @@ string.
 
 ## Verification recipes
 
+- 🔴 **TO AUDIT ANYTHING GOOGLE READS, BUILD A LAUNCH-SHAPED PRODUCTION COPY.
+  THE DEV SERVER PHYSICALLY CANNOT SHOW IT.** On `localhost` (and on the vercel
+  alias) `IS_PRELAUNCH_ORIGIN` is true, so robots.txt is `Disallow: /` with no
+  sitemap line and every canonical is `mazj.example`. Metadata work verified
+  there is verified against a configuration that will never ship. The rig, run
+  2026-08-02 and the basis of [`../docs/seo-audit-2026-08-02.md`](../docs/seo-audit-2026-08-02.md):
+
+  ```bash
+  rsync -a --exclude node_modules --exclude .next --exclude .git <repo>/ <dst>/
+  cp -al <repo>/node_modules <dst>/node_modules   # Turbopack rejects a symlink
+  cd <dst> && NEXT_PUBLIC_SITE_URL=https://mazj.sa IP_TRUST_PROXY=none npx next build
+  NEXT_PUBLIC_SITE_URL=https://mazj.sa IP_TRUST_PROXY=none npx next start -p 3100
+  ```
+
+  Sandbox OFF for all four. **Both variables are load-bearing**: the domain is
+  what unblocks robots and makes canonicals real, and without `IP_TRUST_PROXY`
+  the sitemap silently degrades to the static routes. rsync the DIRTY tree, not
+  a worktree: the normal state here is 40+ untracked files, so a worktree builds
+  a version of the site that does not exist.
+- ⚠️ **`hrefLang`, not `hreflang`.** React emits the camelCase attribute name,
+  so `str.count("hreflang")` returns **0** on a page carrying three correct
+  tags. It nearly shipped as a critical "the site has no hreflang" finding twice
+  in one session. Parse case-insensitively, and assert a known-present control
+  (`rel="canonical"`, 26 of 26) before believing any zero.
 - **Verify metadata and i18n without a browser:** `curl -s localhost:3000/en` and
   `/ar`, then grep the `<head>` (`<title>`, `og:*`, `hreflang`, canonical) to
   confirm each locale renders fully in its own language. curl needs the sandbox
@@ -373,6 +507,63 @@ Three things keep `/admin` off the public internet, and
 (including its hreflang clusters), `Disallow` in robots.txt, and
 `robots: {index: false}` on the layout.
 
+### Changing and deleting an event (added 2026-08-01)
+
+Owner request: publish, unpublish, cancel and delete without opening the event.
+Both already existed and both were buried at the bottom of `/admin/events/[id]`
+(status was a select in a fourteen-field form applied by pressing Save; delete
+was a collapsed panel asking you to type the event's link). `EventActions.tsx`
+now renders the same menu on **every row of the list AND beside the event's
+title**, and `RecordRow`'s long-unused `action` slot is what it fills.
+
+🔴 **IT IS A SERVER COMPONENT AND MUST STAY ONE, which is why the outcome
+travels in the URL.** `/admin` ships exactly six client components, asserted BY
+NAME in `test/admin-page-guards.test.ts`, and the reason is not bundle size:
+anything reachable from a client component ships to the browser, and `_lib/` can
+reach the Supabase secret key. So there is no `useActionState` here. The menu is
+a native `details`, each control is a plain form posting to a Server Action, and
+the action redirects with `?outcome=<code>`, which `_lib/event-outcomes.ts`
+parses back into a sentence. Same mechanism as `?saved=1` and `?resent=1`.
+
+⚠️ Which means the notice OUTLIVES the action, because the parameter stays in
+the address bar. Both screens therefore let a failure displace it in the one
+alert slot they own: on the detail route `outcome` is passed INTO `EventForm` as
+a prop rather than rendered above it, exactly as `saved` already was.
+
+🔴 **A CODE crosses, never a sentence.** The map lives in `event-outcomes.ts` and
+an unknown code renders nothing at all, because a value not in that table was not
+written by this application. The `event` parameter is validated as a uuid before
+it reaches an href.
+
+**Four traps, three of them measured here:**
+
+1. 🔴 **The status select left `EventForm` and a HIDDEN INPUT replaced it.**
+   `saveEvent` defaults a missing `status` to `"draft"`, so a form that simply
+   stopped sending the field would take a published event off the site on every
+   ordinary save, from a control nobody touched. Nothing errors and no other
+   test goes red; `test/admin-event-status.test.ts` pins the input.
+2. 🔴 **The panel's anchor FLIPS at `md`.** `RecordRow` stacks below that
+   breakpoint and its action cell loses `text-end`, so a permanently end-anchored
+   panel hangs 288px off the START edge at 390px, and `app/globals.css:116` sets
+   `body { overflow-x: hidden }` so it cannot even be scrolled to. Verify by
+   asserting `window.innerWidth === 390`, never by cropping a wide capture.
+3. 🔴 **The menu's `group` is NAMED (`group/menu`).** `Disclosure` is itself a
+   `details` carrying a plain `group`, and Tailwind's unnamed `group-open:`
+   compiles to a selector matching ANY open `.group` ancestor. Sharing it rotates
+   the closed delete disclosure's chevron whenever the menu is open. The compiled
+   pair is two separate selectors; confirm in the served chunk, not the source.
+4. ⚠️ **The typed-slug confirmation is GONE** (owner: two clicks, no typing) and
+   what replaced it is not smaller, it is different. Typing proved the OPERATOR
+   meant this event; `removeEvent` now compares the posted slug against the
+   STORED one, which proves the PAGE meant this event and refuses when a stale
+   list is acting on a row that has since changed. The poster path is also read
+   from the row now, not from a hidden input a caller can set.
+
+⚠️ **`EventForm.tsx` still posts a `posterPath`, legitimately**, for `saveEvent`
+to clean up a REPLACED poster. It carries the same shape of exposure, predates
+this change, and its blast radius is one image behind an `@mazj.org` session, so
+the test is scoped to `EventActions.tsx` rather than relaxed to cover both.
+
 **The sidebar is the extension point.** `app/admin/nav.ts` is a plain data file
 listing the sections; adding one is an entry there plus
 `(protected)/<segment>/page.tsx`, and it inherits the auth guard and the chrome
@@ -492,6 +683,19 @@ normalised to 1296 characters and compared equal, so the capture was of the
 shipped markup rather than of a drifted copy. Without that step a harness
 screenshot proves only that the harness looks right.
 
+✅ **A harness for ONE COMPONENT should IMPORT it, never copy it**, which closes
+the drift risk above outright: the copy rule exists because a protected PAGE's
+body cannot be extracted, and a component already is one. Reconstruct only the
+row or head AROUND it. Used for the event controls, 2026-08-01.
+
+⚠️ **Put it OUTSIDE `(protected)/`.** Inside, `test/admin-page-guards.test.ts`
+demands `requireAdmin()` and exactly one heading source from it. `app/admin/<name>/`
+still gets the admin root layout, so it still serves the real stylesheet.
+
+⚠️ **A harness turns `npx eslint .` RED while shipped code is clean.**
+`@next/next/no-html-link-for-pages` fires on every `<a href="/admin/…">` fixture
+link (13 errors from 3 fixtures). Read the paths before believing the repo broke.
+
 ## `/[locale]/startups`: the startups & builders offer
 
 Added 2026-07-28. A marketing page that also takes an application, plus
@@ -521,7 +725,24 @@ limits, the email module, the decision-versus-delivery rule) live in
 ## Adding a route
 
 Create `app/[locale]/<route>/page.tsx`, add a `*Page` namespace to **both**
-message files (including a written `metaTitle`), and add the route to
+message files (a written `metaTitle` AND `metaDescription`), and add the route to
 `lib/routes.ts` if it should be indexable. Server components can call
 `useTranslations` directly; client components work because the whole tree sits
 under `NextIntlClientProvider`.
+
+🔴 **Do NOT render `<Footer />` in the page.** It is mounted once in
+`app/[locale]/layout.tsx` as a SIBLING of `<main>`, since 2026-08-02. All 14
+route files used to render it as the last child of their own `<main>`, and that
+cost two things, both measured across the 26 rendered production pages:
+
+1. Per the HTML Accessibility API Mappings, a `<footer>` that DESCENDS from
+   `main` does not map to the `contentinfo` role. `role="contentinfo"` appeared
+   **0 times** on the whole site, so a landmark rotor could not jump to the
+   footer on any page.
+2. **208 of 616 internal anchors, 33.8% of the entire internal link graph**, were
+   site-wide boilerplate structurally filed as main content. On `/en/contact`
+   ALL 8 in-main internal anchors were footer links and 0 were contextual, which
+   is exactly the signal an extraction pass reads to decide what a page is about.
+
+One mount also means it cannot be forgotten on a new route or ordered
+differently on one of them.

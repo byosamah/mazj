@@ -130,7 +130,23 @@ const nextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [390, 640, 750, 828, 1080, 1200, 1440, 1920],
-    imageSizes: [64, 96, 128, 256, 384],
+    /**
+     * 🔴 `448` closes a real gap, and it is the ONLY entry here that exists for
+     * a measured reason rather than by inheritance.
+     *
+     * The three USP photographs declare `sizes="(min-width: 1024px) 355px,
+     * 230px"`, which is correct. The CANDIDATE LIST was the fault: on a 412px
+     * Android at DPR 1.75 the requirement is 230 x 1.75 = 402.5px, and the
+     * combined candidate widths jumped 390 -> 640, so every one of them fetched
+     * a 640px file into a 403px box. Measured AVIF bytes actually served:
+     * usp-control 28,901 B at w=640 against 14,136 B at w=384, usp-save 25,347
+     * against 14,506, usp-protect 14,344 against 7,760. 448 covers 402.5px with
+     * 11% headroom and costs one extra generated variant per source image.
+     *
+     * ⚠️ Do NOT "tidy" this by touching `deviceSizes`: 390 and 1440 are
+     * load-bearing for the full-bleed heroes, for the reason stated above.
+     */
+    imageSizes: [64, 96, 128, 256, 384, 448],
     remotePatterns: supabaseImagePatterns(),
 
     /**
@@ -150,6 +166,58 @@ const nextConfig = {
       {source: "/(.*)", headers: securityHeaders},
 
       /**
+       * 🔴 THE PRE-LAUNCH INDEXING BLOCK IS BUILD-TIME; THIS ONE IS
+       * REQUEST-TIME, AND WITHOUT IT THE VERCEL ALIAS BECOMES A FULL DUPLICATE
+       * OF THE SITE ON LAUNCH DAY.
+       *
+       * `IS_PRELAUNCH_ORIGIN` in `lib/site.ts` reads `NEXT_PUBLIC_SITE_URL`,
+       * i.e. the origin the build was CONFIGURED with, and never the host that
+       * served the request. That is correct for what it does (it keeps every
+       * canonical host-independent, which is what stops two domains
+       * self-canonicalising) and it is exactly why it cannot protect the alias:
+       * the moment the variable becomes `https://mazj.sa`, robots.txt returns
+       * its allow-all shape for EVERY host, including
+       * `mazj-tau.vercel.app`, which Vercel keeps as a permanent production
+       * alias and does not retire.
+       *
+       * Measured on a launch-configured build 2026-08-02:
+       * `curl -H "Host: mazj.org" .../robots.txt` returned the full allow-all
+       * file with the sitemap line, and `curl -H "Host: mazj.org" .../en`
+       * returned `<link rel="canonical" href="https://mazj.sa/en">`. The
+       * canonical is a hint, not a directive; this header is the directive.
+       *
+       * It is deliberately the ONLY host-dependent thing in the whole app.
+       * Canonicals, hreflang, the sitemap and the JSON-LD `@id` must all stay
+       * host-independent or MAZJ ships two indexable copies of one site. Robots
+       * directives are the one class of output where per-host is the point.
+       *
+       * ⚠️ This also covers every PREVIEW deployment, which is a free win: they
+       * are `*.vercel.app` too and were equally exposed once the variable
+       * flipped.
+       */
+      {
+        source: "/(.*)",
+        has: [{type: "host", value: ".*\\.vercel\\.app"}],
+        headers: [{key: "X-Robots-Tag", value: "noindex, nofollow"}],
+      },
+
+      /**
+       * The favicon. `app/icon.png` is served through Next's file convention
+       * with `Cache-Control: public, max-age=0, must-revalidate`, so the 20 KB
+       * mark was revalidated on every navigation on all 26 routes: the media
+       * rule below cannot reach it, because it lives in `app/` rather than in
+       * `public/`. Thirty days matches the media window; the icon is not
+       * `immutable` for the same reason the photographs are not, since the file
+       * name carries no content hash and a re-cut mark has to reach people.
+       */
+      {
+        source: "/:icon(icon.png|favicon.ico|apple-icon.png)",
+        headers: [
+          {key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400"},
+        ],
+      },
+
+      /**
        * 🔴 EVERYTHING IN `public/` SHIPPED `Cache-Control: public, max-age=0`.
        *
        * That is Next's default for the public directory and it is easy to miss,
@@ -166,8 +234,14 @@ const nextConfig = {
        *
        * FONTS get a year, `immutable`. A woff2 here is a fixed artifact: the
        * four Thmanyah weights have not changed since they were added, and they
-       * are the assets most worth holding, since two of them are now preloaded
-       * on every route. ⚠️ `immutable` means a client will NOT re-check for a
+       * are the assets most worth holding. ⚠️ This said "since two of them are
+       * now preloaded on every route", which is FALSE and was measured so on
+       * 2026-08-02: `as="font"` appears **0** times in the rendered `<head>` of
+       * all 26 production routes. Preloading them was built, measured and
+       * deliberately taken back out (`/en/about` FCP 2.0s WITH the preload
+       * against 0.9s without); `components/CLAUDE.md` owns that reasoning. The
+       * caching argument below stands on its own without it.
+       * ⚠️ `immutable` means a client will NOT re-check for a
        * year, so **replacing a font requires renaming the file.** Editing
        * `thmanyah-sans-400.woff2` in place would leave returning visitors on the
        * old face until the cache expired.
